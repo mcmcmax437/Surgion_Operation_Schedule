@@ -12,23 +12,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build config from secrets
-        env:
-          ACCESS_PASSWORD: ${{ secrets.ACCESS_PASSWORD }}
-        run: |
-          if [ -z "$ACCESS_PASSWORD" ]; then
-            echo "Missing secret: ACCESS_PASSWORD"
-            exit 1
-          fi
-          python3 - <<'PY'
-          import json, os
-          password = os.environ["ACCESS_PASSWORD"]
-          with open("config.js", "w", encoding="utf-8") as f:
-              f.write("window.APP_CONFIG = {\n")
-              f.write(f"  ACCESS_PASSWORD: {json.dumps(password)},\n")
-              f.write("};\n")
-          PY
-
       - name: Setup SSH key
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -50,11 +33,51 @@ jobs:
             echo "Missing one of: VPS_HOST, VPS_USER"
             exit 1
           fi
+
+          # Keep server-only files (.env, config.js) when syncing
           rsync -avz --delete \
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude '.env' \
             --exclude '.env.example' \
-            --exclude 'README.md' \
+            --exclude 'config.js' \
             --exclude 'config.example.js' \
+            --exclude 'README.md' \
             ./ "${VPS_USER}@${VPS_HOST}:${TARGET_PATH}/"
+
+          # Build config.js from .env that already lives on the VPS
+          ssh "${VPS_USER}@${VPS_HOST}" "python3 - \"$TARGET_PATH\"" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          env_path = root / ".env"
+          if not env_path.is_file():
+              raise SystemExit(f"Missing .env on server at {env_path}")
+
+          password = None
+          for raw in env_path.read_text(encoding="utf-8").splitlines():
+              line = raw.strip()
+              if not line or line.startswith("#") or "=" not in line:
+                  continue
+              key, value = line.split("=", 1)
+              if key.strip() != "ACCESS_PASSWORD":
+                  continue
+              value = value.strip()
+              if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                  value = value[1:-1]
+              password = value
+              break
+
+          if not password:
+              raise SystemExit("ACCESS_PASSWORD is missing or empty in server .env")
+
+          (root / "config.js").write_text(
+              "window.APP_CONFIG = {\n"
+              f"  ACCESS_PASSWORD: {json.dumps(password)},\n"
+              "};\n",
+              encoding="utf-8",
+          )
+          print("config.js generated from server .env")
+          PY
