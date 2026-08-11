@@ -1,0 +1,60 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build config from secrets
+        env:
+          ACCESS_PASSWORD: ${{ secrets.ACCESS_PASSWORD }}
+        run: |
+          if [ -z "$ACCESS_PASSWORD" ]; then
+            echo "Missing secret: ACCESS_PASSWORD"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os
+          password = os.environ["ACCESS_PASSWORD"]
+          with open("config.js", "w", encoding="utf-8") as f:
+              f.write("window.APP_CONFIG = {\n")
+              f.write(f"  ACCESS_PASSWORD: {json.dumps(password)},\n")
+              f.write("};\n")
+          PY
+
+      - name: Setup SSH key
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy static site
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+        run: |
+          TARGET_PATH="${VPS_DEPLOY_PATH:-/usr/src/surgion_operation/Surgion_Operation_Schedule}"
+          if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ]; then
+            echo "Missing one of: VPS_HOST, VPS_USER"
+            exit 1
+          fi
+          rsync -avz --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.env' \
+            --exclude '.env.example' \
+            --exclude 'README.md' \
+            --exclude 'config.example.js' \
+            ./ "${VPS_USER}@${VPS_HOST}:${TARGET_PATH}/"

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Розклад операцій</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
+      .theme-switch input{position:absolute;opacity:0;pointer-events:none}
+      .theme-slider{position:relative;width:52px;height:30px;border-radius:999px;background:#cbd5e1;transition:.25s;box-shadow:inset 0 1px 3px #17365d33}
+      .theme-slider::after{content:"☀";position:absolute;top:3px;left:4px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#b7791f;font-size:15px;transition:.25s;box-shadow:0 2px 5px #17365d33}
+      .theme-switch input:checked + .theme-slider{background:#315b7a}
+      .theme-switch input:checked + .theme-slider::after{content:"☾";left:24px;color:#17365d}
+      .picker{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fbfe}
+      .picker-field{border:0;padding:0;margin:0;min-width:0}
+      .picker-field legend{padding:0 0 6px;color:#52606d;font-size:12px;font-weight:700}
+      .picker label{display:flex!important;flex-direction:row!important;align-items:center;gap:7px;padding:9px 10px;border:1px solid #dbe5ee;border-radius:8px;background:#fff;font-size:13px!important;font-weight:600!important;cursor:pointer}
+      .picker input{min-height:18px!important;width:18px}
+      .picker label:has(input:checked){background:#d9eaf7;border-color:#47759b;color:#17365d}
+      .picker-help{display:block;color:#718096;font-size:12px;font-weight:400;margin-top:4px}
+      .theme-dark .picker{background:#182b3b;border-color:#4b5563}
+      .theme-dark .picker label{background:#1f2937;border-color:#4b5563;color:#e5e7eb}
+      .theme-dark .picker label:has(input:checked){background:#315b7a;color:#fff}
+      .theme-dark .picker-field legend{color:#cbd5e1}
+      .view-tabs{display:flex;gap:8px;margin:0 0 18px;padding:5px;border:1px solid #dbe5ee;border-radius:12px;background:#f4f7fb}
+      .view-tab{border:0;border-radius:9px;background:transparent;color:#52606d;padding:11px 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+      .view-tab.active{background:#17365d;color:#fff;box-shadow:0 4px 10px #17365d22}
+      .theme-dark .view-tabs{background:#182b3b;border-color:#4b5563}
+      .theme-dark .view-tab{color:#cbd5e1}.theme-dark .view-tab.active{background:#47759b;color:#fff}
+      .icon-button{display:grid;place-items:center;width:44px;height:44px;padding:0;line-height:1}
+      dialog form{padding:18px 22px 22px}.dialog-head{margin-bottom:14px}
+      .upload{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:138px;padding:18px;text-align:center;cursor:pointer;border:2px dashed #9fc0d8!important;background:#f4f9fd!important}
+      .upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+      .upload-icon{font-size:30px;line-height:1}.upload strong{font-size:15px;color:#17365d}.upload-button{padding:8px 13px;border-radius:8px;background:#17365d;color:#fff;font-size:12px;font-weight:800}
+      .theme-dark .upload{background:#182b3b!important;border-color:#47759b!important}.theme-dark .upload strong{color:#dbeafe}
+      .people-chips{display:flex;flex-wrap:wrap;gap:5px}.person-chip{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;background:#e8f2fa;color:#315b7a;font-size:11px;font-weight:750}
+      .theme-dark .person-chip{background:#315b7a;color:#fff}
+      .staff-view{padding:4px 0 24px}.section-heading{margin:0 0 18px}.section-heading h2{margin:3px 0 6px;color:#17365d}.section-heading p:not(.eyebrow){margin:0;color:#64748b}
+      .staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.staff-card{padding:20px;border:1px solid #dbe5ee;border-radius:16px;background:#fff;box-shadow:0 8px 24px #17365d0d}.staff-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.staff-card-head h3{margin:0;color:#17365d}.staff-card-head p{margin:5px 0 0;color:#718096;font-size:13px}.staff-count{display:grid;place-items:center;min-width:32px;height:32px;border-radius:50%;background:#e8f2fa;color:#315b7a;font-weight:800}.staff-list{display:grid;gap:8px;margin:18px 0}.staff-person{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px}.staff-person-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#d9eaf7;color:#17365d;font-size:11px;font-weight:800}.staff-person-name{font-weight:700;color:#334155}.staff-actions{display:flex;gap:5px}.staff-actions button{border:0;background:transparent;color:#47759b;font-size:12px;font-weight:700;cursor:pointer}.staff-actions button:last-child{color:#b42318}.staff-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid #e2e8f0}.staff-form>div{display:flex;gap:8px;justify-content:flex-end}.theme-dark .staff-card{background:#1f2937;border-color:#4b5563}.theme-dark .staff-card-head h3,.theme-dark .section-heading h2{color:#dbeafe}.theme-dark .staff-card-head p,.theme-dark .section-heading p:not(.eyebrow){color:#cbd5e1}.theme-dark .staff-person{border-color:#4b5563;background:#182b3b}.theme-dark .staff-person-name{color:#e5e7eb}.theme-dark .staff-form{border-color:#4b5563}
+      @media(max-width:760px){.picker{display:grid;grid-template-columns:1fr}.picker label{min-height:46px}.view-tabs{margin-bottom:12px}.view-tab{flex:1;padding:12px 8px;font-size:13px}.staff-grid{grid-template-columns:1fr}.staff-card{padding:16px}.staff-person{grid-template-columns:auto 1fr}.staff-actions{grid-column:2}.staff-actions button{padding:5px 0}}
+    </style>
+  </head>
+  <body>
+    <main class="shell" id="appShell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Хірургічне відділення</p>
+          <h1>Розклад операцій</h1>
+          <p class="subtitle">Пацієнти, операційні бригади та медичні матеріали в одному місці.</p>
+        </div>
+        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="secondary" id="logout" type="button">Вийти</button><button class="primary" id="addOperation" type="button">+ Додати операцію</button></div>
+      </header>
+
+      <nav class="view-tabs" aria-label="Розділи сайту">
+        <button class="view-tab active" id="scheduleTab" type="button">Розклад операцій</button>
+        <button class="view-tab" id="staffTab" type="button">Працівники</button>
+      </nav>
+
+      <section id="scheduleView">
+
+      <section class="notice">
+        <strong>Локальний режим</strong>
+        <span>Дані та прикріплені файли зберігаються у цьому браузері. Для спільної роботи кількох лікарів потрібен сервер або захищене хмарне сховище.</span>
+      </section>
+
+      <section class="stats" aria-label="Статистика">
+        <article><span>Усього операцій</span><strong id="totalCount">0</strong></article>
+        <article><span>Заплановано</span><strong id="plannedCount">0</strong></article>
+        <article><span>Найближча дата</span><strong id="nextDate">—</strong></article>
+        <article><span>Файлів прикріплено</span><strong id="fileCount">0</strong></article>
+      </section>
+
+      <section class="toolbar">
+        <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Пошук пацієнта, діагнозу або бригади" /></label>
+        <select id="statusFilter" aria-label="Фільтр статусу">
+          <option value="all">Усі статуси</option>
+          <option>Заплановано</option>
+          <option>Підтверджено</option>
+          <option>Виконано</option>
+          <option>Скасовано</option>
+          <option>Перенесено</option>
+        </select>
+        <button class="secondary" id="exportData">Експорт</button>
+        <label class="secondary file-button">Імпорт <input id="importData" type="file" accept="application/json" /></label>
+      </section>
+
+      <section class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Дата / час</th><th>Пацієнт</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Статус</th><th>Файли</th><th></th>
+            </tr></thead>
+            <tbody id="operationsBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="emptyState" hidden>Операцій не знайдено.</div>
+      </section>
+      </section>
+
+      <section id="staffView" class="staff-view" hidden>
+        <div class="section-heading"><div><p class="eyebrow">Налаштування списків</p><h2>Працівники</h2><p>Додавайте, редагуйте або видаляйте людей, яких можна призначати на операції.</p></div></div>
+        <div class="staff-grid">
+          <article class="staff-card">
+            <div class="staff-card-head"><div><h3>Операційна бригада</h3><p>Можна призначити кількох людей.</p></div><span class="staff-count" id="teamCount">0</span></div>
+            <div id="teamStaffList" class="staff-list"></div>
+            <form class="staff-form" id="teamStaffForm"><input type="hidden" id="teamEditIndex" value="" /><input id="teamNameInput" required placeholder="ПІБ нового учасника" /><div><button class="secondary" id="teamCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="teamSaveButton">+ Додати людину</button></div></form>
+          </article>
+          <article class="staff-card">
+            <div class="staff-card-head"><div><h3>Анестезіологи</h3><p>Можна призначити кількох людей.</p></div><span class="staff-count" id="anesthesiologistCount">0</span></div>
+            <div id="anesthesiologistStaffList" class="staff-list"></div>
+            <form class="staff-form" id="anesthesiologistStaffForm"><input type="hidden" id="anesthesiologistEditIndex" value="" /><input id="anesthesiologistNameInput" required placeholder="ПІБ нового анестезіолога" /><div><button class="secondary" id="anesthesiologistCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="anesthesiologistSaveButton">+ Додати людину</button></div></form>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="operationDialog">
+      <form method="dialog" id="operationForm">
+        <div class="dialog-head"><div><p class="eyebrow">Картка операції</p><h2 id="dialogTitle">Нова операція</h2></div><button class="icon-button" id="closeOperation" type="button" aria-label="Закрити">×</button></div>
+        <input type="hidden" id="operationId" />
+        <div class="form-grid">
+          <label>Дата операції *<input id="operationDate" type="date" required /></label>
+          <label>Час<input id="operationTime" type="time" /></label>
+          <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Прізвище Ім’я По батькові" /></label>
+          <label>Дата народження<input id="birthDate" type="date" /></label>
+          <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
+          <fieldset class="wide picker-field"><legend>Операційна бригада</legend><div id="teamPicker" class="picker"></div><small class="picker-help">Оберіть одного або кількох учасників бригади.</small></fieldset>
+          <label class="wide">Діагноз<input id="diagnosis" placeholder="Основний діагноз" /></label>
+          <label class="wide">Вид хірургічного втручання<input id="procedure" required placeholder="Планове втручання" /></label>
+          <fieldset class="wide picker-field"><legend>Анестезіологи</legend><div id="anesthesiologistPicker" class="picker"></div><small class="picker-help">Оберіть одного або кількох анестезіологів.</small></fieldset>
+          <label>Статус<select id="status"><option>Заплановано</option><option>Підтверджено</option><option>Виконано</option><option>Скасовано</option><option>Перенесено</option></select></label>
+          <label class="wide">Примітки<textarea id="notes" rows="3"></textarea></label>
+          <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів з телефона чи комп’ютера</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*" multiple /></label>
+        </div>
+        <div id="existingAttachments" class="attachments"></div>
+        <div class="dialog-actions"><button class="secondary" id="cancelOperation" type="button">Скасувати</button><button class="primary" id="saveOperation" type="submit">Зберегти операцію</button></div>
+      </form>
+    </dialog>
+    <script src="app.js?v=20260814"></script>
+  </body>
+</html>

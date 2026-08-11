@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Вхід — Розклад операцій</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .login-error[hidden]{display:none!important}
+      .show-password{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;margin-top:8px}
+      .show-password input{width:18px;min-height:18px!important}
+    </style>
+  </head>
+  <body>
+    <section class="login-screen">
+      <form class="login-card" id="loginForm">
+        <p class="eyebrow">Захищений доступ</p>
+        <h1>Розклад операцій</h1>
+        <p>Введіть спільний пароль відділення, щоб продовжити.</p>
+        <label>Пароль<input id="accessPassword" type="password" autocomplete="new-password" required autofocus /></label>
+        <label class="show-password"><input id="showPassword" type="checkbox" /> Показати пароль</label>
+        <button class="primary" type="submit">Увійти</button>
+        <small id="loginError" class="login-error" hidden>Неправильний пароль.</small>
+      </form>
+    </section>
+    <script src="config.js"></script>
+    <script src="login.js?v=20260812"></script>
+  </body>
+</html>
