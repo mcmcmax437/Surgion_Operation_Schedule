@@ -45,6 +45,7 @@
     <main class="shell" id="appShell">
       <header class="topbar">
         <div>
+          <p class="clinic-name">Національний інститут фтизіатрії і пульмонології ім. Ф.Г. Яновського НАМН України</p>
           <p class="eyebrow">Хірургічне відділення</p>
           <h1>Розклад операцій</h1>
           <p class="subtitle">Пацієнти, операційні бригади та медичні матеріали в одному місці.</p>
@@ -55,13 +56,14 @@
       <nav class="view-tabs" aria-label="Розділи сайту">
         <button class="view-tab active" id="scheduleTab" type="button">Розклад операцій</button>
         <button class="view-tab" id="staffTab" type="button">Працівники</button>
+        <button class="view-tab" id="logsTab" type="button">Журнали</button>
       </nav>
 
       <section id="scheduleView">
 
       <section class="notice">
-        <strong>Локальний режим</strong>
-        <span>Дані та прикріплені файли зберігаються у цьому браузері. Для спільної роботи кількох лікарів потрібен сервер або захищене хмарне сховище.</span>
+        <strong>Серверний режим</strong>
+        <span>Операції та файли зберігаються в MySQL на сервері. Зміни та IP користувачів фіксуються в журналах.</span>
       </section>
 
       <section class="stats" aria-label="Статистика">
@@ -82,7 +84,6 @@
           <option>Перенесено</option>
         </select>
         <button class="secondary" id="exportData">Експорт</button>
-        <label class="secondary file-button">Імпорт <input id="importData" type="file" accept="application/json" /></label>
       </section>
 
       <section class="table-card">
@@ -96,6 +97,37 @@
         </div>
         <div class="empty" id="emptyState" hidden>Операцій не знайдено.</div>
       </section>
+      </section>
+
+      <section id="logsView" class="staff-view" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Аудит</p>
+            <h2>Журнали змін і доступів</h2>
+            <p>Історія додавання/редагування даних та IP-адреси входів на сайт.</p>
+          </div>
+          <button class="secondary" id="refreshLogs" type="button">Оновити</button>
+        </div>
+
+        <h3 class="logs-title">Зміни даних</h3>
+        <section class="table-card">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Час</th><th>Дія</th><th>Опис</th><th>Поля</th><th>IP</th></tr></thead>
+              <tbody id="changeLogsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <h3 class="logs-title">Доступ (IP)</h3>
+        <section class="table-card">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Час</th><th>Подія</th><th>IP</th><th>Браузер</th></tr></thead>
+              <tbody id="accessLogsBody"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section id="staffView" class="staff-view" hidden>
@@ -137,6 +169,7 @@
         <div class="dialog-actions"><button class="secondary" id="cancelOperation" type="button">Скасувати</button><button class="primary" id="saveOperation" type="submit">Зберегти операцію</button></div>
       </form>
     </dialog>
-    <script src="app.js?v=20260814"></script>
+    <script src="api.js?v=20260812"></script>
+    <script src="app.js?v=20260812b"></script>
   </body>
 </html>

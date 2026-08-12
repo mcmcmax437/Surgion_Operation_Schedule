@@ -1,2 +1,5 @@
 .env
 config.js
+node_modules/
+uploads/
+*.log

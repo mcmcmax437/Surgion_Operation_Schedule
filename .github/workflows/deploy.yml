@@ -22,7 +22,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy static site
+      - name: Deploy app
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -34,50 +34,30 @@ jobs:
             exit 1
           fi
 
-          # Keep server-only files (.env, config.js) when syncing
           rsync -avz --delete \
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude '.env' \
             --exclude '.env.example' \
             --exclude 'config.js' \
-            --exclude 'config.example.js' \
+            --exclude 'node_modules/' \
+            --exclude 'uploads/' \
             --exclude 'README.md' \
             ./ "${VPS_USER}@${VPS_HOST}:${TARGET_PATH}/"
 
-          # Build config.js from .env that already lives on the VPS
-          ssh "${VPS_USER}@${VPS_HOST}" "python3 - \"$TARGET_PATH\"" <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          root = pathlib.Path(sys.argv[1])
-          env_path = root / ".env"
-          if not env_path.is_file():
-              raise SystemExit(f"Missing .env on server at {env_path}")
-
-          password = None
-          for raw in env_path.read_text(encoding="utf-8").splitlines():
-              line = raw.strip()
-              if not line or line.startswith("#") or "=" not in line:
-                  continue
-              key, value = line.split("=", 1)
-              if key.strip() != "ACCESS_PASSWORD":
-                  continue
-              value = value.strip()
-              if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-                  value = value[1:-1]
-              password = value
-              break
-
-          if not password:
-              raise SystemExit("ACCESS_PASSWORD is missing or empty in server .env")
-
-          (root / "config.js").write_text(
-              "window.APP_CONFIG = {\n"
-              f"  ACCESS_PASSWORD: {json.dumps(password)},\n"
-              "};\n",
-              encoding="utf-8",
-          )
-          print("config.js generated from server .env")
-          PY
+          ssh "${VPS_USER}@${VPS_HOST}" "bash -s" <<EOF
+          set -euo pipefail
+          cd "$TARGET_PATH"
+          if [ ! -f .env ]; then
+            echo "Missing .env on server at $TARGET_PATH/.env"
+            exit 1
+          fi
+          npm install --omit=dev
+          mkdir -p uploads
+          if command -v pm2 >/dev/null 2>&1; then
+            pm2 startOrReload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+            pm2 save
+          else
+            echo "pm2 not found. Start API manually: npm start"
+          fi
+          EOF

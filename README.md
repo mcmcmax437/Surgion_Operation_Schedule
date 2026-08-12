@@ -1,22 +1,77 @@
 # Розклад операцій — вебверсія
 
-Відкрийте `index.html` у браузері. Сайт має:
+Вебзастосунок для хірургічного відділення **Національного інституту фтизіатрії і пульмонології ім. Ф.Г. Яновського НАМН України**.
 
-- таблицю операцій із сортуванням за найближчою датою;
-- пошук і фільтр за статусом;
-- форму додавання та редагування операції;
-- автоматичні ID записів;
-- прикріплення зображень і відео з телефона або комп’ютера;
-- перегляд прикріплених файлів;
-- експорт та імпорт даних у JSON.
-- перемикання світлої та темної теми;
-- мобільний режим із великими кнопками та картками записів;
-- базовий вхід за спільним паролем.
-- перемикач теми у форматі слайдера;
-- вибір кількох конкретних учасників операційної бригади та анестезіологів.
+## Що вміє
 
-Сторінка входу знаходиться у `login.html`, а сторінка розкладу — у `index.html`. Пароль береться з `.env` на сервері (`ACCESS_PASSWORD`); CI після деплою генерує з нього `config.js`. Локально: скопіюйте `config.example.js` → `config.js` або створіть `.env` і згенеруйте config так само.
+- розклад операцій (CRUD) у **MySQL**
+- прикріплені зображення/відео (файли на диску + метадані в MySQL)
+- журнал змін (додано / змінено поля / видалено)
+- журнал доступів з **IP**
+- спільний пароль відділення (перевірка на сервері)
+- вкладки: розклад, працівники, журнали
 
-Списки працівників налаштовані у верхній частині `app.js` у константах `TEAM_MEMBERS` та `ANESTHESIOLOGISTS`. Замініть демонстраційні імена на реальні.
+## Серверний `.env`
 
-Поточна версія зберігає записи та файли локально у браузері через localStorage та IndexedDB. Спільний пароль у статичному сайті є базовим захистом: технічно його можна побачити у вихідному коді. Для одночасної роботи кількох лікарів потрібен сервер із реальною авторизацією, базою даних і захищеним файловим сховищем.
+На VPS у каталозі застосунку створіть `.env` (див. `.env.example`):
+
+```env
+ACCESS_PASSWORD=...
+PORT=3001
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=...
+MYSQL_PASSWORD=...
+MYSQL_DATABASE=surgion_schedule
+```
+
+Створіть базу MySQL, наприклад:
+
+```sql
+CREATE DATABASE surgion_schedule CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Таблиці створюються автоматично при старті API.
+
+## Запуск API
+
+```bash
+npm install --omit=dev
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+## Nginx
+
+Додайте proxy для API (окремий `server` для домену):
+
+```nginx
+server {
+    listen 80;
+    server_name surgion-schedule.tereshkovych.com.ua;
+
+    root /usr/src/surgion_operation/Surgion_Operation_Schedule;
+    index login.html index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size 80m;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+Після змін: `nginx -t && systemctl reload nginx`.
+
+## CI/CD
+
+GitHub Actions rsync-ить код і виконує `npm install` + `pm2 startOrReload`.  
+Секрети: `VPS_HOST`, `VPS_USER`, `VPS_SSH_PRIVATE_KEY` (опційно `VPS_DEPLOY_PATH`).  
+Пароль і MySQL — лише в серверному `.env`.

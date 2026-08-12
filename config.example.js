@@ -1,3 +1,4 @@
+# Optional browser config. API defaults to "/api".
 window.APP_CONFIG = {
-  ACCESS_PASSWORD: "change-me",
+  API_BASE: "/api",
 };

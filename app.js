@@ -1,69 +1,73 @@
-const DB_NAME = "surgery-operation-files";
-const DB_VERSION = 1;
-const FILE_STORE = "files";
-const OPERATIONS_KEY = "surgery-operations-v1";
-const AUTH_KEY = "surgery-authenticated";
-const DEFAULT_TEAM_MEMBERS = [
-  "Ковальчук Олександр Петрович",
-  "Мельник Ірина Вікторівна",
-  "Бондаренко Андрій Сергійович",
-  "Шевченко Наталія Олегівна",
-  "Ткаченко Дмитро Ігорович",
-];
-const DEFAULT_ANESTHESIOLOGISTS = [
-  "Петренко Олена Володимирівна",
-  "Савчук Роман Олександрович",
-  "Лисенко Марія Ігорівна",
-];
+const { api, AUTH_KEY, TOKEN_KEY, API_BASE } = window.SurgeryAPI;
 
-if (sessionStorage.getItem(AUTH_KEY) !== "1") {
+if (sessionStorage.getItem(AUTH_KEY) !== "1" || !sessionStorage.getItem(TOKEN_KEY)) {
   window.location.replace("login.html");
 }
 
 const $ = (selector) => document.querySelector(selector);
-let operations = JSON.parse(localStorage.getItem(OPERATIONS_KEY) || "null");
-const STAFF_KEY = "surgery-staff-v1";
-let staff = JSON.parse(localStorage.getItem(STAFF_KEY) || "null") || {
-  team: DEFAULT_TEAM_MEMBERS,
-  anesthesiologists: DEFAULT_ANESTHESIOLOGISTS,
-};
+let operations = [];
+let staff = { team: [], anesthesiologists: [] };
 let editingId = null;
 
-function seed() {
-  if (operations) return;
-
-  operations = [{
-    id: "OP-0001",
-    isExample: true,
-    date: "2026-08-15",
-    time: "08:30",
-    patient: "ПРИКЛАД: Іваненко Іван Іванович",
-    birthDate: "1980-01-01",
-    diagnosis: "ПРИКЛАД: плановий діагноз",
-    procedure: "ПРИКЛАД: планове втручання",
-    teamMembers: [staff.team[0] || "Ковальчук Олександр Петрович", staff.team[1] || "Мельник Ірина Вікторівна"],
-    anesthesiologists: [staff.anesthesiologists[0] || "Петренко Олена Володимирівна"],
-    bloodGroup: "A (II) Rh+",
-    status: "Заплановано",
-    notes: "Це тестовий рядок. Реальні записи додавайте кнопкою «Додати операцію».",
-    attachments: [],
-    createdAt: new Date().toISOString(),
-  }];
-
-  persist();
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  }[character]));
 }
 
-function persist() {
-  localStorage.setItem(OPERATIONS_KEY, JSON.stringify(operations));
+function formatDate(date) {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(`${date}T00:00:00`));
 }
 
-function persistStaff() {
-  localStorage.setItem(STAFF_KEY, JSON.stringify(staff));
+function formatDateTime(value) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(value));
+}
+
+function namesForOperation(item, field, fallback) {
+  return Array.isArray(item[field]) && item[field].length ? item[field] : (item[fallback] ? [item[fallback]] : []);
 }
 
 function renderPersonChips(names) {
   if (!names.length) return '<span class="sub">Не призначено</span>';
   return `<div class="people-chips">${names.map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("")}</div>`;
+}
+
+function renderPicker(containerId, options, selected = []) {
+  const container = $(`#${containerId}`);
+  container.innerHTML = options.map((name) => `
+    <label><input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${selected.includes(name) ? "checked" : ""} /> ${escapeHtml(name)}</label>
+  `).join("");
+}
+
+function selectedPickerValues(containerId) {
+  return [...document.querySelectorAll(`#${containerId} input:checked`)].map((input) => input.value);
+}
+
+function showView(view) {
+  $("#scheduleView").hidden = view !== "schedule";
+  $("#staffView").hidden = view !== "staff";
+  $("#logsView").hidden = view !== "logs";
+  $("#scheduleTab").classList.toggle("active", view === "schedule");
+  $("#staffTab").classList.toggle("active", view === "staff");
+  $("#logsTab").classList.toggle("active", view === "logs");
+  if (view === "logs") loadLogs();
 }
 
 function renderStaffLists() {
@@ -97,7 +101,12 @@ function resetStaffForm(type) {
   $(`#${prefix}CancelEdit`).hidden = true;
 }
 
-function submitStaff(type, event) {
+async function saveStaffLists() {
+  staff = await api("/staff", { method: "PUT", json: staff });
+  renderStaffLists();
+}
+
+async function submitStaff(type, event) {
   event.preventDefault();
   const prefix = type === "team" ? "team" : "anesthesiologist";
   const name = $(`#${prefix}NameInput`).value.trim();
@@ -109,9 +118,8 @@ function submitStaff(type, event) {
   }
   if (editIndex === "") staff[type].push(name);
   else staff[type][Number(editIndex)] = name;
-  persistStaff();
+  await saveStaffLists();
   resetStaffForm(type);
-  renderStaffLists();
 }
 
 function editStaff(type, index) {
@@ -123,93 +131,10 @@ function editStaff(type, index) {
   $(`#${prefix}NameInput`).focus();
 }
 
-function deleteStaff(type, index) {
+async function deleteStaff(type, index) {
   if (!confirm(`Видалити «${staff[type][index]}» зі списку?`)) return;
   staff[type].splice(index, 1);
-  persistStaff();
-  renderStaffLists();
-}
-
-function showView(view) {
-  const isStaff = view === "staff";
-  $("#scheduleView").hidden = isStaff;
-  $("#staffView").hidden = !isStaff;
-  $("#scheduleTab").classList.toggle("active", !isStaff);
-  $("#staffTab").classList.toggle("active", isStaff);
-}
-
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => request.result.createObjectStore(FILE_STORE, { keyPath: "id" });
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function saveFile(file) {
-  const db = await openDb();
-  const id = crypto.randomUUID();
-
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction(FILE_STORE, "readwrite");
-    transaction.objectStore(FILE_STORE).put({ id, name: file.name, type: file.type, size: file.size, blob: file });
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-  });
-
-  return { id, name: file.name, type: file.type, size: file.size };
-}
-
-async function getFile(id) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(FILE_STORE, "readonly").objectStore(FILE_STORE).get(id);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function nextId() {
-  const max = operations.reduce(
-    (highest, item) => Math.max(highest, Number(item.id?.replace("OP-", "")) || 0),
-    0,
-  );
-  return `OP-${String(max + 1).padStart(4, "0")}`;
-}
-
-function formatDate(date) {
-  if (!date) return "—";
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
-}
-
-function escapeHtml(value = "") {
-  return String(value).replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  }[character]));
-}
-
-function namesForOperation(item, field, fallback) {
-  return Array.isArray(item[field]) && item[field].length ? item[field] : (item[fallback] ? [item[fallback]] : []);
-}
-
-function renderPicker(containerId, options, selected = []) {
-  const container = $(`#${containerId}`);
-  container.innerHTML = options.map((name, index) => `
-    <label><input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${selected.includes(name) ? "checked" : ""} /> ${escapeHtml(name)}</label>
-  `).join("");
-}
-
-function selectedPickerValues(containerId) {
-  return [...document.querySelectorAll(`#${containerId} input:checked`)].map((input) => input.value);
+  await saveStaffLists();
 }
 
 function filteredOperations() {
@@ -242,7 +167,7 @@ function render() {
       </td>
       <td data-label="Пацієнт">
         <span class="patient">${escapeHtml(item.patient)}</span>
-        <span class="sub">${item.isExample ? "Прикладовий рядок" : ""}</span>
+        <span class="sub">${item.isExample ? "Прикладовий рядок" : escapeHtml(item.id)}</span>
       </td>
       <td data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
@@ -295,7 +220,6 @@ function openForm(id = null) {
       patientName: item.patient,
       birthDate: item.birthDate,
       bloodGroup: item.bloodGroup,
-      teamMembers: namesForOperation(item, "teamMembers", "team"),
       diagnosis: item.diagnosis,
       procedure: item.procedure,
       status: item.status,
@@ -305,7 +229,7 @@ function openForm(id = null) {
     Object.entries(fields).forEach(([field, value]) => {
       if ($(`#${field}`)) $(`#${field}`).value = value || "";
     });
-    renderPicker("teamPicker", staff.team, fields.teamMembers);
+    renderPicker("teamPicker", staff.team, namesForOperation(item, "teamMembers", "team"));
     renderPicker("anesthesiologistPicker", staff.anesthesiologists, namesForOperation(item, "anesthesiologists", "anesthesiologist"));
     renderExistingAttachments(item);
   }
@@ -341,26 +265,41 @@ async function saveOperation(event) {
     return;
   }
 
-  const newFiles = [];
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (Array.isArray(value)) formData.append(key, JSON.stringify(value));
+    else formData.append(key, value ?? "");
+  });
+
   for (const file of [...$("#attachments").files]) {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       alert("Дозволені лише зображення та відео.");
       return;
     }
-    newFiles.push(await saveFile(file));
+    formData.append("files", file);
   }
 
-  if (editingId) {
-    const item = operations.find((operation) => operation.id === editingId);
-    Object.assign(item, data);
-    item.attachments = [...(item.attachments || []), ...newFiles];
-  } else {
-    operations.push({ id: nextId(), ...data, attachments: newFiles, isExample: false, createdAt: new Date().toISOString() });
+  try {
+    if (editingId) {
+      await api(`/operations/${editingId}`, { method: "PUT", body: formData });
+    } else {
+      await api("/operations", { method: "POST", body: formData });
+    }
+    $("#operationDialog").close();
+    await refresh();
+  } catch (error) {
+    alert(error.message || "Не вдалося зберегти операцію.");
   }
+}
 
-  persist();
-  $("#operationDialog").close();
-  render();
+async function attachmentUrl(id) {
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  const response = await fetch(`${API_BASE}/attachments/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Не вдалося завантажити файл");
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }
 
 async function viewOperation(id) {
@@ -369,8 +308,11 @@ async function viewOperation(id) {
 
   const files = [];
   for (const metadata of item.attachments || []) {
-    const stored = await getFile(metadata.id);
-    if (stored) files.push({ metadata, url: URL.createObjectURL(stored.blob) });
+    try {
+      files.push({ metadata, url: await attachmentUrl(metadata.id) });
+    } catch {
+      // skip missing file
+    }
   }
 
   const attachmentHtml = files.length
@@ -396,15 +338,57 @@ async function viewOperation(id) {
   details.document.close();
 }
 
+async function loadLogs() {
+  try {
+    const [changes, access] = await Promise.all([
+      api("/logs/changes?limit=150"),
+      api("/logs/access?limit=150"),
+    ]);
+
+    $("#changeLogsBody").innerHTML = changes.map((item) => `
+      <tr>
+        <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
+        <td data-label="Дія">${escapeHtml(item.action)}</td>
+        <td data-label="Опис">${escapeHtml(item.summary)}</td>
+        <td data-label="Поля">${escapeHtml((item.changedFields || []).join(", ") || "—")}</td>
+        <td data-label="IP">${escapeHtml(item.ip || "—")}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="5">Змін ще немає.</td></tr>`;
+
+    $("#accessLogsBody").innerHTML = access.map((item) => `
+      <tr>
+        <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
+        <td data-label="Подія">${escapeHtml(item.event)}</td>
+        <td data-label="IP">${escapeHtml(item.ip || "—")}</td>
+        <td data-label="Браузер">${escapeHtml(item.userAgent || "—")}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="4">Записів ще немає.</td></tr>`;
+  } catch (error) {
+    alert(error.message || "Не вдалося завантажити журнали.");
+  }
+}
+
 function setTheme(theme) {
   document.documentElement.classList.toggle("theme-dark", theme === "dark");
   localStorage.setItem("surgery-theme", theme);
   $("#themeToggle").checked = theme === "dark";
 }
 
+async function refresh() {
+  const [ops, staffData] = await Promise.all([
+    api("/operations"),
+    api("/staff"),
+  ]);
+  operations = ops;
+  staff = staffData;
+  renderStaffLists();
+  render();
+}
+
 $("#themeToggle").addEventListener("change", (event) => setTheme(event.target.checked ? "dark" : "light"));
 $("#scheduleTab").addEventListener("click", () => showView("schedule"));
 $("#staffTab").addEventListener("click", () => showView("staff"));
+$("#logsTab").addEventListener("click", () => showView("logs"));
 $("#teamStaffForm").addEventListener("submit", (event) => submitStaff("team", event));
 $("#anesthesiologistStaffForm").addEventListener("submit", (event) => submitStaff("anesthesiologists", event));
 $("#teamCancelEdit").addEventListener("click", () => resetStaffForm("team"));
@@ -417,7 +401,16 @@ $("#staffView").addEventListener("click", (event) => {
   if (button.dataset.staffAction === "edit") editStaff(type, index);
   if (button.dataset.staffAction === "delete") deleteStaff(type, index);
 });
-$("#logout").addEventListener("click", () => { sessionStorage.removeItem(AUTH_KEY); window.location.replace("login.html"); });
+$("#logout").addEventListener("click", async () => {
+  try {
+    await api("/logout", { method: "POST", json: {} });
+  } catch {
+    // ignore
+  }
+  sessionStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  window.location.replace("login.html");
+});
 $("#addOperation").addEventListener("click", () => openForm());
 $("#closeOperation").addEventListener("click", () => $("#operationDialog").close());
 $("#cancelOperation").addEventListener("click", () => $("#operationDialog").close());
@@ -437,23 +430,12 @@ $("#exportData").addEventListener("click", () => {
   link.download = `surgery-operations-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
 });
-$("#importData").addEventListener("change", async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  try {
-    const imported = JSON.parse(await file.text());
-    if (!Array.isArray(imported)) throw new Error();
-    operations = imported;
-    persist();
-    render();
-  } catch {
-    alert("Не вдалося імпортувати файл JSON.");
-  }
-  event.target.value = "";
-});
+$("#refreshLogs").addEventListener("click", () => loadLogs());
 
 setTheme(localStorage.getItem("surgery-theme") || "light");
-seed();
-renderStaffLists();
 showView("schedule");
-render();
+
+refresh().catch((error) => {
+  console.error(error);
+  alert("Не вдалося завантажити дані з сервера. Перевірте API / MySQL.");
+});

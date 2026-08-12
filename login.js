@@ -1,23 +1,24 @@
-const AUTH_KEY = "surgery-authenticated";
-const ACCESS_PASSWORD = window.APP_CONFIG?.ACCESS_PASSWORD || "";
+const { api, AUTH_KEY, TOKEN_KEY } = window.SurgeryAPI;
 
-if (sessionStorage.getItem(AUTH_KEY) === "1") {
+if (sessionStorage.getItem(AUTH_KEY) === "1" && sessionStorage.getItem(TOKEN_KEY)) {
   window.location.replace("index.html");
 }
 
-document.querySelector("#loginForm").addEventListener("submit", (event) => {
+document.querySelector("#loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const password = document.querySelector("#accessPassword").value.trim();
   const error = document.querySelector("#loginError");
+  error.hidden = true;
 
-  if (ACCESS_PASSWORD && password === ACCESS_PASSWORD) {
+  try {
+    const data = await api("/login", { method: "POST", json: { password } });
     sessionStorage.setItem(AUTH_KEY, "1");
+    sessionStorage.setItem(TOKEN_KEY, data.token);
     window.location.replace("index.html");
-    return;
+  } catch {
+    error.hidden = false;
+    document.querySelector("#accessPassword").select();
   }
-
-  error.hidden = false;
-  document.querySelector("#accessPassword").select();
 });
 
 document.querySelector("#showPassword").addEventListener("change", (event) => {
