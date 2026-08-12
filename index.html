@@ -28,7 +28,7 @@
       .view-tab.active{background:#17365d;color:#fff;box-shadow:0 4px 10px #17365d22}
       .theme-dark .view-tabs{background:#182b3b;border-color:#4b5563}
       .theme-dark .view-tab{color:#cbd5e1}.theme-dark .view-tab.active{background:#47759b;color:#fff}
-      .icon-button{display:grid;place-items:center;width:44px;height:44px;padding:0;line-height:1}
+      .icon-button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;line-height:0;flex:0 0 auto}
       dialog form{padding:18px 22px 22px}.dialog-head{margin-bottom:14px}
       .upload{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:138px;padding:18px;text-align:center;cursor:pointer;border:2px dashed #9fc0d8!important;background:#f4f9fd!important}
       .upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
@@ -149,7 +149,7 @@
 
     <dialog id="operationDialog">
       <form method="post" id="operationForm">
-        <div class="dialog-head"><div><p class="eyebrow">Картка операції</p><h2 id="dialogTitle">Нова операція</h2></div><button class="icon-button" id="closeOperation" type="button" aria-label="Закрити">×</button></div>
+        <div class="dialog-head"><div><p class="eyebrow">Картка операції</p><h2 id="dialogTitle">Нова операція</h2></div><button class="icon-button" id="closeOperation" type="button" aria-label="Закрити"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5.3 5.3 6.4 10.9 12l-5.6 5.6 1.1 1.1L12 13.1l5.6 5.6 1.1-1.1L13.1 12l5.6-5.6-1.1-1.1L12 10.9 6.4 5.3z"/></svg></button></div>
         <input type="hidden" id="operationId" />
         <div class="form-grid">
           <label>Дата операції *<input id="operationDate" type="date" required /></label>
