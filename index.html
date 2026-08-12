@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260813z" />
+    <link rel="stylesheet" href="styles.css?v=20260814a" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -25,8 +25,8 @@
       .theme-dark .picker label,.theme-dark .picker-option{background:#1f2937;border-color:#4b5563;color:#e5e7eb}
       .theme-dark .picker label:has(input:checked),.theme-dark .picker-option:has(input:checked){background:#315b7a;color:#fff}
       .theme-dark .picker-field legend{color:#cbd5e1}
-      .view-tabs{display:flex;gap:8px;margin:0 0 18px;padding:5px;border:1px solid #dbe5ee;border-radius:12px;background:#f4f7fb}
-      .view-tab{border:0;border-radius:9px;background:transparent;color:#52606d;padding:11px 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-sizing:border-box}
+      .view-tabs{display:flex;width:100%;gap:8px;margin:0 0 18px;padding:5px;border:1px solid #dbe5ee;border-radius:12px;background:#f4f7fb;box-sizing:border-box}
+      .view-tab{border:0;border-radius:9px;background:transparent;color:#52606d;padding:11px 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-sizing:border-box;flex:1 1 0;min-width:0;text-align:center}
       .view-tab.active{background:#17365d;color:#fff;box-shadow:0 4px 10px #17365d22}
       .theme-dark .view-tabs{background:#182b3b;border-color:#4b5563}
       .theme-dark .view-tab{color:#cbd5e1}.theme-dark .view-tab.active{background:#47759b;color:#fff}
@@ -40,7 +40,7 @@
       .theme-dark .person-chip{background:#315b7a;color:#fff}
       .staff-view{padding:4px 0 24px}.section-heading{margin:0 0 18px}.section-heading h2{margin:3px 0 6px;color:#17365d}.section-heading p:not(.eyebrow){margin:0;color:#64748b}
       .staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.staff-card{padding:20px;border:1px solid #dbe5ee;border-radius:16px;background:#fff;box-shadow:0 8px 24px #17365d0d}.staff-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.staff-card-head h3{margin:0;color:#17365d}.staff-card-head p{margin:5px 0 0;color:#718096;font-size:13px}.staff-count{display:grid;place-items:center;min-width:32px;height:32px;border-radius:50%;background:#e8f2fa;color:#315b7a;font-weight:800}.staff-list{display:grid;gap:8px;margin:18px 0}.staff-person{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px}.staff-person-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#d9eaf7;color:#17365d;font-size:11px;font-weight:800}.staff-person-name{font-weight:700;color:#334155}.staff-actions{display:flex;gap:5px}.staff-actions button{border:0;background:transparent;color:#47759b;font-size:12px;font-weight:700;cursor:pointer}.staff-actions button:last-child{color:#b42318}.staff-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid #e2e8f0}.staff-form>div{display:flex;gap:8px;justify-content:flex-end}.theme-dark .staff-card{background:#1f2937;border-color:#4b5563}.theme-dark .staff-card-head h3,.theme-dark .section-heading h2{color:#dbeafe}.theme-dark .staff-card-head p,.theme-dark .section-heading p:not(.eyebrow){color:#cbd5e1}.theme-dark .staff-person{border-color:#4b5563;background:#182b3b}.theme-dark .staff-person-name{color:#e5e7eb}.theme-dark .staff-form{border-color:#4b5563}
-      @media(max-width:760px){.picker{display:grid;grid-template-columns:1fr}.picker label{min-height:46px}.view-tabs{margin-bottom:12px}.view-tab{padding:8px 4px;font-size:11px;line-height:1.2;white-space:normal}.staff-grid{grid-template-columns:1fr}.staff-card{padding:16px}.staff-person{grid-template-columns:auto 1fr}.staff-actions{grid-column:2}.staff-actions button{padding:5px 0}}
+      @media(max-width:760px){.picker{display:grid;grid-template-columns:1fr}.picker label{min-height:46px}.view-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:6px;margin-bottom:12px}.view-tabs:has(#logsTab[hidden]){grid-template-columns:repeat(3,minmax(0,1fr))}.view-tab{width:100%;padding:8px 4px;font-size:11px;line-height:1.2;white-space:normal}.staff-grid{grid-template-columns:1fr}.staff-card{padding:16px}.staff-person{grid-template-columns:auto 1fr}.staff-actions{grid-column:2}.staff-actions button{padding:5px 0}}
     </style>
   </head>
   <body>
@@ -84,7 +84,11 @@
         <button class="secondary" id="exportData">Експорт</button>
       </section>
 
-      <section class="table-card">
+      <section class="table-card operations-list">
+        <div class="list-heading mobile-only">
+          <p class="eyebrow">Список</p>
+          <h2>Операції</h2>
+        </div>
         <div class="table-scroll">
           <table>
             <thead><tr>

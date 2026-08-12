@@ -37,14 +37,16 @@
   .topbar{gap:14px;margin-bottom:16px}
   .view-tabs{
     display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    width:100%;
     gap:6px;
     margin-bottom:14px;
   }
-  .view-tabs:has(#logsTab:not([hidden])){
-    grid-template-columns:repeat(2,minmax(0,1fr));
+  .view-tabs:has(#logsTab[hidden]){
+    grid-template-columns:repeat(3,minmax(0,1fr));
   }
   .view-tab{
+    width:100%;
     min-width:0;
     min-height:44px;
     padding:8px 4px;
@@ -54,11 +56,32 @@
     text-align:center;
     overflow:hidden;
   }
-  .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .toolbar{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin:0 0 22px;
+    padding:12px;
+    border:1px solid #dbe5ee;
+    border-radius:16px;
+    background:#fff;
+    box-shadow:0 4px 16px #17365d08;
+  }
   .search{grid-column:1/-1;max-width:none}
   .stats{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
   .stats article{padding:12px}
   .stats strong{font-size:20px}
+  .list-heading{margin:0 0 12px;padding:0 2px}
+  .list-heading.mobile-only{display:block!important}
+  .list-heading h2{font-size:20px;letter-spacing:-.03em}
+  .operations-list{
+    margin-top:4px;
+    padding-top:4px;
+  }
+  .theme-dark .toolbar{
+    background:#182b3b;
+    border-color:#374151;
+  }
   .table-card{border:0;background:transparent;box-shadow:none;overflow:visible}
   .table-scroll{overflow:visible}
   table{min-width:0;width:100%;border-collapse:separate;border-spacing:0}
@@ -83,6 +106,7 @@
     border-radius:16px;
     background:#fff;
     box-shadow:0 6px 18px #17365d12;
+    border-left:4px solid #47759b;
   }
   tr.op-row td,tr td{
     display:flex!important;
@@ -148,6 +172,7 @@
     background:#1f2937;
     border-color:#374151;
     box-shadow:none;
+    border-left-color:#47759b;
   }
   .theme-dark .col-when,.theme-dark .col-files{border-top-color:#374151!important}
   .theme-dark .col-patient .patient{color:#dbeafe}
