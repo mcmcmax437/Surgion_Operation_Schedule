@@ -12,16 +12,18 @@
       .theme-slider::after{content:"☀";position:absolute;top:3px;left:4px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#b7791f;font-size:15px;transition:.25s;box-shadow:0 2px 5px #17365d33}
       .theme-switch input:checked + .theme-slider{background:#315b7a}
       .theme-switch input:checked + .theme-slider::after{content:"☾";left:24px;color:#17365d}
-      .picker{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fbfe}
+      .picker{display:grid;grid-template-columns:1fr;gap:6px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fbfe;max-height:220px;overflow:auto;align-content:start}
       .picker-field{border:0;padding:0;margin:0;min-width:0}
       .picker-field legend{padding:0 0 6px;color:#52606d;font-size:12px;font-weight:700}
-      .picker label{display:flex!important;flex-direction:row!important;align-items:center;gap:7px;padding:9px 10px;border:1px solid #dbe5ee;border-radius:8px;background:#fff;font-size:13px!important;font-weight:600!important;cursor:pointer}
+      .picker-search{width:100%;margin:0 0 8px;font:inherit;color:#1f2937;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;min-height:42px;outline:0}
+      .picker label,.picker-option{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:10px 12px;border:1px solid #dbe5ee;border-radius:8px;background:#fff;font-size:13px!important;font-weight:600!important;cursor:pointer}
       .picker input{min-height:18px!important;width:18px}
-      .picker label:has(input:checked){background:#d9eaf7;border-color:#47759b;color:#17365d}
+      .picker label:has(input:checked),.picker-option:has(input:checked){background:#d9eaf7;border-color:#47759b;color:#17365d}
       .picker-help{display:block;color:#718096;font-size:12px;font-weight:400;margin-top:4px}
       .theme-dark .picker{background:#182b3b;border-color:#4b5563}
-      .theme-dark .picker label{background:#1f2937;border-color:#4b5563;color:#e5e7eb}
-      .theme-dark .picker label:has(input:checked){background:#315b7a;color:#fff}
+      .theme-dark .picker-search{background:#111827;border-color:#4b5563;color:#e5e7eb}
+      .theme-dark .picker label,.theme-dark .picker-option{background:#1f2937;border-color:#4b5563;color:#e5e7eb}
+      .theme-dark .picker label:has(input:checked),.theme-dark .picker-option:has(input:checked){background:#315b7a;color:#fff}
       .theme-dark .picker-field legend{color:#cbd5e1}
       .view-tabs{display:flex;gap:8px;margin:0 0 18px;padding:5px;border:1px solid #dbe5ee;border-radius:12px;background:#f4f7fb}
       .view-tab{border:0;border-radius:9px;background:transparent;color:#52606d;padding:11px 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
@@ -56,15 +58,10 @@
       <nav class="view-tabs" aria-label="Розділи сайту">
         <button class="view-tab active" id="scheduleTab" type="button">Розклад операцій</button>
         <button class="view-tab" id="staffTab" type="button">Працівники</button>
-        <button class="view-tab" id="logsTab" type="button">Журнали</button>
+        <button class="view-tab" id="logsTab" type="button" hidden>Журнали</button>
       </nav>
 
       <section id="scheduleView">
-
-      <section class="notice">
-        <strong>Серверний режим</strong>
-        <span>Операції та файли зберігаються в MySQL на сервері. Зміни та IP користувачів фіксуються в журналах.</span>
-      </section>
 
       <section class="stats" aria-label="Статистика">
         <article><span>Усього операцій</span><strong id="totalCount">0</strong></article>
@@ -157,10 +154,20 @@
           <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Прізвище Ім’я По батькові" /></label>
           <label>Дата народження<input id="birthDate" type="date" /></label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
-          <fieldset class="wide picker-field"><legend>Операційна бригада</legend><div id="teamPicker" class="picker"></div><small class="picker-help">Оберіть одного або кількох учасників бригади.</small></fieldset>
+          <fieldset class="wide picker-field">
+            <legend>Операційна бригада</legend>
+            <input class="picker-search" id="teamPickerSearch" type="search" placeholder="Пошук лікаря…" />
+            <div id="teamPicker" class="picker picker-scroll"></div>
+            <small class="picker-help">Оберіть одного або кількох учасників. Список прокручується.</small>
+          </fieldset>
           <label class="wide">Діагноз<input id="diagnosis" placeholder="Основний діагноз" /></label>
           <label class="wide">Вид хірургічного втручання<input id="procedure" required placeholder="Планове втручання" /></label>
-          <fieldset class="wide picker-field"><legend>Анестезіологи</legend><div id="anesthesiologistPicker" class="picker"></div><small class="picker-help">Оберіть одного або кількох анестезіологів.</small></fieldset>
+          <fieldset class="wide picker-field">
+            <legend>Анестезіологи</legend>
+            <input class="picker-search" id="anesthesiologistPickerSearch" type="search" placeholder="Пошук анестезіолога…" />
+            <div id="anesthesiologistPicker" class="picker picker-scroll"></div>
+            <small class="picker-help">Оберіть одного або кількох. Список прокручується.</small>
+          </fieldset>
           <label>Статус<select id="status"><option>Заплановано</option><option>Підтверджено</option><option>Виконано</option><option>Скасовано</option><option>Перенесено</option></select></label>
           <label class="wide">Примітки<textarea id="notes" rows="3"></textarea></label>
           <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів (до 512 МБ кожен)</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*,.mp4,.mov,.m4v,.webm,.avi,.mkv" multiple /></label>
@@ -182,10 +189,14 @@
             <div id="uploadProgressBar" class="upload-progress-bar"></div>
           </div>
         </div>
-        <div class="dialog-actions"><button class="secondary" id="cancelOperation" type="button">Скасувати</button><button class="primary" id="saveOperation" type="submit">Зберегти операцію</button></div>
+        <div class="dialog-actions">
+          <button class="danger" id="deleteOperation" type="button" hidden>Видалити</button>
+          <button class="secondary" id="cancelOperation" type="button">Скасувати</button>
+          <button class="primary" id="saveOperation" type="submit">Зберегти операцію</button>
+        </div>
       </form>
     </dialog>
     <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812i"></script>
+    <script src="app.js?v=20260812k"></script>
   </body>
 </html>

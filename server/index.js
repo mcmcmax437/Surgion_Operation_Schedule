@@ -21,6 +21,7 @@ import {
   logChange,
   diffFields,
   requireAuth,
+  canViewLogs,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -125,6 +126,13 @@ async function loadOperation(connection, id) {
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/session", auth, async (req, res) => {
+  res.json({
+    ip: req.clientIp,
+    canViewLogs: canViewLogs(req.clientIp),
+  });
 });
 
 app.post("/api/login", async (req, res) => {
@@ -488,7 +496,14 @@ app.put("/api/staff", auth, async (req, res) => {
   res.json(after);
 });
 
-app.get("/api/logs/changes", auth, async (req, res) => {
+function requireLogsAccess(req, res, next) {
+  if (!canViewLogs(req.clientIp)) {
+    return res.status(403).json({ error: "Logs are available only for allowed IP" });
+  }
+  next();
+}
+
+app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
     `SELECT id, entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, user_agent, created_at
@@ -511,7 +526,7 @@ app.get("/api/logs/changes", auth, async (req, res) => {
   })));
 });
 
-app.get("/api/logs/access", auth, async (req, res) => {
+app.get("/api/logs/access", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
     `SELECT id, event, ip, user_agent, details, created_at

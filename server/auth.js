@@ -8,6 +8,22 @@ export function clientIp(req) {
   return req.socket?.remoteAddress || req.ip || "";
 }
 
+export function normalizeIp(ip = "") {
+  return String(ip).trim().replace(/^::ffff:/i, "");
+}
+
+export function logsAllowedIps() {
+  const fromEnv = String(process.env.LOGS_ALLOWED_IPS || "212.75.114.136")
+    .split(",")
+    .map((item) => normalizeIp(item))
+    .filter(Boolean);
+  return fromEnv.length ? fromEnv : ["212.75.114.136"];
+}
+
+export function canViewLogs(ip) {
+  return logsAllowedIps().includes(normalizeIp(ip));
+}
+
 export function userAgent(req) {
   return String(req.headers["user-agent"] || "").slice(0, 512);
 }

@@ -60,16 +60,46 @@ function renderPersonChips(names) {
 
 function renderPicker(containerId, options, selected = []) {
   const container = $(`#${containerId}`);
-  container.innerHTML = options.map((name) => `
-    <label><input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${selected.includes(name) ? "checked" : ""} /> ${escapeHtml(name)}</label>
-  `).join("");
+  if (!container) return;
+  container.dataset.options = JSON.stringify(options || []);
+  paintPicker(containerId, selected);
+}
+
+function paintPicker(containerId, selected = null) {
+  const container = $(`#${containerId}`);
+  if (!container) return;
+  let options = [];
+  try {
+    options = JSON.parse(container.dataset.options || "[]");
+  } catch {
+    options = [];
+  }
+  const checked = selected ?? selectedPickerValues(containerId);
+  const searchInput = $(`#${containerId}Search`);
+  const term = (searchInput?.value || "").trim().toLowerCase();
+  const filtered = term
+    ? options.filter((name) => name.toLowerCase().includes(term))
+    : options;
+
+  container.innerHTML = filtered.length
+    ? filtered.map((name) => `
+      <label class="picker-option">
+        <input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${checked.includes(name) ? "checked" : ""} />
+        <span>${escapeHtml(name)}</span>
+      </label>`).join("")
+    : `<div class="picker-empty">Нікого не знайдено</div>`;
 }
 
 function selectedPickerValues(containerId) {
   return [...document.querySelectorAll(`#${containerId} input:checked`)].map((input) => input.value);
 }
 
+let canViewLogs = false;
+
 function showView(view) {
+  if (view === "logs" && !canViewLogs) {
+    view = "schedule";
+  }
   if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
   if ($("#staffView")) $("#staffView").hidden = view !== "staff";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
@@ -77,6 +107,14 @@ function showView(view) {
   if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
   if (view === "logs") loadLogs();
+}
+
+function applyLogsVisibility(allowed) {
+  canViewLogs = Boolean(allowed);
+  if ($("#logsTab")) $("#logsTab").hidden = !canViewLogs;
+  if (!canViewLogs && $("#logsView") && !$("#logsView").hidden) {
+    showView("schedule");
+  }
 }
 
 function renderStaffLists() {
@@ -192,6 +230,9 @@ function render() {
           <button class="icon-action" data-action="edit" data-id="${item.id}" type="button" title="Змінити" aria-label="Змінити">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           </button>
+          <button class="icon-action danger-action" data-action="delete" data-id="${item.id}" type="button" title="Видалити" aria-label="Видалити">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6 7h12v2H6V7zm2 3h8l-1 10H9L8 10zm3-6h2l1 2H10l1-2z"/></svg>
+          </button>
         </div>
       </td>
     </tr>`).join("");
@@ -280,6 +321,9 @@ function resetForm() {
   $("#operationForm").reset();
   $("#operationId").value = "";
   $("#dialogTitle").textContent = "Нова операція";
+  if ($("#teamPickerSearch")) $("#teamPickerSearch").value = "";
+  if ($("#anesthesiologistPickerSearch")) $("#anesthesiologistPickerSearch").value = "";
+  if ($("#deleteOperation")) $("#deleteOperation").hidden = true;
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
@@ -295,6 +339,7 @@ function openForm(id = null) {
     if (!item) return;
     editingId = id;
     $("#dialogTitle").textContent = "Редагування операції";
+    if ($("#deleteOperation")) $("#deleteOperation").hidden = false;
 
     const fields = {
       operationDate: item.date,
@@ -468,6 +513,19 @@ async function attachmentUrl(id) {
   return URL.createObjectURL(blob);
 }
 
+async function deleteOperation(id) {
+  const item = operations.find((operation) => operation.id === id);
+  if (!item) return;
+  if (!confirm(`Видалити операцію «${item.patient}» (${item.id})?`)) return;
+  try {
+    await api(`/operations/${id}`, { method: "DELETE" });
+    if (editingId === id) $("#operationDialog")?.close();
+    await refresh();
+  } catch (error) {
+    alert(error.message || "Не вдалося видалити операцію.");
+  }
+}
+
 async function viewOperation(id) {
   const item = operations.find((operation) => operation.id === id);
   if (!item) return;
@@ -482,25 +540,32 @@ async function viewOperation(id) {
   }
 
   const attachmentHtml = files.length
-    ? files.map(({ metadata, url }) => metadata.type.startsWith("video/")
-      ? `<video controls src="${url}" style="max-width:100%;max-height:300px"></video>`
-      : `<img src="${url}" alt="${escapeHtml(metadata.name)}" style="max-width:100%;max-height:300px">`).join("")
-    : "<p>Файлів немає.</p>";
+    ? files.map(({ metadata, url }) => {
+      const isVideo = (metadata.type || "").startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(metadata.name || "");
+      return `<figure class="media-card">
+        <figcaption>${escapeHtml(metadata.name)}</figcaption>
+        ${isVideo
+          ? `<video controls preload="metadata" src="${url}"></video>`
+          : `<img src="${url}" alt="${escapeHtml(metadata.name)}">`}
+      </figure>`;
+    }).join("")
+    : "<p class='empty-media'>Немає прикріплених фото або відео.</p>";
 
-  const details = window.open("", "_blank", "width=760,height=720");
-  details.document.write(`<title>${escapeHtml(item.patient)}</title>
-    <style>body{font:16px system-ui;padding:28px;color:#1f2937}h1{color:#17365d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{padding:12px;background:#f4f7fb;border-radius:8px}img,video{display:block;margin:12px 0}</style>
-    <h1>${escapeHtml(item.patient)}</h1>
-    <div class="grid">
-      <div class="card"><b>Дата</b><br>${formatDate(item.date)} ${escapeHtml(item.time || "")}</div>
-      <div class="card"><b>Статус</b><br>${escapeHtml(item.status)}</div>
-      <div class="card"><b>Втручання</b><br>${escapeHtml(item.procedure)}</div>
-      <div class="card"><b>Операційна бригада</b><br>${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "—")}</div>
-      <div class="card"><b>Анестезіологи</b><br>${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "—")}</div>
-      <div class="card"><b>Діагноз</b><br>${escapeHtml(item.diagnosis || "—")}</div>
-      <div class="card"><b>Група крові</b><br>${escapeHtml(item.bloodGroup || "—")}</div>
-    </div>
-    <h2>Прикріплені файли</h2>${attachmentHtml}<p>${escapeHtml(item.notes || "")}</p>`);
+  const details = window.open("", "_blank", "width=920,height=780");
+  details.document.write(`<!doctype html><title>Медіа — ${escapeHtml(item.patient)}</title>
+    <style>
+      body{margin:0;font:15px system-ui,sans-serif;background:#111827;color:#e5e7eb}
+      header{padding:16px 20px;background:#1f2937;border-bottom:1px solid #374151;position:sticky;top:0}
+      header h1{margin:0;font-size:18px;color:#dbeafe}
+      header p{margin:4px 0 0;color:#9ca3af;font-size:13px}
+      main{padding:18px;display:grid;gap:16px}
+      .media-card{margin:0;padding:12px;border:1px solid #374151;border-radius:12px;background:#1f2937}
+      .media-card figcaption{margin:0 0 10px;color:#9ac3e5;font-size:13px;font-weight:700;word-break:break-word}
+      .media-card img,.media-card video{display:block;width:100%;max-height:70vh;object-fit:contain;background:#0b1220;border-radius:8px}
+      .empty-media{padding:40px;text-align:center;color:#9ca3af}
+    </style>
+    <header><h1>Медіафайли</h1><p>${escapeHtml(item.patient)} · ${escapeHtml(item.id)} · ${files.length} файл(ів)</p></header>
+    <main>${attachmentHtml}</main>`);
   details.document.close();
 }
 
@@ -541,12 +606,14 @@ function setTheme(theme) {
 }
 
 async function refresh() {
-  const [ops, staffData] = await Promise.all([
+  const [ops, staffData, session] = await Promise.all([
     api("/operations"),
     api("/staff"),
+    api("/session"),
   ]);
   operations = ops;
   staff = staffData;
+  applyLogsVisibility(session?.canViewLogs);
   renderStaffLists();
   render();
 }
@@ -584,11 +651,17 @@ on("#attachments", "change", () => renderAttachmentsPanel(currentFormAttachments
 on("#operationForm", "submit", saveOperation);
 on("#search", "input", render);
 on("#statusFilter", "change", render);
+on("#teamPickerSearch", "input", () => paintPicker("teamPicker"));
+on("#anesthesiologistPickerSearch", "input", () => paintPicker("anesthesiologistPicker"));
+on("#deleteOperation", "click", () => {
+  if (editingId) deleteOperation(editingId);
+});
 on("#operationsBody", "click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
   if (button.dataset.action === "edit") openForm(button.dataset.id);
   if (button.dataset.action === "view") viewOperation(button.dataset.id);
+  if (button.dataset.action === "delete") deleteOperation(button.dataset.id);
 });
 on("#exportData", "click", () => {
   const blob = new Blob([JSON.stringify(operations, null, 2)], { type: "application/json" });
