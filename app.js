@@ -574,7 +574,8 @@ function closeMediaDialog() {
   if ($("#mediaDialogBody")) $("#mediaDialogBody").innerHTML = "";
   if ($("#mediaCounter")) $("#mediaCounter").textContent = "0 / 0";
   if ($("#mediaFileName")) $("#mediaFileName").textContent = "";
-  if ($("#mediaZoomTools")) $("#mediaZoomTools").hidden = true;
+  exitMediaFullscreen(true);
+  if ($("#mediaImageTools")) $("#mediaImageTools").hidden = true;
   if ($("#mediaDownload")) $("#mediaDownload").hidden = true;
   updateMediaZoomUi();
   syncMediaFullscreenUi();
@@ -596,9 +597,12 @@ function currentMediaIsVideo() {
 }
 
 function updateMediaZoomUi() {
+  const isImage = Boolean($("#mediaDialogBody")?.querySelector("img.media-zoomable")) && !currentMediaIsVideo();
+  const imageTools = $("#mediaImageTools");
+  if (imageTools) imageTools.hidden = !isImage;
+
   const img = $("#mediaDialogBody")?.querySelector("img.media-zoomable");
-  const zoomTools = $("#mediaZoomTools");
-  if (zoomTools) zoomTools.hidden = !img;
+  const fsImg = $("#mediaFsImage");
   if ($("#mediaZoomLabel")) $("#mediaZoomLabel").textContent = `${Math.round(mediaZoom * 100)}%`;
   if ($("#mediaZoomOut")) $("#mediaZoomOut").disabled = mediaZoom <= MEDIA_ZOOM_MIN;
   if ($("#mediaZoomIn")) $("#mediaZoomIn").disabled = mediaZoom >= MEDIA_ZOOM_MAX;
@@ -606,9 +610,13 @@ function updateMediaZoomUi() {
     img.style.transform = `scale(${mediaZoom})`;
     img.classList.toggle("is-zoomed", mediaZoom > 1);
   }
+  if (fsImg && !fsImg.hidden) {
+    fsImg.style.transform = `scale(${mediaZoom})`;
+  }
 }
 
 function setMediaZoom(nextZoom) {
+  if (currentMediaIsVideo()) return;
   mediaZoom = Math.min(MEDIA_ZOOM_MAX, Math.max(MEDIA_ZOOM_MIN, Number(nextZoom.toFixed(2))));
   updateMediaZoomUi();
 }
@@ -624,41 +632,86 @@ function downloadCurrentMedia() {
   link.remove();
 }
 
-function getMediaFullscreenElement() {
-  return $("#mediaDialogBody")?.querySelector(".media-viewport")
-    || $("#mediaDialogBody")?.querySelector("img.media-zoomable")
-    || null;
+function isPseudoFullscreenActive() {
+  return Boolean($("#mediaFsOverlay") && !$("#mediaFsOverlay").hidden);
+}
+
+function needsPseudoFullscreen() {
+  const touchLike = window.matchMedia("(max-width: 900px), (hover: none)").matches;
+  const noApi = !document.documentElement.requestFullscreen && !document.documentElement.webkitRequestFullscreen;
+  return touchLike || noApi;
+}
+
+function enterPseudoFullscreen() {
+  if (currentMediaIsVideo()) return;
+  const current = mediaFiles[mediaIndex];
+  const overlay = $("#mediaFsOverlay");
+  const fsImg = $("#mediaFsImage");
+  if (!current || !overlay || !fsImg) return;
+
+  fsImg.src = current.url;
+  fsImg.alt = current.metadata.name || "Зображення";
+  fsImg.style.transform = `scale(${mediaZoom})`;
+  overlay.hidden = false;
+  document.body.classList.add("media-fs-open");
+  syncMediaFullscreenUi();
+}
+
+function exitMediaFullscreen(silent = false) {
+  const overlay = $("#mediaFsOverlay");
+  if (overlay) {
+    overlay.hidden = true;
+    const fsImg = $("#mediaFsImage");
+    if (fsImg) {
+      fsImg.removeAttribute("src");
+      fsImg.style.transform = "";
+    }
+  }
+  document.body.classList.remove("media-fs-open");
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.().catch(() => {});
+    document.webkitExitFullscreen?.();
+  }
+  if (!silent) syncMediaFullscreenUi();
 }
 
 async function toggleMediaFullscreen() {
   if (currentMediaIsVideo()) return;
-  const target = getMediaFullscreenElement();
-  if (!target) return;
 
-  try {
-    if (!document.fullscreenElement) {
-      if (target.requestFullscreen) await target.requestFullscreen();
-      else if (target.webkitRequestFullscreen) await target.webkitRequestFullscreen();
-      target.classList.add("is-fullscreen");
-    } else {
-      if (document.exitFullscreen) await document.exitFullscreen();
-      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-    }
-  } catch (error) {
-    alert("Не вдалося відкрити повний екран.");
+  if (isPseudoFullscreenActive()) {
+    exitMediaFullscreen();
+    return;
   }
+  if (document.fullscreenElement) {
+    exitMediaFullscreen();
+    return;
+  }
+
+  if (needsPseudoFullscreen()) {
+    enterPseudoFullscreen();
+    return;
+  }
+
+  const target = $("#mediaDialogBody")?.querySelector(".media-viewport");
+  try {
+    if (target?.requestFullscreen) await target.requestFullscreen();
+    else if (target?.webkitRequestFullscreen) await target.webkitRequestFullscreen();
+    else enterPseudoFullscreen();
+  } catch {
+    enterPseudoFullscreen();
+  }
+  syncMediaFullscreenUi();
 }
 
 function syncMediaFullscreenUi() {
-  const active = Boolean(document.fullscreenElement);
+  const active = Boolean(document.fullscreenElement) || isPseudoFullscreenActive();
   const btn = $("#mediaFullscreen");
-  const viewport = $("#mediaDialogBody")?.querySelector(".media-viewport");
   if (btn) {
+    btn.hidden = currentMediaIsVideo();
     btn.title = active ? "Вийти з повного екрана" : "На весь екран";
     btn.setAttribute("aria-label", btn.title);
-    btn.textContent = active ? "⛶✕" : "⛶";
+    btn.textContent = active ? "✕" : "⛶";
   }
-  viewport?.classList.toggle("is-fullscreen", active);
 }
 
 function renderMediaSlide() {
@@ -669,7 +722,8 @@ function renderMediaSlide() {
     body.innerHTML = `<p class="empty-media">Немає прикріплених фото або відео.</p>`;
     if ($("#mediaCounter")) $("#mediaCounter").textContent = "0 / 0";
     if ($("#mediaFileName")) $("#mediaFileName").textContent = "";
-    if ($("#mediaZoomTools")) $("#mediaZoomTools").hidden = true;
+    if ($("#mediaImageTools")) $("#mediaImageTools").hidden = true;
+    exitMediaFullscreen(true);
     updateMediaNavState();
     updateMediaZoomUi();
     return;
@@ -678,6 +732,7 @@ function renderMediaSlide() {
   const current = mediaFiles[mediaIndex];
   const isVideo = currentMediaIsVideo();
   mediaZoom = 1;
+  exitMediaFullscreen(true);
 
   body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">
     <div class="media-viewport">
@@ -689,8 +744,10 @@ function renderMediaSlide() {
 
   if ($("#mediaCounter")) $("#mediaCounter").textContent = `${mediaIndex + 1} / ${mediaFiles.length}`;
   if ($("#mediaFileName")) $("#mediaFileName").textContent = current.metadata.name || "";
+  if ($("#mediaImageTools")) $("#mediaImageTools").hidden = isVideo;
   updateMediaNavState();
   updateMediaZoomUi();
+  syncMediaFullscreenUi();
 
   const img = body.querySelector("img.media-zoomable");
   if (img) {
@@ -706,6 +763,7 @@ function renderMediaSlide() {
 
 function showMediaAt(index) {
   if (!mediaFiles.length) return;
+  exitMediaFullscreen(true);
   const body = $("#mediaDialogBody");
   body?.querySelectorAll("video").forEach((video) => {
     video.pause();
@@ -852,6 +910,12 @@ on("#mediaZoomIn", "click", () => setMediaZoom(mediaZoom + MEDIA_ZOOM_STEP));
 on("#mediaZoomOut", "click", () => setMediaZoom(mediaZoom - MEDIA_ZOOM_STEP));
 on("#mediaZoomReset", "click", () => setMediaZoom(1));
 on("#mediaFullscreen", "click", toggleMediaFullscreen);
+on("#mediaFsClose", "click", () => exitMediaFullscreen());
+on("#mediaFsOverlay", "click", (event) => {
+  if (event.target === $("#mediaFsOverlay") || event.target === $(".media-fs-stage")) {
+    exitMediaFullscreen();
+  }
+});
 document.addEventListener("fullscreenchange", syncMediaFullscreenUi);
 document.addEventListener("webkitfullscreenchange", syncMediaFullscreenUi);
 on("#mediaDialog", "close", closeMediaDialog);
@@ -866,8 +930,14 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "+" || event.key === "=") setMediaZoom(mediaZoom + MEDIA_ZOOM_STEP);
   if (event.key === "-" || event.key === "_") setMediaZoom(mediaZoom - MEDIA_ZOOM_STEP);
   if (event.key === "0") setMediaZoom(1);
-  if (event.key === "f" || event.key === "F") toggleMediaFullscreen();
-  if (event.key === "Escape" && !document.fullscreenElement) closeMediaDialog();
+  if ((event.key === "f" || event.key === "F") && !currentMediaIsVideo()) toggleMediaFullscreen();
+  if (event.key === "Escape") {
+    if (isPseudoFullscreenActive() || document.fullscreenElement) {
+      exitMediaFullscreen();
+      return;
+    }
+    closeMediaDialog();
+  }
 });
 on("#operationsBody", "click", (event) => {
   const button = event.target.closest("button");

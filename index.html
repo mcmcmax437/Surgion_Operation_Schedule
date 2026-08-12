@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260813t" />
+    <link rel="stylesheet" href="styles.css?v=20260813u" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -216,7 +216,7 @@
       <div class="media-footer">
         <span id="mediaCounter">0 / 0</span>
         <div class="media-tools">
-          <div class="media-zoom-tools" id="mediaZoomTools" hidden>
+          <div class="media-image-tools" id="mediaImageTools" hidden>
             <button type="button" id="mediaZoomOut" class="media-tool-btn" title="Зменшити" aria-label="Зменшити">−</button>
             <span id="mediaZoomLabel">100%</span>
             <button type="button" id="mediaZoomIn" class="media-tool-btn" title="Збільшити" aria-label="Збільшити">+</button>
@@ -229,7 +229,14 @@
       </div>
     </dialog>
 
+    <div id="mediaFsOverlay" class="media-fs-overlay" hidden>
+      <button type="button" id="mediaFsClose" class="media-fs-close" aria-label="Закрити повний екран">✕</button>
+      <div class="media-fs-stage">
+        <img id="mediaFsImage" alt="" />
+      </div>
+    </div>
+
     <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812s"></script>
+    <script src="app.js?v=20260812t"></script>
   </body>
 </html>
