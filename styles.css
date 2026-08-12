@@ -229,3 +229,18 @@
   .media-nav{width:40px;height:40px;font-size:24px}
   .media-dialog-body{max-height:calc(92vh - 160px)}
 }
+
+.media-dialog{width:min(960px,calc(100% - 16px))!important;height:min(90vh,920px);max-height:90vh!important;display:flex;flex-direction:column}
+.media-stage{flex:1;min-height:0;grid-template-columns:48px minmax(0,1fr) 48px;align-items:stretch;padding:12px}
+.media-dialog-body{width:100%;height:100%;min-height:55vh;max-height:none!important;padding:0!important;display:flex!important;align-items:center;justify-content:center}
+.media-dialog .media-card{width:100%;height:100%;min-height:55vh;margin:0;padding:10px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.media-dialog .media-card img,.media-dialog .media-card video{width:100%!important;height:100%!important;min-height:50vh;max-height:none!important;object-fit:contain;background:#0b1220;border-radius:10px}
+.media-nav{align-self:center}
+@media (max-width:760px){
+  .media-dialog{height:92vh;max-height:92vh!important}
+  .media-dialog-body,.media-dialog .media-card{min-height:58vh}
+  .media-dialog .media-card img,.media-dialog .media-card video{min-height:52vh}
+}
+
+.media-dialog{display:none}
+.media-dialog[open]{display:flex!important;flex-direction:column}

@@ -587,7 +587,7 @@ function renderMediaSlide() {
 
   body.innerHTML = `<figure class="media-card">
     ${isVideo
-      ? `<video controls autoplay preload="metadata" src="${current.url}"></video>`
+      ? `<video controls preload="metadata" playsinline src="${current.url}"></video>`
       : `<img src="${current.url}" alt="${escapeHtml(current.metadata.name)}">`}
   </figure>`;
 
