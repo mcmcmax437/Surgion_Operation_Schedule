@@ -19,7 +19,15 @@ document.querySelector("#loginForm").addEventListener("submit", async (event) =>
     sessionStorage.setItem(AUTH_KEY, "1");
     sessionStorage.setItem(TOKEN_KEY, data.token);
     window.location.replace("index.html");
-  } catch {
+  } catch (err) {
+    const message = String(err.message || "");
+    if (message.includes("API error 404") || message.includes("Немає зв")) {
+      error.textContent = "API недоступне (404). Перевірте nginx /api/ і pm2.";
+    } else if (message.includes("401") || message.toLowerCase().includes("invalid")) {
+      error.textContent = "Неправильний пароль.";
+    } else {
+      error.textContent = message || "Помилка входу.";
+    }
     error.hidden = false;
     document.querySelector("#accessPassword").select();
   }
