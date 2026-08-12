@@ -279,9 +279,14 @@ async function saveOperation(event) {
   }
 
   const files = [...($("#attachments")?.files || [])];
+  const maxBytes = 512 * 1024 * 1024;
   for (const file of files) {
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+    if (file.type && !file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       alert("Дозволені лише зображення та відео.");
+      return;
+    }
+    if (file.size > maxBytes) {
+      alert(`Файл «${file.name}» завеликий. Максимум 512 МБ.`);
       return;
     }
   }
@@ -369,8 +374,15 @@ function uploadForm(path, method, formData, onProgress) {
         resolve(data);
         return;
       }
+      if (xhr.status === 413) {
+        reject(new Error((data && data.error) || "Файл завеликий для сервера (ліміт 512 МБ)."));
+        return;
+      }
       reject(new Error((data && data.error) || `API error ${xhr.status}`));
     };
+
+    xhr.ontimeout = () => reject(new Error("Час очікування вичерпано під час завантаження відео. Спробуйте менший файл."));
+    xhr.timeout = 600000;
 
     xhr.onerror = () => reject(new Error("Немає зв’язку з API під час завантаження файлів."));
     xhr.send(formData);

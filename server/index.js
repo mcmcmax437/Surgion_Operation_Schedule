@@ -53,9 +53,13 @@ const upload = multer({
       cb(null, `${uuidv4()}${ext}`);
     },
   }),
-  limits: { fileSize: 80 * 1024 * 1024, files: 12 },
+  limits: { fileSize: 512 * 1024 * 1024, files: 12 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
+    const mime = String(file.mimetype || "").toLowerCase();
+    const name = String(file.originalname || "").toLowerCase();
+    const videoExt = /\.(mp4|mov|m4v|webm|avi|mkv|3gp|mpeg|mpg)$/i.test(name);
+    const imageExt = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
+    if (mime.startsWith("image/") || mime.startsWith("video/") || videoExt || imageExt) {
       cb(null, true);
       return;
     }
@@ -527,6 +531,15 @@ app.get("/api/logs/access", auth, async (req, res) => {
 
 app.use((error, _req, res, _next) => {
   console.error(error);
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "Файл завеликий. Максимум 512 МБ." });
+    }
+    return res.status(400).json({ error: `Помилка завантаження: ${error.message}` });
+  }
+  if (String(error.message || "").includes("Only image and video")) {
+    return res.status(400).json({ error: "Дозволені лише зображення та відео." });
+  }
   res.status(500).json({ error: error.message || "Server error" });
 });
 

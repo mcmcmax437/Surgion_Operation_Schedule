@@ -163,7 +163,7 @@
           <fieldset class="wide picker-field"><legend>Анестезіологи</legend><div id="anesthesiologistPicker" class="picker"></div><small class="picker-help">Оберіть одного або кількох анестезіологів.</small></fieldset>
           <label>Статус<select id="status"><option>Заплановано</option><option>Підтверджено</option><option>Виконано</option><option>Скасовано</option><option>Перенесено</option></select></label>
           <label class="wide">Примітки<textarea id="notes" rows="3"></textarea></label>
-          <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів з телефона чи комп’ютера</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*" multiple /></label>
+          <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів (до 512 МБ кожен)</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*,.mp4,.mov,.m4v,.webm,.avi,.mkv" multiple /></label>
         </div>
         <div id="existingAttachments" class="attachments"></div>
         <div id="uploadProgress" class="upload-progress" hidden>
@@ -179,6 +179,6 @@
       </form>
     </dialog>
     <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812f"></script>
+    <script src="app.js?v=20260812g"></script>
   </body>
 </html>
