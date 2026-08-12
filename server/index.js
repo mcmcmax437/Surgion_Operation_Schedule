@@ -30,6 +30,9 @@ const uploadsDir = path.join(rootDir, "uploads");
 const PORT = Number(process.env.PORT || 3001);
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "";
 const SESSION_DAYS = Number(process.env.SESSION_DAYS || 7);
+const ARCHIVE_RETENTION_DAYS = Number(process.env.ARCHIVE_RETENTION_DAYS || 7);
+const ARCHIVE_TZ = process.env.ARCHIVE_TZ || "Europe/Kyiv";
+const ARCHIVE_JOB_MS = Number(process.env.ARCHIVE_JOB_MS || 60 * 60 * 1000);
 
 if (!ACCESS_PASSWORD) {
   console.error("ACCESS_PASSWORD is required in .env");
@@ -124,6 +127,99 @@ async function loadOperation(connection, id) {
   return mapOperation(rows[0], attachments);
 }
 
+function todayInArchiveTz() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: ARCHIVE_TZ });
+}
+
+function shouldArchiveDate(dateYmd) {
+  return Boolean(dateYmd && dateYmd < todayInArchiveTz());
+}
+
+async function unlinkAttachmentFiles(files) {
+  for (const file of files) {
+    const full = path.join(uploadsDir, file.storage_path);
+    await fs.promises.unlink(full).catch(() => {});
+  }
+}
+
+async function permanentlyDeleteOperation(id, meta = {}) {
+  const before = await loadOperation(pool, id);
+  if (!before) return false;
+
+  const [files] = await pool.query(
+    `SELECT storage_path FROM attachments WHERE operation_id = :id`,
+    { id },
+  );
+  await pool.query(`DELETE FROM operations WHERE id = :id`, { id });
+  await unlinkAttachmentFiles(files);
+
+  await logChange(pool, {
+    entityType: "operation",
+    entityId: id,
+    action: meta.action || "delete",
+    summary: meta.summary || `Видалено операцію ${id} (${before.patient})`,
+    before,
+    ip: meta.ip || null,
+    userAgent: meta.userAgent || null,
+  });
+  return true;
+}
+
+let lastArchiveMaintenanceAt = 0;
+let archiveMaintenancePromise = null;
+
+async function runArchiveMaintenance(force = false) {
+  const now = Date.now();
+  if (!force && now - lastArchiveMaintenanceAt < 30_000) {
+    return { skipped: true };
+  }
+  if (archiveMaintenancePromise) return archiveMaintenancePromise;
+
+  archiveMaintenancePromise = (async () => {
+  lastArchiveMaintenanceAt = Date.now();
+  const today = todayInArchiveTz();
+  const [archiveResult] = await pool.query(
+    `UPDATE operations
+     SET archived_at = UTC_TIMESTAMP(3),
+         updated_at = UTC_TIMESTAMP(3)
+     WHERE archived_at IS NULL
+       AND date IS NOT NULL
+       AND date < :today`,
+    { today },
+  );
+
+  const [expired] = await pool.query(
+    `SELECT id, patient FROM operations
+     WHERE archived_at IS NOT NULL
+       AND archived_at <= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL :days DAY)`,
+    { days: ARCHIVE_RETENTION_DAYS },
+  );
+
+  let purged = 0;
+  for (const row of expired) {
+    const ok = await permanentlyDeleteOperation(row.id, {
+      action: "auto-delete",
+      summary: `Автовидалення з архіву ${row.id} (${row.patient}) після ${ARCHIVE_RETENTION_DAYS} днів`,
+    });
+    if (ok) purged += 1;
+  }
+
+  const archived = Number(archiveResult?.affectedRows || 0);
+  if (archived || purged) {
+    console.log(
+      `Archive maintenance: archived=${archived}, purged=${purged}, today=${today}`,
+    );
+  }
+  return { archived, purged, today };
+  })();
+
+  try {
+    return await archiveMaintenancePromise;
+  } finally {
+    archiveMaintenancePromise = null;
+  }
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -188,8 +284,18 @@ app.post("/api/logout", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/operations", auth, async (_req, res) => {
-  const [rows] = await pool.query(`SELECT * FROM operations ORDER BY date IS NULL, date ASC, time ASC`);
+app.get("/api/operations", auth, async (req, res) => {
+  await runArchiveMaintenance();
+  const archived = req.query.archived === "1" || req.query.archived === "true";
+  const [rows] = await pool.query(
+    archived
+      ? `SELECT * FROM operations
+         WHERE archived_at IS NOT NULL
+         ORDER BY date DESC, time DESC, id DESC`
+      : `SELECT * FROM operations
+         WHERE archived_at IS NULL
+         ORDER BY date IS NULL, date ASC, time ASC, id ASC`,
+  );
   const result = [];
   for (const row of rows) {
     const attachments = await loadAttachments(pool, row.id);
@@ -210,13 +316,14 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
     const id = await nextOperationId(connection);
     const now = new Date();
 
+    const archivedAt = shouldArchiveDate(data.date) ? now : null;
     await connection.query(
       `INSERT INTO operations
         (id, date, time, patient, birth_date, blood_group, diagnosis, \`procedure\`,
-         team_members, anesthesiologists, status, notes, is_example, created_at, updated_at)
+         team_members, anesthesiologists, status, notes, is_example, archived_at, created_at, updated_at)
        VALUES
         (:id, :date, :time, :patient, :birth_date, :blood_group, :diagnosis, :procedure,
-         :team_members, :anesthesiologists, :status, :notes, 0, :created_at, :updated_at)`,
+         :team_members, :anesthesiologists, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
       {
         id,
         date: data.date,
@@ -230,6 +337,7 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
         anesthesiologists: JSON.stringify(data.anesthesiologists),
         status: data.status,
         notes: data.notes || null,
+        archived_at: archivedAt,
         created_at: now,
         updated_at: now,
       },
@@ -292,6 +400,7 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
     }
 
     const now = new Date();
+    const keepArchived = shouldArchiveDate(data.date);
     await connection.query(
       `UPDATE operations SET
         date = :date,
@@ -305,6 +414,10 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         anesthesiologists = :anesthesiologists,
         status = :status,
         notes = :notes,
+        archived_at = CASE
+          WHEN :keep_archived = 1 THEN COALESCE(archived_at, :archived_at)
+          ELSE NULL
+        END,
         updated_at = :updated_at
        WHERE id = :id`,
       {
@@ -320,6 +433,8 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         anesthesiologists: JSON.stringify(data.anesthesiologists),
         status: data.status,
         notes: data.notes || null,
+        keep_archived: keepArchived ? 1 : 0,
+        archived_at: now,
         updated_at: now,
       },
     );
@@ -375,31 +490,11 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
 });
 
 app.delete("/api/operations/:id", auth, async (req, res) => {
-  const before = await loadOperation(pool, req.params.id);
-  if (!before) return res.status(404).json({ error: "Not found" });
-
-  const [files] = await pool.query(
-    `SELECT storage_path FROM attachments WHERE operation_id = :id`,
-    { id: req.params.id },
-  );
-
-  await pool.query(`DELETE FROM operations WHERE id = :id`, { id: req.params.id });
-
-  for (const file of files) {
-    const full = path.join(uploadsDir, file.storage_path);
-    fs.promises.unlink(full).catch(() => {});
-  }
-
-  await logChange(pool, {
-    entityType: "operation",
-    entityId: req.params.id,
-    action: "delete",
-    summary: `Видалено операцію ${req.params.id} (${before.patient})`,
-    before,
+  const ok = await permanentlyDeleteOperation(req.params.id, {
     ip: req.clientIp,
     userAgent: req.clientUa,
   });
-
+  if (!ok) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
 });
 
@@ -560,7 +655,16 @@ app.use((error, _req, res, _next) => {
 
 await migrate(pool);
 await seedStaff(pool);
+await runArchiveMaintenance(true);
+setInterval(() => {
+  runArchiveMaintenance(true).catch((error) => {
+    console.error("Archive maintenance failed:", error);
+  });
+}, ARCHIVE_JOB_MS);
 
 app.listen(PORT, () => {
   console.log(`API listening on http://127.0.0.1:${PORT}`);
+  console.log(
+    `Archive: past ops → archive; purge after ${ARCHIVE_RETENTION_DAYS}d (${ARCHIVE_TZ})`,
+  );
 });

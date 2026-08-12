@@ -12,8 +12,11 @@ CREATE TABLE IF NOT EXISTS operations (
   status VARCHAR(64) NOT NULL DEFAULT 'Заплановано',
   notes TEXT NULL,
   is_example TINYINT(1) NOT NULL DEFAULT 0,
+  archived_at DATETIME(3) NULL,
   created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL
+  updated_at DATETIME(3) NOT NULL,
+  INDEX idx_operations_archived_at (archived_at),
+  INDEX idx_operations_date (date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS attachments (

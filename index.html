@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260813u" />
+    <link rel="stylesheet" href="styles.css?v=20260813x" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -57,6 +57,7 @@
 
       <nav class="view-tabs" aria-label="Розділи сайту">
         <button class="view-tab active" id="scheduleTab" type="button">Розклад операцій</button>
+        <button class="view-tab" id="archiveTab" type="button">Архів</button>
         <button class="view-tab" id="staffTab" type="button">Працівники</button>
         <button class="view-tab" id="logsTab" type="button" hidden>Журнали</button>
       </nav>
@@ -94,6 +95,28 @@
         </div>
         <div class="empty" id="emptyState" hidden>Операцій не знайдено.</div>
       </section>
+      </section>
+
+      <section id="archiveView" class="staff-view" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Минулі операції</p>
+            <h2>Архів</h2>
+            <p>Операції з датою раніше сьогодні потрапляють сюди автоматично і видаляються разом із медіа через 7 днів.</p>
+          </div>
+          <strong id="archiveCount" class="staff-count">0</strong>
+        </div>
+        <section class="table-card">
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Дата / час</th><th>Пацієнт</th><th>Діагноз</th><th>Втручання</th><th>Статус</th><th>Файли</th><th>Автовидалення</th><th></th>
+              </tr></thead>
+              <tbody id="archiveBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="archiveEmptyState" hidden>Архів порожній.</div>
+        </section>
       </section>
 
       <section id="logsView" class="staff-view" hidden>
@@ -229,14 +252,14 @@
       </div>
     </dialog>
 
-    <div id="mediaFsOverlay" class="media-fs-overlay" hidden>
+    <dialog id="mediaFsOverlay" class="media-fs-overlay">
       <button type="button" id="mediaFsClose" class="media-fs-close" aria-label="Закрити повний екран">✕</button>
       <div class="media-fs-stage">
         <img id="mediaFsImage" alt="" />
       </div>
-    </div>
+    </dialog>
 
     <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812t"></script>
+    <script src="app.js?v=20260812v"></script>
   </body>
 </html>

@@ -15,8 +15,10 @@ const on = (selector, event, handler) => {
   if (node) node.addEventListener(event, handler);
 };
 let operations = [];
+let archivedOperations = [];
 let staff = { team: [], anesthesiologists: [] };
 let editingId = null;
+const ARCHIVE_RETENTION_DAYS = 7;
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -101,12 +103,29 @@ function showView(view) {
     view = "schedule";
   }
   if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
+  if ($("#archiveView")) $("#archiveView").hidden = view !== "archive";
   if ($("#staffView")) $("#staffView").hidden = view !== "staff";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
   if ($("#scheduleTab")) $("#scheduleTab").classList.toggle("active", view === "schedule");
+  if ($("#archiveTab")) $("#archiveTab").classList.toggle("active", view === "archive");
   if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
   if (view === "logs") loadLogs();
+  if (view === "archive") renderArchive();
+}
+
+function findOperation(id) {
+  return operations.find((item) => item.id === id)
+    || archivedOperations.find((item) => item.id === id)
+    || null;
+}
+
+function archiveDaysLeft(archivedAt) {
+  if (!archivedAt) return ARCHIVE_RETENTION_DAYS;
+  const start = new Date(archivedAt).getTime();
+  if (Number.isNaN(start)) return ARCHIVE_RETENTION_DAYS;
+  const end = start + ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((end - Date.now()) / (24 * 60 * 60 * 1000)));
 }
 
 function applyLogsVisibility(allowed) {
@@ -272,6 +291,59 @@ function render() {
     .sort((a, b) => a.date.localeCompare(b.date))[0];
   $("#nextDate").textContent = next ? formatDate(next.date) : "—";
   $("#fileCount").textContent = operations.reduce((sum, item) => sum + (item.attachments?.length || 0), 0);
+  renderArchive();
+}
+
+function renderArchive() {
+  const body = $("#archiveBody");
+  const empty = $("#archiveEmptyState");
+  const count = $("#archiveCount");
+  if (!body) return;
+
+  const rows = [...archivedOperations].sort((a, b) => {
+    const first = `${b.date || ""}T${b.time || "00:00"}`;
+    const second = `${a.date || ""}T${a.time || "00:00"}`;
+    return first.localeCompare(second);
+  });
+
+  body.innerHTML = rows.map((item) => {
+    const daysLeft = archiveDaysLeft(item.archivedAt);
+    const deleteLabel = daysLeft <= 0
+      ? "сьогодні"
+      : `через ${daysLeft} дн.`;
+    return `
+    <tr class="op-row is-expanded" data-id="${item.id}">
+      <td class="col-when" data-label="Дата / час">
+        <span class="date">${formatDate(item.date)}</span>
+        <span class="time">${escapeHtml(item.time || "Час не вказано")}</span>
+      </td>
+      <td class="col-patient" data-label="Пацієнт">
+        <span class="patient">${escapeHtml(item.patient)}</span>
+        <span class="sub">${escapeHtml(item.id)}</span>
+      </td>
+      <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
+      <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
+      <td class="col-status" data-label="Статус"><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
+      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0} файл(ів)</span></td>
+      <td class="col-purge" data-label="Автовидалення"><span class="archive-purge">${escapeHtml(deleteLabel)}</span></td>
+      <td class="col-actions" data-label="Дії">
+        <div class="row-actions">
+          <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          </button>
+          <button class="icon-action" data-action="edit" data-id="${item.id}" type="button" title="Змінити" aria-label="Змінити">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
+          <button class="icon-action danger-action" data-action="delete" data-id="${item.id}" type="button" title="Видалити" aria-label="Видалити">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6 7h12v2H6V7zm2 3h8l-1 10H9L8 10zm3-6h2l1 2H10l1-2z"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  if (empty) empty.hidden = rows.length > 0;
+  if (count) count.textContent = String(rows.length);
 }
 
 function formatFileSize(bytes) {
@@ -360,7 +432,7 @@ function openForm(id = null) {
   resetForm();
 
   if (id) {
-    const item = operations.find((operation) => operation.id === id);
+    const item = findOperation(id);
     if (!item) return;
     editingId = id;
     $("#dialogTitle").textContent = "Редагування операції";
@@ -539,7 +611,7 @@ async function attachmentUrl(id) {
 }
 
 async function deleteOperation(id) {
-  const item = operations.find((operation) => operation.id === id);
+  const item = findOperation(id);
   if (!item) return;
   if (!confirm(`Видалити операцію «${item.patient}» (${item.id})?`)) return;
   try {
@@ -633,7 +705,7 @@ function downloadCurrentMedia() {
 }
 
 function isPseudoFullscreenActive() {
-  return Boolean($("#mediaFsOverlay") && !$("#mediaFsOverlay").hidden);
+  return Boolean($("#mediaFsOverlay")?.open);
 }
 
 function needsPseudoFullscreen() {
@@ -652,20 +724,18 @@ function enterPseudoFullscreen() {
   fsImg.src = current.url;
   fsImg.alt = current.metadata.name || "Зображення";
   fsImg.style.transform = `scale(${mediaZoom})`;
-  overlay.hidden = false;
   document.body.classList.add("media-fs-open");
+  if (!overlay.open) overlay.showModal();
   syncMediaFullscreenUi();
 }
 
 function exitMediaFullscreen(silent = false) {
   const overlay = $("#mediaFsOverlay");
-  if (overlay) {
-    overlay.hidden = true;
-    const fsImg = $("#mediaFsImage");
-    if (fsImg) {
-      fsImg.removeAttribute("src");
-      fsImg.style.transform = "";
-    }
+  if (overlay?.open) overlay.close();
+  const fsImg = $("#mediaFsImage");
+  if (fsImg) {
+    fsImg.removeAttribute("src");
+    fsImg.style.transform = "";
   }
   document.body.classList.remove("media-fs-open");
   if (document.fullscreenElement) {
@@ -773,7 +843,7 @@ function showMediaAt(index) {
 }
 
 async function viewOperation(id) {
-  const item = operations.find((operation) => operation.id === id);
+  const item = findOperation(id);
   if (!item) return;
 
   const dialog = $("#mediaDialog");
@@ -852,12 +922,14 @@ function setTheme(theme) {
 }
 
 async function refresh() {
-  const [ops, staffData, session] = await Promise.all([
+  const [ops, archived, staffData, session] = await Promise.all([
     api("/operations"),
+    api("/operations?archived=1"),
     api("/staff"),
     api("/session"),
   ]);
   operations = ops;
+  archivedOperations = archived;
   staff = staffData;
   applyLogsVisibility(session?.canViewLogs);
   renderStaffLists();
@@ -866,6 +938,7 @@ async function refresh() {
 
 on("#themeToggle", "change", (event) => setTheme(event.target.checked ? "dark" : "light"));
 on("#scheduleTab", "click", () => showView("schedule"));
+on("#archiveTab", "click", () => showView("archive"));
 on("#staffTab", "click", () => showView("staff"));
 on("#logsTab", "click", () => showView("logs"));
 on("#teamStaffForm", "submit", (event) => submitStaff("team", event));
@@ -912,9 +985,17 @@ on("#mediaZoomReset", "click", () => setMediaZoom(1));
 on("#mediaFullscreen", "click", toggleMediaFullscreen);
 on("#mediaFsClose", "click", () => exitMediaFullscreen());
 on("#mediaFsOverlay", "click", (event) => {
-  if (event.target === $("#mediaFsOverlay") || event.target === $(".media-fs-stage")) {
+  if (event.target === $("#mediaFsOverlay") || event.target?.classList?.contains("media-fs-stage")) {
     exitMediaFullscreen();
   }
+});
+on("#mediaFsOverlay", "cancel", (event) => {
+  event.preventDefault();
+  exitMediaFullscreen();
+});
+on("#mediaFsOverlay", "close", () => {
+  document.body.classList.remove("media-fs-open");
+  syncMediaFullscreenUi();
 });
 document.addEventListener("fullscreenchange", syncMediaFullscreenUi);
 document.addEventListener("webkitfullscreenchange", syncMediaFullscreenUi);
@@ -939,14 +1020,16 @@ document.addEventListener("keydown", (event) => {
     closeMediaDialog();
   }
 });
-on("#operationsBody", "click", (event) => {
+function handleOperationRowClick(event) {
   const button = event.target.closest("button");
   if (!button) return;
   if (button.dataset.action === "toggle") toggleOperation(button.dataset.id);
   if (button.dataset.action === "edit") openForm(button.dataset.id);
   if (button.dataset.action === "view") viewOperation(button.dataset.id);
   if (button.dataset.action === "delete") deleteOperation(button.dataset.id);
-});
+}
+on("#operationsBody", "click", handleOperationRowClick);
+on("#archiveBody", "click", handleOperationRowClick);
 on("#exportData", "click", () => {
   const blob = new Blob([JSON.stringify(operations, null, 2)], { type: "application/json" });
   const link = document.createElement("a");

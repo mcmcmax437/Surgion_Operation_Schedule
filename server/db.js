@@ -19,6 +19,30 @@ export function createPool() {
   });
 }
 
+async function columnExists(pool, table, column) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = :table
+       AND COLUMN_NAME = :column`,
+    { table, column },
+  );
+  return Number(rows[0]?.count || 0) > 0;
+}
+
+async function indexExists(pool, table, indexName) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = :table
+       AND INDEX_NAME = :indexName`,
+    { table, indexName },
+  );
+  return Number(rows[0]?.count || 0) > 0;
+}
+
 export async function migrate(pool) {
   const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   const statements = schema
@@ -28,6 +52,20 @@ export async function migrate(pool) {
 
   for (const statement of statements) {
     await pool.query(statement);
+  }
+
+  if (!(await columnExists(pool, "operations", "archived_at"))) {
+    await pool.query(
+      `ALTER TABLE operations ADD COLUMN archived_at DATETIME(3) NULL AFTER is_example`,
+    );
+  }
+  if (!(await indexExists(pool, "operations", "idx_operations_archived_at"))) {
+    await pool.query(
+      `ALTER TABLE operations ADD INDEX idx_operations_archived_at (archived_at)`,
+    );
+  }
+  if (!(await indexExists(pool, "operations", "idx_operations_date"))) {
+    await pool.query(`ALTER TABLE operations ADD INDEX idx_operations_date (date)`);
   }
 }
 
@@ -90,6 +128,7 @@ export function mapOperation(row, attachments = []) {
     status: row.status,
     notes: row.notes || "",
     isExample: Boolean(row.is_example),
+    archivedAt: row.archived_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     attachments: attachments.map((file) => ({
