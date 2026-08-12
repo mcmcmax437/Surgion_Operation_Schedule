@@ -35,8 +35,25 @@
   .clinic-name{font-size:12px;line-height:1.4}
   h1{font-size:26px}
   .topbar{gap:14px;margin-bottom:16px}
-  .view-tabs{display:flex;gap:6px;margin-bottom:14px}
-  .view-tab{flex:1;min-height:44px;padding:10px 6px;font-size:12px}
+  .view-tabs{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    margin-bottom:14px;
+  }
+  .view-tabs:has(#logsTab:not([hidden])){
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .view-tab{
+    min-width:0;
+    min-height:44px;
+    padding:8px 4px;
+    font-size:11px;
+    line-height:1.2;
+    white-space:normal;
+    text-align:center;
+    overflow:hidden;
+  }
   .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
   .search{grid-column:1/-1;max-width:none}
   .stats{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
@@ -193,8 +210,8 @@
 .media-dialog-body{padding:8px 4px 12px;overflow:auto;max-height:calc(88vh - 150px);display:grid;place-items:center}
 .media-nav{border:0;border-radius:12px;width:44px;height:44px;background:#e8f2fa;color:#17365d;font-size:28px;line-height:1;cursor:pointer;font-weight:700}
 .media-nav:hover{background:#17365d;color:#fff}
-.media-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 16px 14px;border-top:1px solid #e2e8f0;color:#52606d;font-size:13px;font-weight:700}
-.media-footer #mediaFileName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;text-align:right;font-weight:600;color:#315b7a}
+.media-footer{gap:12px;align-items:center;padding:10px 16px 14px;border-top:1px solid #e2e8f0;color:#52606d;font-size:13px;font-weight:700}
+.media-footer #mediaFileName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-weight:600;color:#315b7a}
 .theme-dark .media-nav{background:#243b53;color:#dbeafe}
 .theme-dark .media-nav:hover{background:#47759b;color:#fff}
 .theme-dark .media-footer{border-color:#374151;color:#9ac3e5}
@@ -245,8 +262,26 @@
 .media-dialog{display:none}
 .media-dialog[open]{display:flex!important;flex-direction:column}
 
-.media-footer{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
-.media-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.media-footer{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+}
+.media-footer #mediaCounter{justify-self:start}
+.media-tools{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  justify-content:center;
+  justify-self:center;
+}
+.media-footer #mediaFileName{
+  justify-self:end;
+  max-width:100%;
+  min-width:0;
+}
 .media-zoom-tools{display:inline-flex;align-items:center;gap:4px;padding:4px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fbfe}
 .media-tool-btn{border:1px solid #cbd5e1;background:#fff;color:#17365d;border-radius:8px;min-height:36px;padding:6px 10px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
 .media-tool-btn:hover{background:#e8f2fa}
@@ -450,7 +485,8 @@ dialog.media-fs-overlay::backdrop{
   background:#3b2412;
   border-color:#9a3412;
 }
+.tab-label-short{display:none}
 @media(max-width:760px){
-  .view-tabs{flex-wrap:wrap}
-  .view-tab{flex:1 1 calc(50% - 4px);min-width:0}
+  .tab-label-full{display:none}
+  .tab-label-short{display:inline}
 }
