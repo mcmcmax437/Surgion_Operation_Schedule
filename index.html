@@ -166,10 +166,19 @@
           <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів з телефона чи комп’ютера</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*" multiple /></label>
         </div>
         <div id="existingAttachments" class="attachments"></div>
+        <div id="uploadProgress" class="upload-progress" hidden>
+          <div class="upload-progress-head">
+            <span id="uploadProgressLabel">Завантаження файлів…</span>
+            <strong id="uploadProgressPercent">0%</strong>
+          </div>
+          <div class="upload-progress-track" aria-hidden="true">
+            <div id="uploadProgressBar" class="upload-progress-bar"></div>
+          </div>
+        </div>
         <div class="dialog-actions"><button class="secondary" id="cancelOperation" type="button">Скасувати</button><button class="primary" id="saveOperation" type="submit">Зберегти операцію</button></div>
       </form>
     </dialog>
     <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812d"></script>
+    <script src="app.js?v=20260812f"></script>
   </body>
 </html>

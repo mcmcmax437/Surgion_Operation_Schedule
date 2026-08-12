@@ -186,8 +186,12 @@ function render() {
       <td data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0} файл(ів)</span></td>
       <td data-label="Дії">
         <div class="row-actions">
-          <button data-action="view" data-id="${item.id}">Відкрити</button>
-          <button data-action="edit" data-id="${item.id}">Змінити</button>
+          <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Відкрити" aria-label="Відкрити">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          </button>
+          <button class="icon-action" data-action="edit" data-id="${item.id}" type="button" title="Змінити" aria-label="Змінити">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
         </div>
       </td>
     </tr>`).join("");
@@ -274,31 +278,103 @@ async function saveOperation(event) {
     return;
   }
 
+  const files = [...($("#attachments")?.files || [])];
+  for (const file of files) {
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      alert("Дозволені лише зображення та відео.");
+      return;
+    }
+  }
+
   const formData = new FormData();
   Object.entries(data).forEach(([key, value]) => {
     if (Array.isArray(value)) formData.append(key, JSON.stringify(value));
     else formData.append(key, value ?? "");
   });
+  files.forEach((file) => formData.append("files", file));
 
-  for (const file of [...$("#attachments").files]) {
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-      alert("Дозволені лише зображення та відео.");
-      return;
-    }
-    formData.append("files", file);
-  }
+  const saveButton = $("#saveOperation");
+  const progress = $("#uploadProgress");
+  const progressBar = $("#uploadProgressBar");
+  const progressPercent = $("#uploadProgressPercent");
+  const progressLabel = $("#uploadProgressLabel");
+  const path = editingId ? `/operations/${editingId}` : "/operations";
+  const method = editingId ? "PUT" : "POST";
+
+  const setProgress = (value, label) => {
+    const percent = Math.max(0, Math.min(100, Math.round(value)));
+    if (progress) progress.hidden = false;
+    if (progressBar) progressBar.style.width = `${percent}%`;
+    if (progressPercent) progressPercent.textContent = `${percent}%`;
+    if (progressLabel) progressLabel.textContent = label;
+  };
+
+  if (saveButton) saveButton.disabled = true;
 
   try {
-    if (editingId) {
-      await api(`/operations/${editingId}`, { method: "PUT", body: formData });
-    } else {
-      await api("/operations", { method: "POST", body: formData });
-    }
+    if (files.length) setProgress(0, `Завантаження ${files.length} файл(ів)…`);
+    else setProgress(10, "Збереження операції…");
+
+    await uploadForm(path, method, formData, (loaded, total) => {
+      if (!total) {
+        setProgress(50, "Завантаження файлів…");
+        return;
+      }
+      const percent = (loaded / total) * 100;
+      setProgress(percent, percent >= 100 ? "Обробка на сервері…" : `Завантаження файлів… ${Math.round(percent)}%`);
+    });
+
+    setProgress(100, "Готово");
     $("#operationDialog").close();
     await refresh();
   } catch (error) {
     alert(error.message || "Не вдалося зберегти операцію.");
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+    if (progress) progress.hidden = true;
+    if (progressBar) progressBar.style.width = "0%";
   }
+}
+
+function uploadForm(path, method, formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, `${API_BASE}${path}`);
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (typeof onProgress === "function") {
+        onProgress(event.loaded, event.lengthComputable ? event.total : 0);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        sessionStorage.removeItem(AUTH_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        window.location.replace("login.html");
+        reject(new Error("Unauthorized"));
+        return;
+      }
+
+      let data = null;
+      try {
+        data = JSON.parse(xhr.responseText || "{}");
+      } catch {
+        data = null;
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+        return;
+      }
+      reject(new Error((data && data.error) || `API error ${xhr.status}`));
+    };
+
+    xhr.onerror = () => reject(new Error("Немає зв’язку з API під час завантаження файлів."));
+    xhr.send(formData);
+  });
 }
 
 async function attachmentUrl(id) {
