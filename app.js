@@ -203,28 +203,39 @@ function filteredOperations() {
     });
 }
 
+const expandedOperations = new Set();
+let mediaObjectUrls = [];
+
 function render() {
   const rows = filteredOperations();
 
-  $("#operationsBody").innerHTML = rows.map((item) => `
-    <tr>
-      <td data-label="Дата / час">
+  $("#operationsBody").innerHTML = rows.map((item) => {
+    const expanded = expandedOperations.has(item.id);
+    return `
+    <tr class="op-row ${expanded ? "is-expanded" : "is-collapsed"}" data-id="${item.id}">
+      <td class="col-toggle">
+        <button class="collapse-toggle" data-action="toggle" data-id="${item.id}" type="button" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Згорнути" : "Розгорнути"}">
+          <span class="collapse-chevron" aria-hidden="true"></span>
+          <span class="collapse-label">${expanded ? "Згорнути" : "Деталі"}</span>
+        </button>
+      </td>
+      <td class="col-when" data-label="Дата / час">
         <span class="date">${formatDate(item.date)}</span>
         <span class="time">${escapeHtml(item.time || "Час не вказано")}</span>
       </td>
-      <td data-label="Пацієнт">
+      <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${escapeHtml(item.patient)}</span>
         <span class="sub">${item.isExample ? "Прикладовий рядок" : escapeHtml(item.id)}</span>
       </td>
-      <td data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
-      <td data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
-      <td data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
-      <td data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
-      <td data-label="Статус"><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
-      <td data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0} файл(ів)</span></td>
-      <td data-label="Дії">
+      <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
+      <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
+      <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
+      <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
+      <td class="col-status" data-label="Статус"><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
+      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0} файл(ів)</span></td>
+      <td class="col-actions" data-label="Дії">
         <div class="row-actions">
-          <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Відкрити" aria-label="Відкрити">
+          <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
           </button>
           <button class="icon-action" data-action="edit" data-id="${item.id}" type="button" title="Змінити" aria-label="Змінити">
@@ -235,7 +246,8 @@ function render() {
           </button>
         </div>
       </td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
   $("#emptyState").hidden = rows.length > 0;
   const realOperations = operations.filter((item) => !item.isExample);
@@ -526,20 +538,55 @@ async function deleteOperation(id) {
   }
 }
 
+function clearMediaObjectUrls() {
+  mediaObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+  mediaObjectUrls = [];
+}
+
+function closeMediaDialog() {
+  const dialog = $("#mediaDialog");
+  dialog?.querySelectorAll("video").forEach((video) => {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  });
+  clearMediaObjectUrls();
+  if ($("#mediaDialogBody")) $("#mediaDialogBody").innerHTML = "";
+  dialog?.close();
+}
+
 async function viewOperation(id) {
   const item = operations.find((operation) => operation.id === id);
   if (!item) return;
 
+  const dialog = $("#mediaDialog");
+  const body = $("#mediaDialogBody");
+  if (!dialog || !body) return;
+
+  clearMediaObjectUrls();
+  if ($("#mediaDialogTitle")) $("#mediaDialogTitle").textContent = item.patient || "Медіа";
+  if ($("#mediaDialogMeta")) {
+    $("#mediaDialogMeta").textContent = `${item.id || ""} · ${(item.attachments || []).length} файл(ів) · завантаження…`;
+  }
+  body.innerHTML = `<p class="empty-media">Завантаження медіа…</p>`;
+  dialog.showModal();
+
   const files = [];
   for (const metadata of item.attachments || []) {
     try {
-      files.push({ metadata, url: await attachmentUrl(metadata.id) });
+      const url = await attachmentUrl(metadata.id);
+      mediaObjectUrls.push(url);
+      files.push({ metadata, url });
     } catch {
       // skip missing file
     }
   }
 
-  const attachmentHtml = files.length
+  if ($("#mediaDialogMeta")) {
+    $("#mediaDialogMeta").textContent = `${item.id || ""} · ${files.length} файл(ів)`;
+  }
+
+  body.innerHTML = files.length
     ? files.map(({ metadata, url }) => {
       const isVideo = (metadata.type || "").startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(metadata.name || "");
       return `<figure class="media-card">
@@ -549,24 +596,13 @@ async function viewOperation(id) {
           : `<img src="${url}" alt="${escapeHtml(metadata.name)}">`}
       </figure>`;
     }).join("")
-    : "<p class='empty-media'>Немає прикріплених фото або відео.</p>";
+    : `<p class="empty-media">Немає прикріплених фото або відео.</p>`;
+}
 
-  const details = window.open("", "_blank", "width=920,height=780");
-  details.document.write(`<!doctype html><title>Медіа — ${escapeHtml(item.patient)}</title>
-    <style>
-      body{margin:0;font:15px system-ui,sans-serif;background:#111827;color:#e5e7eb}
-      header{padding:16px 20px;background:#1f2937;border-bottom:1px solid #374151;position:sticky;top:0}
-      header h1{margin:0;font-size:18px;color:#dbeafe}
-      header p{margin:4px 0 0;color:#9ca3af;font-size:13px}
-      main{padding:18px;display:grid;gap:16px}
-      .media-card{margin:0;padding:12px;border:1px solid #374151;border-radius:12px;background:#1f2937}
-      .media-card figcaption{margin:0 0 10px;color:#9ac3e5;font-size:13px;font-weight:700;word-break:break-word}
-      .media-card img,.media-card video{display:block;width:100%;max-height:70vh;object-fit:contain;background:#0b1220;border-radius:8px}
-      .empty-media{padding:40px;text-align:center;color:#9ca3af}
-    </style>
-    <header><h1>Медіафайли</h1><p>${escapeHtml(item.patient)} · ${escapeHtml(item.id)} · ${files.length} файл(ів)</p></header>
-    <main>${attachmentHtml}</main>`);
-  details.document.close();
+function toggleOperation(id) {
+  if (expandedOperations.has(id)) expandedOperations.delete(id);
+  else expandedOperations.add(id);
+  render();
 }
 
 async function loadLogs() {
@@ -656,9 +692,15 @@ on("#anesthesiologistPickerSearch", "input", () => paintPicker("anesthesiologist
 on("#deleteOperation", "click", () => {
   if (editingId) deleteOperation(editingId);
 });
+on("#closeMediaDialog", "click", closeMediaDialog);
+on("#mediaDialog", "close", closeMediaDialog);
+on("#mediaDialog", "click", (event) => {
+  if (event.target === $("#mediaDialog")) closeMediaDialog();
+});
 on("#operationsBody", "click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button.dataset.action === "toggle") toggleOperation(button.dataset.id);
   if (button.dataset.action === "edit") openForm(button.dataset.id);
   if (button.dataset.action === "view") viewOperation(button.dataset.id);
   if (button.dataset.action === "delete") deleteOperation(button.dataset.id);
