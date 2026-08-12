@@ -1,3 +1,8 @@
+if (!window.SurgeryAPI) {
+  alert("Не завантажено api.js. Зробіть hard-refresh (Ctrl+F5) або перевірте деплой.");
+  throw new Error("SurgeryAPI missing");
+}
+
 const { api, AUTH_KEY, TOKEN_KEY, API_BASE } = window.SurgeryAPI;
 
 if (sessionStorage.getItem(AUTH_KEY) !== "1" || !sessionStorage.getItem(TOKEN_KEY)) {
@@ -5,6 +10,10 @@ if (sessionStorage.getItem(AUTH_KEY) !== "1" || !sessionStorage.getItem(TOKEN_KE
 }
 
 const $ = (selector) => document.querySelector(selector);
+const on = (selector, event, handler) => {
+  const node = $(selector);
+  if (node) node.addEventListener(event, handler);
+};
 let operations = [];
 let staff = { team: [], anesthesiologists: [] };
 let editingId = null;
@@ -61,12 +70,12 @@ function selectedPickerValues(containerId) {
 }
 
 function showView(view) {
-  $("#scheduleView").hidden = view !== "schedule";
-  $("#staffView").hidden = view !== "staff";
-  $("#logsView").hidden = view !== "logs";
-  $("#scheduleTab").classList.toggle("active", view === "schedule");
-  $("#staffTab").classList.toggle("active", view === "staff");
-  $("#logsTab").classList.toggle("active", view === "logs");
+  if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
+  if ($("#staffView")) $("#staffView").hidden = view !== "staff";
+  if ($("#logsView")) $("#logsView").hidden = view !== "logs";
+  if ($("#scheduleTab")) $("#scheduleTab").classList.toggle("active", view === "schedule");
+  if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
+  if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
   if (view === "logs") loadLogs();
 }
 
@@ -371,7 +380,7 @@ async function loadLogs() {
 function setTheme(theme) {
   document.documentElement.classList.toggle("theme-dark", theme === "dark");
   localStorage.setItem("surgery-theme", theme);
-  $("#themeToggle").checked = theme === "dark";
+  if ($("#themeToggle")) $("#themeToggle").checked = theme === "dark";
 }
 
 async function refresh() {
@@ -385,15 +394,15 @@ async function refresh() {
   render();
 }
 
-$("#themeToggle").addEventListener("change", (event) => setTheme(event.target.checked ? "dark" : "light"));
-$("#scheduleTab").addEventListener("click", () => showView("schedule"));
-$("#staffTab").addEventListener("click", () => showView("staff"));
-$("#logsTab").addEventListener("click", () => showView("logs"));
-$("#teamStaffForm").addEventListener("submit", (event) => submitStaff("team", event));
-$("#anesthesiologistStaffForm").addEventListener("submit", (event) => submitStaff("anesthesiologists", event));
-$("#teamCancelEdit").addEventListener("click", () => resetStaffForm("team"));
-$("#anesthesiologistCancelEdit").addEventListener("click", () => resetStaffForm("anesthesiologists"));
-$("#staffView").addEventListener("click", (event) => {
+on("#themeToggle", "change", (event) => setTheme(event.target.checked ? "dark" : "light"));
+on("#scheduleTab", "click", () => showView("schedule"));
+on("#staffTab", "click", () => showView("staff"));
+on("#logsTab", "click", () => showView("logs"));
+on("#teamStaffForm", "submit", (event) => submitStaff("team", event));
+on("#anesthesiologistStaffForm", "submit", (event) => submitStaff("anesthesiologists", event));
+on("#teamCancelEdit", "click", () => resetStaffForm("team"));
+on("#anesthesiologistCancelEdit", "click", () => resetStaffForm("anesthesiologists"));
+on("#staffView", "click", (event) => {
   const button = event.target.closest("button[data-staff-action]");
   if (!button) return;
   const type = button.dataset.staffType;
@@ -401,7 +410,7 @@ $("#staffView").addEventListener("click", (event) => {
   if (button.dataset.staffAction === "edit") editStaff(type, index);
   if (button.dataset.staffAction === "delete") deleteStaff(type, index);
 });
-$("#logout").addEventListener("click", async () => {
+on("#logout", "click", async () => {
   try {
     await api("/logout", { method: "POST", json: {} });
   } catch {
@@ -411,26 +420,26 @@ $("#logout").addEventListener("click", async () => {
   sessionStorage.removeItem(TOKEN_KEY);
   window.location.replace("login.html");
 });
-$("#addOperation").addEventListener("click", () => openForm());
-$("#closeOperation").addEventListener("click", () => $("#operationDialog").close());
-$("#cancelOperation").addEventListener("click", () => $("#operationDialog").close());
-$("#operationForm").addEventListener("submit", saveOperation);
-$("#search").addEventListener("input", render);
-$("#statusFilter").addEventListener("change", render);
-$("#operationsBody").addEventListener("click", (event) => {
+on("#addOperation", "click", () => openForm());
+on("#closeOperation", "click", () => $("#operationDialog")?.close());
+on("#cancelOperation", "click", () => $("#operationDialog")?.close());
+on("#operationForm", "submit", saveOperation);
+on("#search", "input", render);
+on("#statusFilter", "change", render);
+on("#operationsBody", "click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
   if (button.dataset.action === "edit") openForm(button.dataset.id);
   if (button.dataset.action === "view") viewOperation(button.dataset.id);
 });
-$("#exportData").addEventListener("click", () => {
+on("#exportData", "click", () => {
   const blob = new Blob([JSON.stringify(operations, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = `surgery-operations-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
 });
-$("#refreshLogs").addEventListener("click", () => loadLogs());
+on("#refreshLogs", "click", () => loadLogs());
 
 setTheme(localStorage.getItem("surgery-theme") || "light");
 showView("schedule");

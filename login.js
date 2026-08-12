@@ -1,3 +1,7 @@
+if (!window.SurgeryAPI) {
+  alert("Не завантажено api.js. Оновіть сторінку (Ctrl+F5).");
+  throw new Error("SurgeryAPI missing");
+}
 const { api, AUTH_KEY, TOKEN_KEY } = window.SurgeryAPI;
 
 if (sessionStorage.getItem(AUTH_KEY) === "1" && sessionStorage.getItem(TOKEN_KEY)) {
