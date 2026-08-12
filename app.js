@@ -208,12 +208,81 @@ function render() {
   $("#fileCount").textContent = operations.reduce((sum, item) => sum + (item.attachments?.length || 0), 0);
 }
 
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+function isVideoFile(file) {
+  const type = file.type || file.mime || "";
+  const name = file.name || "";
+  return type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(name);
+}
+
+function renderAttachmentsPanel(existing = []) {
+  const list = $("#attachmentsPanelList");
+  const title = $("#attachmentsPanelTitle");
+  const hint = $("#attachmentsPanelHint");
+  const input = $("#attachments");
+  if (!list || !title || !hint) return;
+
+  const pending = [...(input?.files || [])];
+  const rows = [];
+
+  existing.forEach((file) => {
+    const video = isVideoFile(file);
+    rows.push(`<li class="attachment-row is-saved">
+      <span class="selected-file-icon">${video ? "🎥" : "🖼️"}</span>
+      <span class="selected-file-meta">
+        <strong>${escapeHtml(file.name)}</strong>
+        <small>${video ? "відео" : "зображення"} · уже збережено</small>
+      </span>
+      <span class="selected-file-status is-saved">На сервері</span>
+    </li>`);
+  });
+
+  pending.forEach((file) => {
+    const video = isVideoFile(file);
+    rows.push(`<li class="attachment-row is-pending">
+      <span class="selected-file-icon">${video ? "🎥" : "🖼️"}</span>
+      <span class="selected-file-meta">
+        <strong>${escapeHtml(file.name)}</strong>
+        <small>${escapeHtml(formatFileSize(file.size))} · ${video ? "відео" : "зображення"} · нове</small>
+      </span>
+      <span class="selected-file-status">До збереження</span>
+    </li>`);
+  });
+
+  list.innerHTML = rows.length
+    ? rows.join("")
+    : `<li class="attachment-row is-empty">Файлів ще немає. Оберіть зображення або відео вище.</li>`;
+
+  const total = existing.length + pending.length;
+  title.textContent = total ? `Прикріплені файли (${total})` : "Прикріплені файли";
+  if (pending.length && existing.length) {
+    hint.textContent = `${existing.length} на сервері · ${pending.length} нових буде завантажено після збереження`;
+  } else if (pending.length) {
+    hint.textContent = `${pending.length} файл(ів) буде завантажено після натискання «Зберегти операцію»`;
+  } else if (existing.length) {
+    hint.textContent = `${existing.length} файл(ів) уже збережено. Можна додати ще.`;
+  } else {
+    hint.textContent = "Поки файлів немає";
+  }
+}
+
+let currentFormAttachments = [];
+
 function resetForm() {
   editingId = null;
+  currentFormAttachments = [];
   $("#operationForm").reset();
   $("#operationId").value = "";
   $("#dialogTitle").textContent = "Нова операція";
-  $("#existingAttachments").innerHTML = "";
+  renderAttachmentsPanel([]);
+  const progress = $("#uploadProgress");
+  if (progress) progress.hidden = true;
   renderPicker("teamPicker", staff.team);
   renderPicker("anesthesiologistPicker", staff.anesthesiologists);
 }
@@ -244,16 +313,13 @@ function openForm(id = null) {
     });
     renderPicker("teamPicker", staff.team, namesForOperation(item, "teamMembers", "team"));
     renderPicker("anesthesiologistPicker", staff.anesthesiologists, namesForOperation(item, "anesthesiologists", "anesthesiologist"));
-    renderExistingAttachments(item);
+    currentFormAttachments = item.attachments || [];
+    renderAttachmentsPanel(currentFormAttachments);
+  } else {
+    renderAttachmentsPanel([]);
   }
 
   $("#operationDialog").showModal();
-}
-
-function renderExistingAttachments(item) {
-  $("#existingAttachments").innerHTML = (item.attachments || []).map((file) => `
-    <span class="attachment-chip">${file.type.startsWith("video/") ? "🎥" : "🖼️"} ${escapeHtml(file.name)}</span>
-  `).join("");
 }
 
 async function saveOperation(event) {
@@ -308,7 +374,10 @@ async function saveOperation(event) {
 
   const setProgress = (value, label) => {
     const percent = Math.max(0, Math.min(100, Math.round(value)));
-    if (progress) progress.hidden = false;
+    if (progress) {
+      progress.hidden = false;
+      progress.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
     if (progressBar) progressBar.style.width = `${percent}%`;
     if (progressPercent) progressPercent.textContent = `${percent}%`;
     if (progressLabel) progressLabel.textContent = label;
@@ -511,6 +580,7 @@ on("#logout", "click", async () => {
 on("#addOperation", "click", () => openForm());
 on("#closeOperation", "click", () => $("#operationDialog")?.close());
 on("#cancelOperation", "click", () => $("#operationDialog")?.close());
+on("#attachments", "change", () => renderAttachmentsPanel(currentFormAttachments));
 on("#operationForm", "submit", saveOperation);
 on("#search", "input", render);
 on("#statusFilter", "change", render);

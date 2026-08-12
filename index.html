@@ -164,10 +164,17 @@
           <label>Статус<select id="status"><option>Заплановано</option><option>Підтверджено</option><option>Виконано</option><option>Скасовано</option><option>Перенесено</option></select></label>
           <label class="wide">Примітки<textarea id="notes" rows="3"></textarea></label>
           <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів (до 512 МБ кожен)</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*,.mp4,.mov,.m4v,.webm,.avi,.mkv" multiple /></label>
+          <div id="attachmentsPanel" class="attachments-panel">
+            <div class="attachments-panel-head">
+              <strong id="attachmentsPanelTitle">Прикріплені файли</strong>
+              <span id="attachmentsPanelHint">Поки файлів немає</span>
+            </div>
+            <ul id="attachmentsPanelList" class="selected-attachments-list"></ul>
+          </div>
         </div>
-        <div id="existingAttachments" class="attachments"></div>
         <div id="uploadProgress" class="upload-progress" hidden>
           <div class="upload-progress-head">
+            <span class="upload-spinner" aria-hidden="true"></span>
             <span id="uploadProgressLabel">Завантаження файлів…</span>
             <strong id="uploadProgressPercent">0%</strong>
           </div>
@@ -179,6 +186,6 @@
       </form>
     </dialog>
     <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812g"></script>
+    <script src="app.js?v=20260812i"></script>
   </body>
 </html>
