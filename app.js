@@ -205,6 +205,8 @@ function filteredOperations() {
 
 const expandedOperations = new Set();
 let mediaObjectUrls = [];
+let mediaFiles = [];
+let mediaIndex = 0;
 
 function render() {
   const rows = filteredOperations();
@@ -213,19 +215,21 @@ function render() {
     const expanded = expandedOperations.has(item.id);
     return `
     <tr class="op-row ${expanded ? "is-expanded" : "is-collapsed"}" data-id="${item.id}">
-      <td class="col-toggle">
-        <button class="collapse-toggle" data-action="toggle" data-id="${item.id}" type="button" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Згорнути" : "Розгорнути"}">
-          <span class="collapse-chevron" aria-hidden="true"></span>
-          <span class="collapse-label">${expanded ? "Згорнути" : "Деталі"}</span>
-        </button>
-      </td>
       <td class="col-when" data-label="Дата / час">
         <span class="date">${formatDate(item.date)}</span>
         <span class="time">${escapeHtml(item.time || "Час не вказано")}</span>
       </td>
       <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${escapeHtml(item.patient)}</span>
-        <span class="sub">${item.isExample ? "Прикладовий рядок" : escapeHtml(item.id)}</span>
+        <div class="patient-head">
+          <div>
+            <span class="patient">${escapeHtml(item.patient)}</span>
+            <span class="sub">${item.isExample ? "Прикладовий рядок" : escapeHtml(item.id)}</span>
+          </div>
+          <button class="collapse-toggle mobile-only" data-action="toggle" data-id="${item.id}" type="button" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Згорнути" : "Розгорнути"}">
+            <span class="collapse-chevron" aria-hidden="true"></span>
+            <span class="collapse-label">${expanded ? "Згорнути" : "Деталі"}</span>
+          </button>
+        </div>
       </td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
@@ -541,6 +545,8 @@ async function deleteOperation(id) {
 function clearMediaObjectUrls() {
   mediaObjectUrls.forEach((url) => URL.revokeObjectURL(url));
   mediaObjectUrls = [];
+  mediaFiles = [];
+  mediaIndex = 0;
 }
 
 function closeMediaDialog() {
@@ -552,7 +558,52 @@ function closeMediaDialog() {
   });
   clearMediaObjectUrls();
   if ($("#mediaDialogBody")) $("#mediaDialogBody").innerHTML = "";
+  if ($("#mediaCounter")) $("#mediaCounter").textContent = "0 / 0";
+  if ($("#mediaFileName")) $("#mediaFileName").textContent = "";
   dialog?.close();
+}
+
+function updateMediaNavState() {
+  const many = mediaFiles.length > 1;
+  if ($("#mediaPrev")) $("#mediaPrev").hidden = !many;
+  if ($("#mediaNext")) $("#mediaNext").hidden = !many;
+}
+
+function renderMediaSlide() {
+  const body = $("#mediaDialogBody");
+  if (!body) return;
+
+  if (!mediaFiles.length) {
+    body.innerHTML = `<p class="empty-media">Немає прикріплених фото або відео.</p>`;
+    if ($("#mediaCounter")) $("#mediaCounter").textContent = "0 / 0";
+    if ($("#mediaFileName")) $("#mediaFileName").textContent = "";
+    updateMediaNavState();
+    return;
+  }
+
+  const current = mediaFiles[mediaIndex];
+  const isVideo = (current.metadata.type || "").startsWith("video/")
+    || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(current.metadata.name || "");
+
+  body.innerHTML = `<figure class="media-card">
+    ${isVideo
+      ? `<video controls autoplay preload="metadata" src="${current.url}"></video>`
+      : `<img src="${current.url}" alt="${escapeHtml(current.metadata.name)}">`}
+  </figure>`;
+
+  if ($("#mediaCounter")) $("#mediaCounter").textContent = `${mediaIndex + 1} / ${mediaFiles.length}`;
+  if ($("#mediaFileName")) $("#mediaFileName").textContent = current.metadata.name || "";
+  updateMediaNavState();
+}
+
+function showMediaAt(index) {
+  if (!mediaFiles.length) return;
+  const body = $("#mediaDialogBody");
+  body?.querySelectorAll("video").forEach((video) => {
+    video.pause();
+  });
+  mediaIndex = ((index % mediaFiles.length) + mediaFiles.length) % mediaFiles.length;
+  renderMediaSlide();
 }
 
 async function viewOperation(id) {
@@ -569,6 +620,8 @@ async function viewOperation(id) {
     $("#mediaDialogMeta").textContent = `${item.id || ""} · ${(item.attachments || []).length} файл(ів) · завантаження…`;
   }
   body.innerHTML = `<p class="empty-media">Завантаження медіа…</p>`;
+  if ($("#mediaPrev")) $("#mediaPrev").hidden = true;
+  if ($("#mediaNext")) $("#mediaNext").hidden = true;
   dialog.showModal();
 
   const files = [];
@@ -582,21 +635,12 @@ async function viewOperation(id) {
     }
   }
 
+  mediaFiles = files;
+  mediaIndex = 0;
   if ($("#mediaDialogMeta")) {
     $("#mediaDialogMeta").textContent = `${item.id || ""} · ${files.length} файл(ів)`;
   }
-
-  body.innerHTML = files.length
-    ? files.map(({ metadata, url }) => {
-      const isVideo = (metadata.type || "").startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(metadata.name || "");
-      return `<figure class="media-card">
-        <figcaption>${escapeHtml(metadata.name)}</figcaption>
-        ${isVideo
-          ? `<video controls preload="metadata" src="${url}"></video>`
-          : `<img src="${url}" alt="${escapeHtml(metadata.name)}">`}
-      </figure>`;
-    }).join("")
-    : `<p class="empty-media">Немає прикріплених фото або відео.</p>`;
+  renderMediaSlide();
 }
 
 function toggleOperation(id) {
@@ -693,9 +737,18 @@ on("#deleteOperation", "click", () => {
   if (editingId) deleteOperation(editingId);
 });
 on("#closeMediaDialog", "click", closeMediaDialog);
+on("#mediaPrev", "click", () => showMediaAt(mediaIndex - 1));
+on("#mediaNext", "click", () => showMediaAt(mediaIndex + 1));
 on("#mediaDialog", "close", closeMediaDialog);
 on("#mediaDialog", "click", (event) => {
   if (event.target === $("#mediaDialog")) closeMediaDialog();
+});
+document.addEventListener("keydown", (event) => {
+  const dialog = $("#mediaDialog");
+  if (!dialog?.open) return;
+  if (event.key === "ArrowLeft") showMediaAt(mediaIndex - 1);
+  if (event.key === "ArrowRight") showMediaAt(mediaIndex + 1);
+  if (event.key === "Escape") closeMediaDialog();
 });
 on("#operationsBody", "click", (event) => {
   const button = event.target.closest("button");

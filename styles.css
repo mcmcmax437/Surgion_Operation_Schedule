@@ -186,3 +186,46 @@
   .media-dialog{width:calc(100% - 16px);max-height:92vh;border-radius:14px}
   .media-dialog-body{max-height:calc(92vh - 88px);padding:12px}
 }
+
+.patient-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.mobile-only{display:none!important}
+.media-stage{display:grid;grid-template-columns:48px 1fr 48px;gap:8px;align-items:center;padding:12px 12px 0}
+.media-dialog-body{padding:8px 4px 12px;overflow:auto;max-height:calc(88vh - 150px);display:grid;place-items:center}
+.media-nav{border:0;border-radius:12px;width:44px;height:44px;background:#e8f2fa;color:#17365d;font-size:28px;line-height:1;cursor:pointer;font-weight:700}
+.media-nav:hover{background:#17365d;color:#fff}
+.media-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 16px 14px;border-top:1px solid #e2e8f0;color:#52606d;font-size:13px;font-weight:700}
+.media-footer #mediaFileName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;text-align:right;font-weight:600;color:#315b7a}
+.theme-dark .media-nav{background:#243b53;color:#dbeafe}
+.theme-dark .media-nav:hover{background:#47759b;color:#fff}
+.theme-dark .media-footer{border-color:#374151;color:#9ac3e5}
+.theme-dark .media-footer #mediaFileName{color:#cbd5e1}
+@media (min-width:761px){
+  .op-row.is-collapsed .col-diagnosis,
+  .op-row.is-collapsed .col-procedure,
+  .op-row.is-collapsed .col-team,
+  .op-row.is-collapsed .col-anes{display:table-cell!important}
+  .mobile-only{display:none!important}
+}
+@media (max-width:760px){
+  .mobile-only{display:inline-flex!important}
+  .patient-head{align-items:center}
+  tr.op-row{
+    grid-template-areas:
+      "patient patient"
+      "when status"
+      "files files"
+      "diagnosis diagnosis"
+      "procedure procedure"
+      "team team"
+      "anes anes"
+      "actions actions" !important;
+  }
+  .col-patient{grid-area:patient}
+  .op-row.is-collapsed .col-diagnosis,
+  .op-row.is-collapsed .col-procedure,
+  .op-row.is-collapsed .col-team,
+  .op-row.is-collapsed .col-anes{display:none!important}
+  .media-stage{grid-template-columns:40px 1fr 40px;gap:4px;padding:8px 8px 0}
+  .media-nav{width:40px;height:40px;font-size:24px}
+  .media-dialog-body{max-height:calc(92vh - 160px)}
+}
