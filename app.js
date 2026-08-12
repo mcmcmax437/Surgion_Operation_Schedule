@@ -207,6 +207,10 @@ const expandedOperations = new Set();
 let mediaObjectUrls = [];
 let mediaFiles = [];
 let mediaIndex = 0;
+let mediaZoom = 1;
+const MEDIA_ZOOM_MIN = 1;
+const MEDIA_ZOOM_MAX = 4;
+const MEDIA_ZOOM_STEP = 0.25;
 
 function render() {
   const rows = filteredOperations();
@@ -221,14 +225,19 @@ function render() {
       </td>
       <td class="col-patient" data-label="Пацієнт">
         <div class="patient-head">
-          <div>
+          <div class="patient-text">
             <span class="patient">${escapeHtml(item.patient)}</span>
             <span class="sub">${item.isExample ? "Прикладовий рядок" : escapeHtml(item.id)}</span>
           </div>
-          <button class="collapse-toggle mobile-only" data-action="toggle" data-id="${item.id}" type="button" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Згорнути" : "Розгорнути"}">
-            <span class="collapse-chevron" aria-hidden="true"></span>
-            <span class="collapse-label">${expanded ? "Згорнути" : "Деталі"}</span>
-          </button>
+          <div class="patient-mobile-actions mobile-only">
+            <button class="collapse-toggle" data-action="toggle" data-id="${item.id}" type="button" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Згорнути" : "Розгорнути"}">
+              <span class="collapse-chevron" aria-hidden="true"></span>
+              <span class="collapse-label">${expanded ? "Згорнути" : "Деталі"}</span>
+            </button>
+            <button class="icon-action media-quick-btn" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+          </div>
         </div>
       </td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
@@ -547,6 +556,7 @@ function clearMediaObjectUrls() {
   mediaObjectUrls = [];
   mediaFiles = [];
   mediaIndex = 0;
+  mediaZoom = 1;
 }
 
 function closeMediaDialog() {
@@ -560,6 +570,9 @@ function closeMediaDialog() {
   if ($("#mediaDialogBody")) $("#mediaDialogBody").innerHTML = "";
   if ($("#mediaCounter")) $("#mediaCounter").textContent = "0 / 0";
   if ($("#mediaFileName")) $("#mediaFileName").textContent = "";
+  if ($("#mediaZoomTools")) $("#mediaZoomTools").hidden = true;
+  if ($("#mediaDownload")) $("#mediaDownload").hidden = true;
+  updateMediaZoomUi();
   dialog?.close();
 }
 
@@ -567,6 +580,43 @@ function updateMediaNavState() {
   const many = mediaFiles.length > 1;
   if ($("#mediaPrev")) $("#mediaPrev").hidden = !many;
   if ($("#mediaNext")) $("#mediaNext").hidden = !many;
+  if ($("#mediaDownload")) $("#mediaDownload").hidden = !mediaFiles.length;
+}
+
+function currentMediaIsVideo() {
+  const current = mediaFiles[mediaIndex];
+  if (!current) return false;
+  return (current.metadata.type || "").startsWith("video/")
+    || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(current.metadata.name || "");
+}
+
+function updateMediaZoomUi() {
+  const img = $("#mediaDialogBody")?.querySelector("img.media-zoomable");
+  const zoomTools = $("#mediaZoomTools");
+  if (zoomTools) zoomTools.hidden = !img;
+  if ($("#mediaZoomLabel")) $("#mediaZoomLabel").textContent = `${Math.round(mediaZoom * 100)}%`;
+  if ($("#mediaZoomOut")) $("#mediaZoomOut").disabled = mediaZoom <= MEDIA_ZOOM_MIN;
+  if ($("#mediaZoomIn")) $("#mediaZoomIn").disabled = mediaZoom >= MEDIA_ZOOM_MAX;
+  if (img) {
+    img.style.transform = `scale(${mediaZoom})`;
+    img.classList.toggle("is-zoomed", mediaZoom > 1);
+  }
+}
+
+function setMediaZoom(nextZoom) {
+  mediaZoom = Math.min(MEDIA_ZOOM_MAX, Math.max(MEDIA_ZOOM_MIN, Number(nextZoom.toFixed(2))));
+  updateMediaZoomUi();
+}
+
+function downloadCurrentMedia() {
+  const current = mediaFiles[mediaIndex];
+  if (!current) return;
+  const link = document.createElement("a");
+  link.href = current.url;
+  link.download = current.metadata.name || `media-${mediaIndex + 1}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function renderMediaSlide() {
@@ -577,23 +627,39 @@ function renderMediaSlide() {
     body.innerHTML = `<p class="empty-media">Немає прикріплених фото або відео.</p>`;
     if ($("#mediaCounter")) $("#mediaCounter").textContent = "0 / 0";
     if ($("#mediaFileName")) $("#mediaFileName").textContent = "";
+    if ($("#mediaZoomTools")) $("#mediaZoomTools").hidden = true;
     updateMediaNavState();
+    updateMediaZoomUi();
     return;
   }
 
   const current = mediaFiles[mediaIndex];
-  const isVideo = (current.metadata.type || "").startsWith("video/")
-    || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(current.metadata.name || "");
+  const isVideo = currentMediaIsVideo();
+  mediaZoom = 1;
 
-  body.innerHTML = `<figure class="media-card">
-    ${isVideo
-      ? `<video controls preload="metadata" playsinline src="${current.url}"></video>`
-      : `<img src="${current.url}" alt="${escapeHtml(current.metadata.name)}">`}
+  body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">
+    <div class="media-viewport">
+      ${isVideo
+        ? `<video controls preload="metadata" playsinline src="${current.url}"></video>`
+        : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(current.metadata.name)}">`}
+    </div>
   </figure>`;
 
   if ($("#mediaCounter")) $("#mediaCounter").textContent = `${mediaIndex + 1} / ${mediaFiles.length}`;
   if ($("#mediaFileName")) $("#mediaFileName").textContent = current.metadata.name || "";
   updateMediaNavState();
+  updateMediaZoomUi();
+
+  const img = body.querySelector("img.media-zoomable");
+  if (img) {
+    img.addEventListener("dblclick", () => {
+      setMediaZoom(mediaZoom > 1 ? 1 : 2);
+    });
+    img.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      setMediaZoom(mediaZoom + (event.deltaY < 0 ? MEDIA_ZOOM_STEP : -MEDIA_ZOOM_STEP));
+    }, { passive: false });
+  }
 }
 
 function showMediaAt(index) {
@@ -739,6 +805,10 @@ on("#deleteOperation", "click", () => {
 on("#closeMediaDialog", "click", closeMediaDialog);
 on("#mediaPrev", "click", () => showMediaAt(mediaIndex - 1));
 on("#mediaNext", "click", () => showMediaAt(mediaIndex + 1));
+on("#mediaDownload", "click", downloadCurrentMedia);
+on("#mediaZoomIn", "click", () => setMediaZoom(mediaZoom + MEDIA_ZOOM_STEP));
+on("#mediaZoomOut", "click", () => setMediaZoom(mediaZoom - MEDIA_ZOOM_STEP));
+on("#mediaZoomReset", "click", () => setMediaZoom(1));
 on("#mediaDialog", "close", closeMediaDialog);
 on("#mediaDialog", "click", (event) => {
   if (event.target === $("#mediaDialog")) closeMediaDialog();
@@ -748,6 +818,9 @@ document.addEventListener("keydown", (event) => {
   if (!dialog?.open) return;
   if (event.key === "ArrowLeft") showMediaAt(mediaIndex - 1);
   if (event.key === "ArrowRight") showMediaAt(mediaIndex + 1);
+  if (event.key === "+" || event.key === "=") setMediaZoom(mediaZoom + MEDIA_ZOOM_STEP);
+  if (event.key === "-" || event.key === "_") setMediaZoom(mediaZoom - MEDIA_ZOOM_STEP);
+  if (event.key === "0") setMediaZoom(1);
   if (event.key === "Escape") closeMediaDialog();
 });
 on("#operationsBody", "click", (event) => {
