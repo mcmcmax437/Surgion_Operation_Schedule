@@ -433,15 +433,18 @@ function renderDepartment(deptId, rows) {
           ${undated.map(mobileCardHtml).join("")}
         </section>`
       : "";
-    days.innerHTML = undatedBlock + WEEKDAY_SHORT.map((label, index) => {
+    const dayBlocks = WEEKDAY_SHORT.map((label, index) => {
       const date = addDaysYmd(weekMonday, index);
       const dayRows = rows.filter((item) => item.date === date);
+      if (!dayRows.length) return "";
       return `
         <section class="week-day">
           <h3>${label} ${formatDayMonth(date)}</h3>
-          ${dayRows.length ? dayRows.map(mobileCardHtml).join("") : `<p class="week-empty">Немає операцій</p>`}
+          ${dayRows.map(mobileCardHtml).join("")}
         </section>`;
     }).join("");
+    days.innerHTML = undatedBlock + dayBlocks
+      || `<p class="week-empty">Немає операцій цього тижня.</p>`;
   }
 }
 
