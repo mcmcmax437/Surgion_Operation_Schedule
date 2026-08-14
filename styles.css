@@ -642,3 +642,43 @@ dialog.media-fs-overlay::backdrop{
   .toolbar{grid-template-columns:1fr}
 }
 
+button,
+.primary,
+.secondary,
+.icon-button,
+.icon-action,
+.view-tab,
+.dept-pill,
+.media-tool-btn,
+.media-nav,
+.week-nav-btn{
+  transition:transform .12s ease, box-shadow .12s ease, background-color .15s ease, filter .12s ease, color .15s ease;
+}
+button:hover:not(:disabled),
+.primary:hover,
+.secondary:hover,
+.icon-button:hover,
+.icon-action:hover,
+.view-tab:hover,
+.dept-pill:hover,
+.media-tool-btn:hover,
+.media-nav:hover{
+  filter:brightness(1.06);
+}
+button:active:not(:disabled),
+.primary:active,
+.secondary:active,
+.icon-button:active,
+.icon-action:active,
+.view-tab:active,
+.dept-pill:active,
+.media-tool-btn:active,
+.media-nav:active,
+.week-nav-btn:active{
+  transform:scale(.95);
+  filter:brightness(.96);
+}
+button:disabled{
+  transform:none;
+}
+

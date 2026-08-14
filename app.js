@@ -111,6 +111,8 @@ function cycleDepartment(step) {
   setActiveDepartment(next.id);
 }
 
+let weekMonday = currentWorkWeekMonday();
+
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
