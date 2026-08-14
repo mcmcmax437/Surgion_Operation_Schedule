@@ -450,6 +450,7 @@ let mediaObjectUrls = [];
 let mediaFiles = [];
 let mediaIndex = 0;
 let mediaZoom = 1;
+let mediaOperationId = null;
 const MEDIA_ZOOM_MIN = 1;
 const MEDIA_ZOOM_MAX = 4;
 const MEDIA_ZOOM_STEP = 0.25;
@@ -550,7 +551,7 @@ function renderAttachmentsPanel(existing = []) {
         <strong>${escapeHtml(file.name)}</strong>
         <small>${video ? "відео" : "зображення"} · уже збережено</small>
       </span>
-      <span class="selected-file-status is-saved">На сервері</span>
+      <button type="button" class="attachment-remove" data-remove-saved="${escapeHtml(file.id)}" aria-label="Видалити файл">✕</button>
     </li>`);
   });
 
@@ -577,7 +578,7 @@ function renderAttachmentsPanel(existing = []) {
   } else if (pending.length) {
     hint.textContent = `${pending.length} файл(ів) буде завантажено після натискання «Зберегти операцію»`;
   } else if (existing.length) {
-    hint.textContent = `${existing.length} файл(ів) уже збережено. Можна додати ще.`;
+    hint.textContent = `${existing.length} файл(ів) уже збережено. ✕ видаляє файл з сервера.`;
   } else {
     hint.textContent = "Поки файлів немає";
   }
@@ -617,6 +618,30 @@ function addPendingFiles(fileList) {
 function removePendingFile(index) {
   pendingFormFiles.splice(index, 1);
   renderAttachmentsPanel(currentFormAttachments);
+}
+
+function dropAttachmentFromCaches(attachmentId) {
+  const drop = (item) => {
+    if (!item?.attachments) return;
+    item.attachments = item.attachments.filter((file) => file.id !== attachmentId);
+  };
+  operations.forEach(drop);
+  archivedOperations.forEach(drop);
+  currentFormAttachments = currentFormAttachments.filter((file) => file.id !== attachmentId);
+}
+
+async function removeSavedAttachment(attachmentId) {
+  const file = currentFormAttachments.find((item) => item.id === attachmentId);
+  const name = file?.name || "файл";
+  if (!confirm(`Видалити файл «${name}»? Це не можна скасувати.`)) return;
+  try {
+    await api(`/attachments/${attachmentId}`, { method: "DELETE" });
+    dropAttachmentFromCaches(attachmentId);
+    renderAttachmentsPanel(currentFormAttachments);
+    render();
+  } catch (error) {
+    alert(error.message || "Не вдалося видалити файл.");
+  }
 }
 
 function resetForm() {
@@ -860,8 +885,10 @@ function closeMediaDialog() {
   exitMediaFullscreen(true);
   if ($("#mediaImageTools")) $("#mediaImageTools").hidden = true;
   if ($("#mediaDownload")) $("#mediaDownload").hidden = true;
+  if ($("#mediaDelete")) $("#mediaDelete").hidden = true;
   updateMediaZoomUi();
   syncMediaFullscreenUi();
+  mediaOperationId = null;
   dialog?.close();
 }
 
@@ -870,6 +897,7 @@ function updateMediaNavState() {
   if ($("#mediaPrev")) $("#mediaPrev").hidden = !many;
   if ($("#mediaNext")) $("#mediaNext").hidden = !many;
   if ($("#mediaDownload")) $("#mediaDownload").hidden = !mediaFiles.length;
+  if ($("#mediaDelete")) $("#mediaDelete").hidden = !mediaFiles.length;
 }
 
 function currentMediaIsVideo() {
@@ -913,6 +941,37 @@ function downloadCurrentMedia() {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+async function deleteCurrentMedia() {
+  const current = mediaFiles[mediaIndex];
+  if (!current?.metadata?.id) return;
+  const name = current.metadata.name || "файл";
+  if (!confirm(`Видалити файл «${name}»? Це не можна скасувати.`)) return;
+  const button = $("#mediaDelete");
+  if (button) button.disabled = true;
+  try {
+    await api(`/attachments/${current.metadata.id}`, { method: "DELETE" });
+    URL.revokeObjectURL(current.url);
+    mediaObjectUrls = mediaObjectUrls.filter((url) => url !== current.url);
+    mediaFiles.splice(mediaIndex, 1);
+    dropAttachmentFromCaches(current.metadata.id);
+    renderAttachmentsPanel(currentFormAttachments);
+    render();
+    if (!mediaFiles.length) {
+      closeMediaDialog();
+      return;
+    }
+    showMediaAt(Math.min(mediaIndex, mediaFiles.length - 1));
+    const item = findOperation(mediaOperationId);
+    if ($("#mediaDialogMeta")) {
+      $("#mediaDialogMeta").textContent = `${item?.id || mediaOperationId || ""} · ${mediaFiles.length} файл(ів)`;
+    }
+  } catch (error) {
+    alert(error.message || "Не вдалося видалити файл.");
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function isPseudoFullscreenActive() {
@@ -1062,6 +1121,7 @@ async function viewOperation(id) {
   if (!dialog || !body) return;
 
   clearMediaObjectUrls();
+  mediaOperationId = id;
   if ($("#mediaDialogTitle")) $("#mediaDialogTitle").textContent = item.patient || "Медіа";
   if ($("#mediaDialogMeta")) {
     $("#mediaDialogMeta").textContent = `${item.id || ""} · ${(item.attachments || []).length} файл(ів) · завантаження…`;
@@ -1069,6 +1129,7 @@ async function viewOperation(id) {
   body.innerHTML = `<p class="empty-media">Завантаження медіа…</p>`;
   if ($("#mediaPrev")) $("#mediaPrev").hidden = true;
   if ($("#mediaNext")) $("#mediaNext").hidden = true;
+  if ($("#mediaDelete")) $("#mediaDelete").hidden = true;
   dialog.showModal();
 
   const files = [];
@@ -1202,9 +1263,14 @@ on("#closeOperation", "click", () => $("#operationDialog")?.close());
 on("#cancelOperation", "click", () => $("#operationDialog")?.close());
 on("#attachments", "change", (event) => addPendingFiles(event.target.files));
 on("#attachmentsPanelList", "click", (event) => {
-  const button = event.target.closest("[data-remove-pending]");
-  if (!button) return;
-  removePendingFile(Number(button.dataset.removePending));
+  const saved = event.target.closest("[data-remove-saved]");
+  if (saved) {
+    removeSavedAttachment(saved.dataset.removeSaved);
+    return;
+  }
+  const pending = event.target.closest("[data-remove-pending]");
+  if (!pending) return;
+  removePendingFile(Number(pending.dataset.removePending));
 });
 on("#operationForm", "submit", saveOperation);
 on("#search", "input", render);
@@ -1226,6 +1292,7 @@ on("#closeMediaDialog", "click", closeMediaDialog);
 on("#mediaPrev", "click", () => showMediaAt(mediaIndex - 1));
 on("#mediaNext", "click", () => showMediaAt(mediaIndex + 1));
 on("#mediaDownload", "click", downloadCurrentMedia);
+on("#mediaDelete", "click", deleteCurrentMedia);
 on("#mediaZoomIn", "click", () => setMediaZoom(mediaZoom + MEDIA_ZOOM_STEP));
 on("#mediaZoomOut", "click", () => setMediaZoom(mediaZoom - MEDIA_ZOOM_STEP));
 on("#mediaZoomReset", "click", () => setMediaZoom(1));

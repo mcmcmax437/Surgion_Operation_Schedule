@@ -312,6 +312,8 @@
 .media-tool-btn:disabled{opacity:.45;cursor:not-allowed}
 .media-download-btn{background:#17365d;border-color:#17365d;color:#fff}
 .media-download-btn:hover{background:#244c7b;color:#fff}
+.media-delete-btn{background:#fff;border-color:#f4cccc;color:#b42318}
+.media-delete-btn:hover{background:#fef2f2;color:#9b1c1c}
 #mediaZoomLabel{min-width:48px;text-align:center;font-size:12px;font-weight:800;color:#315b7a}
 .media-viewport{width:100%;height:100%;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#0b1220}
 .media-viewport:has(.is-zoomed){overflow:auto}
@@ -322,6 +324,8 @@
 .theme-dark .media-tool-btn{background:#1f2937;border-color:#4b5563;color:#dbeafe}
 .theme-dark .media-tool-btn:hover{background:#243b53}
 .theme-dark .media-download-btn{background:#47759b;border-color:#47759b;color:#fff}
+.theme-dark .media-delete-btn{background:#3f1d1d;border-color:#7f1d1d;color:#fca5a5}
+.theme-dark .media-delete-btn:hover{background:#7f1d1d;color:#fecaca}
 .theme-dark #mediaZoomLabel{color:#9ac3e5}
 @media (max-width:760px){
   .media-footer{grid-template-columns:1fr;justify-items:center;text-align:center}

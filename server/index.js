@@ -541,6 +541,39 @@ app.delete("/api/operations/:id", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete("/api/attachments/:id", auth, async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT * FROM attachments WHERE id = :id LIMIT 1`,
+    { id: req.params.id },
+  );
+  if (!rows.length) return res.status(404).json({ error: "Not found" });
+
+  const file = rows[0];
+  await pool.query(`DELETE FROM attachments WHERE id = :id`, { id: file.id });
+  await unlinkAttachmentFiles([file]);
+  const after = await loadOperation(pool, file.operation_id);
+
+  await logChange(pool, {
+    entityType: "attachment",
+    entityId: file.id,
+    action: "delete",
+    summary: `Видалено файл «${file.original_name}» з операції ${file.operation_id}`,
+    changedFields: ["attachments"],
+    before: {
+      id: file.id,
+      name: file.original_name,
+      type: file.mime_type,
+      size: Number(file.size_bytes),
+      operationId: file.operation_id,
+    },
+    after,
+    ip: req.clientIp,
+    userAgent: req.clientUa,
+  });
+
+  res.json({ ok: true });
+});
+
 app.get("/api/attachments/:id", auth, async (req, res) => {
   const [rows] = await pool.query(
     `SELECT * FROM attachments WHERE id = :id LIMIT 1`,
