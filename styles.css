@@ -678,7 +678,18 @@ button:active:not(:disabled),
   transform:scale(.95);
   filter:brightness(.96);
 }
-button:disabled{
-  transform:none;
+.attachment-remove{
+  border:0;
+  background:transparent;
+  color:#b42318;
+  font-size:16px;
+  font-weight:800;
+  cursor:pointer;
+  min-width:32px;
+  min-height:32px;
+  border-radius:8px;
 }
+.attachment-remove:hover{background:#f4cccc}
+.theme-dark .attachment-remove{color:#fca5a5}
+.theme-dark .attachment-remove:hover{background:#3f1d1d}
 

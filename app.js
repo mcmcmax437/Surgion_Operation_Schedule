@@ -535,10 +535,9 @@ function renderAttachmentsPanel(existing = []) {
   const list = $("#attachmentsPanelList");
   const title = $("#attachmentsPanelTitle");
   const hint = $("#attachmentsPanelHint");
-  const input = $("#attachments");
   if (!list || !title || !hint) return;
 
-  const pending = [...(input?.files || [])];
+  const pending = pendingFormFiles;
   const rows = [];
 
   existing.forEach((file) => {
@@ -553,7 +552,7 @@ function renderAttachmentsPanel(existing = []) {
     </li>`);
   });
 
-  pending.forEach((file) => {
+  pending.forEach((file, index) => {
     const video = isVideoFile(file);
     rows.push(`<li class="attachment-row is-pending">
       <span class="selected-file-icon">${video ? "🎥" : "🖼️"}</span>
@@ -561,7 +560,7 @@ function renderAttachmentsPanel(existing = []) {
         <strong>${escapeHtml(file.name)}</strong>
         <small>${escapeHtml(formatFileSize(file.size))} · ${video ? "відео" : "зображення"} · нове</small>
       </span>
-      <span class="selected-file-status">До збереження</span>
+      <button type="button" class="attachment-remove" data-remove-pending="${index}" aria-label="Прибрати файл">✕</button>
     </li>`);
   });
 
@@ -583,10 +582,45 @@ function renderAttachmentsPanel(existing = []) {
 }
 
 let currentFormAttachments = [];
+let pendingFormFiles = [];
+const MAX_PENDING_FILES = 12;
+
+function fileKey(file) {
+  return `${file.name}::${file.size}::${file.lastModified}`;
+}
+
+function addPendingFiles(fileList) {
+  const incoming = [...(fileList || [])];
+  for (const file of incoming) {
+    const type = String(file.type || "").toLowerCase();
+    const name = String(file.name || "").toLowerCase();
+    const allowed = type.startsWith("image/") || type.startsWith("video/")
+      || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
+    if (!allowed) {
+      alert(`Файл «${file.name}» пропущено. Дозволені лише зображення та відео.`);
+      continue;
+    }
+    if (pendingFormFiles.some((item) => fileKey(item) === fileKey(file))) continue;
+    if (pendingFormFiles.length >= MAX_PENDING_FILES) {
+      alert(`Можна додати максимум ${MAX_PENDING_FILES} нових файлів за раз.`);
+      break;
+    }
+    pendingFormFiles.push(file);
+  }
+  const input = $("#attachments");
+  if (input) input.value = "";
+  renderAttachmentsPanel(currentFormAttachments);
+}
+
+function removePendingFile(index) {
+  pendingFormFiles.splice(index, 1);
+  renderAttachmentsPanel(currentFormAttachments);
+}
 
 function resetForm() {
   editingId = null;
   currentFormAttachments = [];
+  pendingFormFiles = [];
   $("#operationForm").reset();
   $("#operationId").value = "";
   $("#dialogTitle").textContent = "Нова операція";
@@ -662,7 +696,7 @@ async function saveOperation(event) {
     return;
   }
 
-  const files = [...($("#attachments")?.files || [])];
+  const files = [...pendingFormFiles];
   const maxBytes = 512 * 1024 * 1024;
   for (const file of files) {
     if (file.type && !file.type.startsWith("image/") && !file.type.startsWith("video/")) {
@@ -1164,7 +1198,12 @@ document.addEventListener("click", (event) => {
 });
 on("#closeOperation", "click", () => $("#operationDialog")?.close());
 on("#cancelOperation", "click", () => $("#operationDialog")?.close());
-on("#attachments", "change", () => renderAttachmentsPanel(currentFormAttachments));
+on("#attachments", "change", (event) => addPendingFiles(event.target.files));
+on("#attachmentsPanelList", "click", (event) => {
+  const button = event.target.closest("[data-remove-pending]");
+  if (!button) return;
+  removePendingFile(Number(button.dataset.removePending));
+});
 on("#operationForm", "submit", saveOperation);
 on("#search", "input", render);
 on("#patientName", "blur", (event) => {
