@@ -11,7 +11,7 @@
       })();
     </script>
     <style>html:not(.app-ready) body{visibility:hidden}</style>
-    <link rel="stylesheet" href="styles.css?v=20260814d" />
+    <link rel="stylesheet" href="styles.css?v=20260814e" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -54,7 +54,7 @@
     <main class="shell" id="appShell">
       <header class="topbar">
         <div>
-          <p class="clinic-name">Національний інститут фтизіатрії і пульмонології ім. Ф.Г. Яновського НАМН України</p>
+          <p class="clinic-name">Національний науковий центр фтизіатрії, пульмонології і алергології ім. Ф.Г. Яновського НАМН України</p>
           <p class="eyebrow">Хірургічне відділення</p>
           <h1>Розклад операцій</h1>
           <p class="subtitle">Пацієнти, операційні бригади та медичні матеріали в одному місці.</p>
@@ -70,6 +70,19 @@
       </nav>
 
       <section id="scheduleView">
+
+      <section class="dept-switcher" aria-label="Хірургічне відділення">
+        <button class="secondary week-nav-btn" id="prevDept" type="button" aria-label="Попереднє відділення">‹</button>
+        <div class="dept-switcher-main">
+          <p class="eyebrow">Хірургічне відділення</p>
+          <strong id="activeDeptLabel">Хірургічне відділення №1</strong>
+          <div class="dept-pills">
+            <button type="button" class="dept-pill active" data-dept="dept1">№1</button>
+            <button type="button" class="dept-pill" data-dept="dept2">№2</button>
+          </div>
+        </div>
+        <button class="secondary week-nav-btn" id="nextDept" type="button" aria-label="Наступне відділення">›</button>
+      </section>
 
       <section class="week-bar" aria-label="Тиждень розкладу">
         <button class="secondary week-nav-btn" id="prevWeek" type="button" aria-label="Попередній тиждень">‹</button>
@@ -95,7 +108,6 @@
 
       <section class="dept-board" data-dept="dept1">
         <div class="dept-head">
-          <h2>Хірургічне відділення №1</h2>
           <button class="secondary" type="button" data-add-dept="dept1">+ Додати операцію</button>
         </div>
         <div class="week-days mobile-week" id="dept1Days"></div>
@@ -112,9 +124,8 @@
         </section>
       </section>
 
-      <section class="dept-board" data-dept="dept2">
+      <section class="dept-board" data-dept="dept2" hidden>
         <div class="dept-head">
-          <h2>Хірургічне відділення №2</h2>
           <button class="secondary" type="button" data-add-dept="dept2">+ Додати операцію</button>
         </div>
         <div class="week-days mobile-week" id="dept2Days"></div>
@@ -308,6 +319,6 @@
     </dialog>
 
     <script src="api.js?v=20260814c"></script>
-    <script src="app.js?v=20260814d"></script>
+    <script src="app.js?v=20260814e"></script>
   </body>
 </html>

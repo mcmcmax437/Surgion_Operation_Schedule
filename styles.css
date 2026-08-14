@@ -523,15 +523,56 @@ dialog.media-fs-overlay::backdrop{
   align-items:center;
   margin:0 0 16px;
 }
+.dept-switcher{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:10px;
+  align-items:center;
+  margin:0 0 18px;
+  padding:16px 12px;
+  border:1px solid #dbe5ee;
+  border-radius:18px;
+  background:#e8f2fa;
+}
+.dept-switcher-main{text-align:center;min-width:0}
+.dept-switcher-main .eyebrow{margin:0 0 4px}
+.dept-switcher-main strong{
+  display:block;
+  color:#17365d;
+  font-size:clamp(22px, 4vw, 34px);
+  letter-spacing:-.04em;
+  line-height:1.2;
+}
+.dept-pills{display:inline-flex;gap:8px;margin-top:10px}
+.dept-pill{
+  min-width:64px;
+  min-height:40px;
+  border:1px solid #9fc0d8;
+  border-radius:999px;
+  background:#fff;
+  color:#17365d;
+  font:inherit;
+  font-size:16px;
+  font-weight:800;
+  cursor:pointer;
+}
+.dept-pill.active{
+  background:#17365d;
+  border-color:#17365d;
+  color:#fff;
+  box-shadow:0 6px 14px #17365d33;
+}
+.theme-dark .dept-switcher{background:#182b3b;border-color:#4b5563}
+.theme-dark .dept-switcher-main strong{color:#dbeafe}
+.theme-dark .dept-pill{background:#1f2937;border-color:#4b5563;color:#dbeafe}
+.theme-dark .dept-pill.active{background:#47759b;border-color:#47759b;color:#fff}
 .week-nav-btn{min-width:44px;padding:8px 12px;font-size:22px;font-weight:800}
 .week-label-wrap{text-align:center;min-width:0}
 .week-label-wrap .eyebrow{margin:0}
 .week-label-wrap strong{display:block;color:#17365d;font-size:22px;letter-spacing:-.03em}
 .theme-dark .week-label-wrap strong{color:#dbeafe}
 .dept-board{margin:0 0 22px}
-.dept-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
-.dept-head h2{margin:0;font-size:20px;color:#17365d}
-.theme-dark .dept-head h2{color:#dbeafe}
+.dept-head{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:0 0 10px}
 .queue-badge{
   display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 8px;
   border-radius:999px;background:#17365d;color:#fff;font-weight:800;font-size:13px
@@ -592,6 +633,8 @@ dialog.media-fs-overlay::backdrop{
 @media (max-width:760px){
   .week-bar{grid-template-columns:auto minmax(0,1fr) auto}
   #thisWeek{grid-column:1/-1}
+  .dept-switcher{padding:14px 8px;margin-bottom:14px}
+  .dept-switcher-main strong{font-size:22px}
   .desktop-week{display:none!important}
   .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
   .dept-head{align-items:flex-start;flex-direction:column}

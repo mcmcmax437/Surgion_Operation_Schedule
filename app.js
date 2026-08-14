@@ -25,7 +25,7 @@ const DEPARTMENTS = [
 ];
 const INFECTION_OPTIONS = ["HCV", "HbsAg", "HIV", "RW"];
 const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт"];
-let defaultDepartment = "dept1";
+let defaultDepartment = localStorage.getItem("surgery-dept") === "dept2" ? "dept2" : "dept1";
 
 function addDaysYmd(ymd, days) {
   const [year, month, day] = String(ymd).split("-").map(Number);
@@ -90,7 +90,26 @@ function setSelectedInfections(values = []) {
   });
 }
 
-let weekMonday = currentWorkWeekMonday();
+function setActiveDepartment(id) {
+  defaultDepartment = id === "dept2" ? "dept2" : "dept1";
+  localStorage.setItem("surgery-dept", defaultDepartment);
+  document.querySelectorAll(".dept-board").forEach((board) => {
+    board.hidden = board.dataset.dept !== defaultDepartment;
+  });
+  document.querySelectorAll(".dept-pill").forEach((button) => {
+    button.classList.toggle("active", button.dataset.dept === defaultDepartment);
+  });
+  if ($("#activeDeptLabel")) $("#activeDeptLabel").textContent = departmentLabel(defaultDepartment);
+  if ($("#department") && !$("#operationDialog")?.open) {
+    $("#department").value = defaultDepartment;
+  }
+}
+
+function cycleDepartment(step) {
+  const index = DEPARTMENTS.findIndex((item) => item.id === defaultDepartment);
+  const next = DEPARTMENTS[(index + step + DEPARTMENTS.length) % DEPARTMENTS.length];
+  setActiveDepartment(next.id);
+}
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -1116,10 +1135,7 @@ on("#logout", "click", async () => {
   clearAuth();
   window.location.replace("login.html");
 });
-on("#addOperation", "click", () => {
-  defaultDepartment = "dept1";
-  openForm();
-});
+on("#addOperation", "click", () => openForm());
 on("#prevWeek", "click", () => {
   weekMonday = addDaysYmd(weekMonday, -7);
   render();
@@ -1131,6 +1147,12 @@ on("#nextWeek", "click", () => {
 on("#thisWeek", "click", () => {
   weekMonday = currentWorkWeekMonday();
   render();
+});
+on("#prevDept", "click", () => cycleDepartment(-1));
+on("#nextDept", "click", () => cycleDepartment(1));
+document.addEventListener("click", (event) => {
+  const pill = event.target.closest(".dept-pill");
+  if (pill?.dataset.dept) setActiveDepartment(pill.dataset.dept);
 });
 document.addEventListener("click", (event) => {
   const addBtn = event.target.closest("[data-add-dept]");
@@ -1231,6 +1253,7 @@ showView("schedule");
   try {
     await api("/session");
     document.documentElement.classList.add("app-ready");
+    setActiveDepartment(defaultDepartment);
     await refresh();
   } catch (error) {
     console.error(error);
