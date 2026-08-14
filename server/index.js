@@ -167,15 +167,19 @@ function shouldArchiveDate(dateYmd) {
 }
 
 async function nextQueueNo(connection, { date, department, excludeId = null }) {
+  const hasDate = date ? 1 : 0;
   const [rows] = await connection.query(
     excludeId
       ? `SELECT COALESCE(MAX(queue_no), 0) AS max_queue
          FROM operations
-         WHERE date = :date AND department = :department AND id <> :excludeId`
+         WHERE department = :department
+           AND id <> :excludeId
+           AND ((:has_date = 0 AND date IS NULL) OR (:has_date = 1 AND date = :date))`
       : `SELECT COALESCE(MAX(queue_no), 0) AS max_queue
          FROM operations
-         WHERE date = :date AND department = :department`,
-    { date, department, excludeId },
+         WHERE department = :department
+           AND ((:has_date = 0 AND date IS NULL) OR (:has_date = 1 AND date = :date))`,
+    { date: date || null, department, excludeId, has_date: hasDate },
   );
   return Number(rows[0]?.max_queue || 0) + 1;
 }
@@ -351,8 +355,8 @@ app.get("/api/operations", auth, async (req, res) => {
 
 app.post("/api/operations", auth, upload.array("files", 12), async (req, res) => {
   const data = bodyToOperation(req.body);
-  if (!data.date || !data.patient || !data.procedure) {
-    return res.status(400).json({ error: "date, patient and procedure are required" });
+  if (!data.patient || !data.procedure) {
+    return res.status(400).json({ error: "patient and procedure are required" });
   }
 
   const connection = await pool.getConnection();
@@ -439,8 +443,8 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
 
 app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res) => {
   const data = bodyToOperation(req.body);
-  if (!data.date || !data.patient || !data.procedure) {
-    return res.status(400).json({ error: "date, patient and procedure are required" });
+  if (!data.patient || !data.procedure) {
+    return res.status(400).json({ error: "patient and procedure are required" });
   }
 
   const connection = await pool.getConnection();

@@ -103,12 +103,39 @@ function escapeHtml(value = "") {
 }
 
 function formatDate(date) {
-  if (!date) return "—";
+  if (!date) return "Без дати";
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   }).format(new Date(`${date}T00:00:00`));
+}
+
+function formatShortName(value) {
+  const raw = String(value || "").trim().replace(/\s+/g, " ");
+  if (!raw) return "";
+  const parts = raw.split(" ");
+  const surname = parts[0];
+  const initials = parts.slice(1).flatMap((token) => {
+    if (token.includes(".")) {
+      return token.split(".").filter(Boolean).map((part) => {
+        const letter = part.match(/[A-Za-zА-Яа-яІіЇїЄєҐґЁё]/);
+        return letter ? `${letter[0].toUpperCase()}.` : "";
+      }).filter(Boolean);
+    }
+    const letter = token.match(/[A-Za-zА-Яа-яІіЇїЄєҐґЁё]/);
+    return letter ? [`${letter[0].toUpperCase()}.`] : [];
+  });
+  return initials.length ? `${surname} ${initials.join("")}` : surname;
+}
+
+function hasInfectionRisk(item) {
+  return (item.infections || []).some((value) => INFECTION_OPTIONS.includes(value));
+}
+
+function dangerMarkHtml(item) {
+  if (!hasInfectionRisk(item)) return "";
+  return `<span class="danger-bang" title="${escapeHtml(infectionLabel(item))}" aria-label="Потенційна небезпека для лікаря">!</span>`;
 }
 
 function formatDateTime(value) {
@@ -124,12 +151,13 @@ function formatDateTime(value) {
 }
 
 function namesForOperation(item, field, fallback) {
-  return Array.isArray(item[field]) && item[field].length ? item[field] : (item[fallback] ? [item[fallback]] : []);
+  const names = Array.isArray(item[field]) && item[field].length ? item[field] : (item[fallback] ? [item[fallback]] : []);
+  return names.map(formatShortName);
 }
 
 function renderPersonChips(names) {
   if (!names.length) return '<span class="sub">Не призначено</span>';
-  return `<div class="people-chips">${names.map((name) => `<span class="person-chip">${escapeHtml(name)}</span>`).join("")}</div>`;
+  return `<div class="people-chips">${names.map((name) => `<span class="person-chip">${escapeHtml(formatShortName(name))}</span>`).join("")}</div>`;
 }
 
 function renderPicker(containerId, options, selected = []) {
@@ -152,14 +180,14 @@ function paintPicker(containerId, selected = null) {
   const searchInput = $(`#${containerId}Search`);
   const term = (searchInput?.value || "").trim().toLowerCase();
   const filtered = term
-    ? options.filter((name) => name.toLowerCase().includes(term))
+    ? options.filter((name) => name.toLowerCase().includes(term) || formatShortName(name).toLowerCase().includes(term))
     : options;
 
   container.innerHTML = filtered.length
     ? filtered.map((name) => `
       <label class="picker-option">
         <input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${checked.includes(name) ? "checked" : ""} />
-        <span>${escapeHtml(name)}</span>
+        <span>${escapeHtml(formatShortName(name))}</span>
       </label>`).join("")
     : `<div class="picker-empty">Нікого не знайдено</div>`;
 }
@@ -213,10 +241,10 @@ function renderStaffLists() {
     const list = staff[type];
     $(`#${countId}`).textContent = list.length;
     $(`#${listId}`).innerHTML = list.map((name, index) => {
-      const initials = name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+      const initials = formatShortName(name).replace(/[^A-Za-zА-Яа-яІіЇїЄєҐґЁё]/g, "").slice(0, 2).toUpperCase() || "?";
       return `<div class="staff-person">
         <span class="staff-person-avatar">${escapeHtml(initials)}</span>
-        <span class="staff-person-name">${escapeHtml(name)}</span>
+        <span class="staff-person-name">${escapeHtml(formatShortName(name))}</span>
         <div class="staff-actions">
           <button type="button" data-staff-action="edit" data-staff-type="${type}" data-index="${index}">Редагувати</button>
           <button type="button" data-staff-action="delete" data-staff-type="${type}" data-index="${index}">Видалити</button>
@@ -247,10 +275,10 @@ async function saveStaffLists() {
 async function submitStaff(type, event) {
   event.preventDefault();
   const prefix = type === "team" ? "team" : "anesthesiologist";
-  const name = $(`#${prefix}NameInput`).value.trim();
+  const name = formatShortName($(`#${prefix}NameInput`).value);
   const editIndex = $(`#${prefix}EditIndex`).value;
   if (!name) return;
-  if (staff[type].some((item, index) => item.toLowerCase() === name.toLowerCase() && String(index) !== editIndex)) {
+  if (staff[type].some((item, index) => formatShortName(item).toLowerCase() === name.toLowerCase() && String(index) !== editIndex)) {
     alert("Ця людина вже є у списку.");
     return;
   }
@@ -262,7 +290,7 @@ async function submitStaff(type, event) {
 
 function editStaff(type, index) {
   const prefix = type === "team" ? "team" : "anesthesiologist";
-  $(`#${prefix}NameInput`).value = staff[type][index];
+  $(`#${prefix}NameInput`).value = formatShortName(staff[type][index]);
   $(`#${prefix}EditIndex`).value = index;
   $(`#${prefix}SaveButton`).textContent = "Зберегти зміни";
   $(`#${prefix}CancelEdit`).hidden = false;
@@ -281,7 +309,7 @@ function filteredOperations() {
 
   return [...operations]
     .filter((item) => {
-      if (!item.date || item.date < weekMonday || item.date > friday) return false;
+      if (item.date && (item.date < weekMonday || item.date > friday)) return false;
       const text = [
         item.patient,
         item.diagnosis,
@@ -294,6 +322,8 @@ function filteredOperations() {
       return !searchTerm || text.includes(searchTerm);
     })
     .sort((a, b) => {
+      if (!a.date && b.date) return -1;
+      if (a.date && !b.date) return 1;
       const byDate = String(a.date || "").localeCompare(String(b.date || ""));
       if (byDate) return byDate;
       return Number(a.queueNo || 0) - Number(b.queueNo || 0);
@@ -302,13 +332,14 @@ function filteredOperations() {
 
 function operationRowHtml(item) {
   const danger = infectionLabel(item);
-  const dangerClass = (item.infections || []).length ? "infection-alert" : "infection-ok";
+  const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
+  const queueLabel = item.date ? String(item.queueNo || 1) : (item.queueNo ? String(item.queueNo) : "—");
   return `
-    <tr class="op-row is-expanded" data-id="${item.id}">
-      <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span></td>
+    <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
+      <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(queueLabel)}</span></td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${escapeHtml(item.patient)}</span>
+        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
         <span class="sub">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
@@ -336,13 +367,15 @@ function operationRowHtml(item) {
 
 function mobileCardHtml(item) {
   const danger = infectionLabel(item);
-  const dangerClass = (item.infections || []).length ? "infection-alert" : "infection-ok";
+  const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
   const diagnosis = item.diagnosis ? `<p class="week-diagnosis">${escapeHtml(item.diagnosis)}</p>` : "";
+  const queueLabel = item.date ? String(item.queueNo || 1) : (item.queueNo ? String(item.queueNo) : "—");
   return `
-    <article class="week-card" data-id="${item.id}">
+    <article class="week-card ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
       <div class="week-card-top">
-        <span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span>
-        <strong class="patient">${escapeHtml(item.patient)}</strong>
+        ${dangerMarkHtml(item)}
+        <span class="queue-badge">${escapeHtml(queueLabel)}</span>
+        <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
       </div>
       <p class="week-procedure">${escapeHtml(item.procedure || "—")}</p>
@@ -372,7 +405,14 @@ function renderDepartment(deptId, rows) {
   if (empty) empty.hidden = rows.length > 0;
 
   if (days) {
-    days.innerHTML = WEEKDAY_SHORT.map((label, index) => {
+    const undated = rows.filter((item) => !item.date);
+    const undatedBlock = undated.length
+      ? `<section class="week-day week-undated">
+          <h3>Без дати</h3>
+          ${undated.map(mobileCardHtml).join("")}
+        </section>`
+      : "";
+    days.innerHTML = undatedBlock + WEEKDAY_SHORT.map((label, index) => {
       const date = addDaysYmd(weekMonday, index);
       const dayRows = rows.filter((item) => item.date === date);
       return `
@@ -429,7 +469,7 @@ function renderArchive() {
       <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span></td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${escapeHtml(item.patient)}</span>
+        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
         <span class="sub">${escapeHtml(item.id)}</span>
       </td>
       <td data-label="Відділення">${escapeHtml(departmentLabel(item.department))}</td>
@@ -555,7 +595,7 @@ function openForm(id = null) {
       department: item.department || "dept1",
       operationDate: item.date,
       queueNo: item.queueNo || "",
-      patientName: item.patient,
+      patientName: formatShortName(item.patient),
       patientAge: item.patientAge,
       bloodGroup: item.bloodGroup,
       diagnosis: item.diagnosis,
@@ -573,11 +613,6 @@ function openForm(id = null) {
     renderAttachmentsPanel(currentFormAttachments);
   } else {
     renderAttachmentsPanel([]);
-    if ($("#operationDate") && !$("#operationDate").value) {
-      $("#operationDate").value = todayYmd() < weekMonday || todayYmd() > addDaysYmd(weekMonday, 4)
-        ? weekMonday
-        : todayYmd();
-    }
   }
 
   $("#operationDialog").showModal();
@@ -590,7 +625,7 @@ async function saveOperation(event) {
     date: $("#operationDate").value,
     queueNo: $("#queueNo")?.value || "",
     department: $("#department")?.value || "dept1",
-    patient: $("#patientName").value.trim(),
+    patient: formatShortName($("#patientName").value),
     patientAge: $("#patientAge")?.value || "",
     bloodGroup: $("#bloodGroup").value,
     teamMembers: selectedPickerValues("teamPicker"),
@@ -601,8 +636,8 @@ async function saveOperation(event) {
     notes: $("#notes").value.trim(),
   };
 
-  if (!data.date || !data.patient || !data.procedure) {
-    alert("Заповніть дату, ПІБ пацієнта та вид втручання.");
+  if (!data.patient || !data.procedure) {
+    alert("Заповніть ПІБ пацієнта та вид втручання.");
     return;
   }
 
@@ -1108,6 +1143,15 @@ on("#cancelOperation", "click", () => $("#operationDialog")?.close());
 on("#attachments", "change", () => renderAttachmentsPanel(currentFormAttachments));
 on("#operationForm", "submit", saveOperation);
 on("#search", "input", render);
+on("#patientName", "blur", (event) => {
+  event.target.value = formatShortName(event.target.value);
+});
+on("#teamNameInput", "blur", (event) => {
+  event.target.value = formatShortName(event.target.value);
+});
+on("#anesthesiologistNameInput", "blur", (event) => {
+  event.target.value = formatShortName(event.target.value);
+});
 on("#teamPickerSearch", "input", () => paintPicker("teamPicker"));
 on("#anesthesiologistPickerSearch", "input", () => paintPicker("anesthesiologistPicker"));
 on("#deleteOperation", "click", () => {

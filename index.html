@@ -11,7 +11,7 @@
       })();
     </script>
     <style>html:not(.app-ready) body{visibility:hidden}</style>
-    <link rel="stylesheet" href="styles.css?v=20260814c" />
+    <link rel="stylesheet" href="styles.css?v=20260814d" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -191,12 +191,12 @@
           <article class="staff-card">
             <div class="staff-card-head"><div><h3>Операційна бригада</h3><p>Можна призначити кількох людей.</p></div><span class="staff-count" id="teamCount">0</span></div>
             <div id="teamStaffList" class="staff-list"></div>
-            <form class="staff-form" id="teamStaffForm"><input type="hidden" id="teamEditIndex" value="" /><input id="teamNameInput" required placeholder="ПІБ нового учасника" /><div><button class="secondary" id="teamCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="teamSaveButton">+ Додати людину</button></div></form>
+            <form class="staff-form" id="teamStaffForm"><input type="hidden" id="teamEditIndex" value="" /><input id="teamNameInput" required placeholder="Прізвище І.Б." /><div><button class="secondary" id="teamCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="teamSaveButton">+ Додати людину</button></div></form>
           </article>
           <article class="staff-card">
             <div class="staff-card-head"><div><h3>Анестезіологи</h3><p>Можна призначити кількох людей.</p></div><span class="staff-count" id="anesthesiologistCount">0</span></div>
             <div id="anesthesiologistStaffList" class="staff-list"></div>
-            <form class="staff-form" id="anesthesiologistStaffForm"><input type="hidden" id="anesthesiologistEditIndex" value="" /><input id="anesthesiologistNameInput" required placeholder="ПІБ нового анестезіолога" /><div><button class="secondary" id="anesthesiologistCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="anesthesiologistSaveButton">+ Додати людину</button></div></form>
+            <form class="staff-form" id="anesthesiologistStaffForm"><input type="hidden" id="anesthesiologistEditIndex" value="" /><input id="anesthesiologistNameInput" required placeholder="Прізвище І.Б." /><div><button class="secondary" id="anesthesiologistCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="anesthesiologistSaveButton">+ Додати людину</button></div></form>
           </article>
         </div>
       </section>
@@ -211,9 +211,9 @@
             <option value="dept1">Хірургічне відділення №1</option>
             <option value="dept2">Хірургічне відділення №2</option>
           </select></label>
-          <label>Дата операції *<input id="operationDate" type="date" required /></label>
+          <label>Дата операції<input id="operationDate" type="date" /></label>
           <label>Номер у черзі<input id="queueNo" type="number" min="1" step="1" placeholder="авто" /></label>
-          <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Прізвище Ім’я По батькові" /></label>
+          <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Іванов І.Б." /></label>
           <label>Вік пацієнта<input id="patientAge" type="number" min="0" max="120" step="1" placeholder="років" /></label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
           <fieldset class="wide picker-field">
@@ -308,6 +308,6 @@
     </dialog>
 
     <script src="api.js?v=20260814c"></script>
-    <script src="app.js?v=20260814c"></script>
+    <script src="app.js?v=20260814d"></script>
   </body>
 </html>
