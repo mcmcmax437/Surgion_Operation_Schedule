@@ -5,7 +5,7 @@ if (!window.SurgeryAPI) {
 
 const { api, API_BASE, getToken, isAuthenticated, clearAuth } = window.SurgeryAPI;
 
-if (!isAuthenticated()) {
+if (!getToken()) {
   window.location.replace("login.html");
 }
 
@@ -1183,7 +1183,16 @@ on("#refreshLogs", "click", () => loadLogs());
 setTheme(localStorage.getItem("surgery-theme") || "light");
 showView("schedule");
 
-refresh().catch((error) => {
-  console.error(error);
-  alert("Не вдалося завантажити дані з сервера. Перевірте API / MySQL.");
-});
+(async function boot() {
+  try {
+    await api("/session");
+    document.documentElement.classList.add("app-ready");
+    await refresh();
+  } catch (error) {
+    console.error(error);
+    if (String(error.message || "") !== "Unauthorized") {
+      document.documentElement.classList.add("app-ready");
+      alert("Не вдалося завантажити дані з сервера. Перевірте API / MySQL.");
+    }
+  }
+})();

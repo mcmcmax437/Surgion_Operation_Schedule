@@ -4,7 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260814b" />
+    <script>
+      (function () {
+        var token = localStorage.getItem("surgery-token") || sessionStorage.getItem("surgery-token");
+        if (!token) location.replace("login.html");
+      })();
+    </script>
+    <style>html:not(.app-ready) body{visibility:hidden}</style>
+    <link rel="stylesheet" href="styles.css?v=20260814c" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -300,7 +307,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260814b"></script>
-    <script src="app.js?v=20260814b"></script>
+    <script src="api.js?v=20260814c"></script>
+    <script src="app.js?v=20260814c"></script>
   </body>
 </html>
