@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS operations (
   id VARCHAR(32) PRIMARY KEY,
   date DATE NULL,
   time TIME NULL,
-  queue_no INT NOT NULL DEFAULT 1,
+  queue_no INT NULL,
   department VARCHAR(16) NOT NULL DEFAULT 'dept1',
   patient VARCHAR(255) NOT NULL,
   birth_date DATE NULL,

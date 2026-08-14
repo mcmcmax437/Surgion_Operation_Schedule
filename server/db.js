@@ -74,8 +74,10 @@ export async function migrate(pool) {
   }
   if (!(await columnExists(pool, "operations", "queue_no"))) {
     await pool.query(
-      `ALTER TABLE operations ADD COLUMN queue_no INT NOT NULL DEFAULT 1 AFTER time`,
+      `ALTER TABLE operations ADD COLUMN queue_no INT NULL AFTER time`,
     );
+  } else {
+    await pool.query(`ALTER TABLE operations MODIFY COLUMN queue_no INT NULL`);
   }
   if (!(await columnExists(pool, "operations", "patient_age"))) {
     await pool.query(
@@ -91,28 +93,6 @@ export async function migrate(pool) {
     await pool.query(
       `ALTER TABLE operations ADD INDEX idx_operations_dept_date (department, date, queue_no)`,
     );
-  }
-
-  const [groups] = await pool.query(
-    `SELECT date, department, COUNT(*) AS c, SUM(queue_no = 1) AS ones
-     FROM operations
-     WHERE date IS NOT NULL
-     GROUP BY date, department
-     HAVING c > 1 AND ones = c`,
-  );
-  for (const group of groups) {
-    const [rows] = await pool.query(
-      `SELECT id FROM operations
-       WHERE date = :date AND department = :department
-       ORDER BY created_at ASC, id ASC`,
-      { date: group.date, department: group.department },
-    );
-    for (const [index, row] of rows.entries()) {
-      await pool.query(`UPDATE operations SET queue_no = :queue_no WHERE id = :id`, {
-        queue_no: index + 1,
-        id: row.id,
-      });
-    }
   }
 }
 
@@ -166,7 +146,7 @@ export function mapOperation(row, attachments = []) {
     id: row.id,
     date: row.date || "",
     time: row.time ? String(row.time).slice(0, 5) : "",
-    queueNo: Number(row.queue_no || 1),
+    queueNo: row.queue_no == null || row.queue_no === "" ? null : Number(row.queue_no),
     department: row.department === "dept2" ? "dept2" : "dept1",
     patient: row.patient,
     birthDate: row.birth_date || "",

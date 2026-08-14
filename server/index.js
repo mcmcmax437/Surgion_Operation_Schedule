@@ -166,24 +166,6 @@ function shouldArchiveDate(dateYmd) {
   return Boolean(dateYmd && dateYmd < currentWeekMonday());
 }
 
-async function nextQueueNo(connection, { date, department, excludeId = null }) {
-  const hasDate = date ? 1 : 0;
-  const [rows] = await connection.query(
-    excludeId
-      ? `SELECT COALESCE(MAX(queue_no), 0) AS max_queue
-         FROM operations
-         WHERE department = :department
-           AND id <> :excludeId
-           AND ((:has_date = 0 AND date IS NULL) OR (:has_date = 1 AND date = :date))`
-      : `SELECT COALESCE(MAX(queue_no), 0) AS max_queue
-         FROM operations
-         WHERE department = :department
-           AND ((:has_date = 0 AND date IS NULL) OR (:has_date = 1 AND date = :date))`,
-    { date: date || null, department, excludeId, has_date: hasDate },
-  );
-  return Number(rows[0]?.max_queue || 0) + 1;
-}
-
 async function unlinkAttachmentFiles(files) {
   for (const file of files) {
     const full = path.join(uploadsDir, file.storage_path);
@@ -366,10 +348,6 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
     const now = new Date();
 
     const archivedAt = shouldArchiveDate(data.date) ? now : null;
-    const queueNo = data.queueNo || await nextQueueNo(connection, {
-      date: data.date,
-      department: data.department,
-    });
     await connection.query(
       `INSERT INTO operations
         (id, date, time, queue_no, department, patient, birth_date, patient_age, blood_group, diagnosis, \`procedure\`,
@@ -381,7 +359,7 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
         id,
         date: data.date,
         time: data.time || null,
-        queue_no: queueNo,
+        queue_no: data.queueNo,
         department: data.department,
         patient: data.patient,
         birth_date: data.birthDate || null,
@@ -458,11 +436,6 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
 
     const now = new Date();
     const keepArchived = shouldArchiveDate(data.date);
-    const queueNo = data.queueNo || await nextQueueNo(connection, {
-      date: data.date,
-      department: data.department,
-      excludeId: req.params.id,
-    });
     await connection.query(
       `UPDATE operations SET
         date = :date,
@@ -490,7 +463,7 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         id: req.params.id,
         date: data.date,
         time: data.time || null,
-        queue_no: queueNo,
+        queue_no: data.queueNo,
         department: data.department,
         patient: data.patient,
         birth_date: data.birthDate || null,

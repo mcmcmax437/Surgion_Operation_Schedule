@@ -24,7 +24,7 @@ const DEPARTMENTS = [
   { id: "dept2", label: "Хірургічне відділення №2" },
 ];
 const INFECTION_OPTIONS = ["HCV", "HbsAg", "HIV", "RW"];
-const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 let defaultDepartment = localStorage.getItem("surgery-dept") === "dept2" ? "dept2" : "dept1";
 
 function addDaysYmd(ymd, days) {
@@ -54,21 +54,26 @@ function mondayOf(ymd) {
 }
 
 function currentWorkWeekMonday() {
-  const today = todayYmd();
-  const monday = mondayOf(today);
-  const sunday0 = new Date(`${today}T12:00:00`).getDay();
-  if (sunday0 === 0 || sunday0 === 6) return addDaysYmd(monday, 7);
-  return monday;
+  return mondayOf(todayYmd());
 }
 
 function formatDayMonth(ymd) {
   if (!ymd) return "—";
-  const [, month, day] = ymd.split("-");
-  return `${day}.${month}`;
+  const [year, month, day] = ymd.split("-");
+  return `${day}/${month}/${String(year).slice(-2)}`;
 }
 
 function formatWeekRange(monday) {
-  return `${formatDayMonth(monday)}–${formatDayMonth(addDaysYmd(monday, 4))}`;
+  return `${formatDayMonth(monday)}–${formatDayMonth(addDaysYmd(monday, 6))}`;
+}
+
+function queueLabel(item) {
+  return item.queueNo ? String(item.queueNo) : "?";
+}
+
+function queueBadgeHtml(item) {
+  const label = queueLabel(item);
+  return `<span class="queue-badge${label === "?" ? " is-empty" : ""}">${escapeHtml(label)}</span>`;
 }
 
 function departmentLabel(id) {
@@ -125,11 +130,7 @@ function escapeHtml(value = "") {
 
 function formatDate(date) {
   if (!date) return "Без дати";
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
+  return formatDayMonth(date);
 }
 
 function formatShortName(value) {
@@ -161,14 +162,13 @@ function dangerMarkHtml(item) {
 
 function formatDateTime(value) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(value));
+  const date = new Date(value);
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yy = String(date.getFullYear()).slice(-2);
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yy} ${hh}:${min}`;
 }
 
 function namesForOperation(item, field, fallback) {
@@ -326,11 +326,11 @@ async function deleteStaff(type, index) {
 
 function filteredOperations() {
   const searchTerm = ($("#search")?.value || "").trim().toLowerCase();
-  const friday = addDaysYmd(weekMonday, 4);
+  const sunday = addDaysYmd(weekMonday, 6);
 
   return [...operations]
     .filter((item) => {
-      if (item.date && (item.date < weekMonday || item.date > friday)) return false;
+      if (item.date && (item.date < weekMonday || item.date > sunday)) return false;
       const text = [
         item.patient,
         item.diagnosis,
@@ -347,17 +347,18 @@ function filteredOperations() {
       if (a.date && !b.date) return 1;
       const byDate = String(a.date || "").localeCompare(String(b.date || ""));
       if (byDate) return byDate;
-      return Number(a.queueNo || 0) - Number(b.queueNo || 0);
+      const aq = a.queueNo == null ? 9999 : Number(a.queueNo);
+      const bq = b.queueNo == null ? 9999 : Number(b.queueNo);
+      return aq - bq;
     });
 }
 
 function operationRowHtml(item) {
   const danger = infectionLabel(item);
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
-  const queueLabel = item.date ? String(item.queueNo || 1) : (item.queueNo ? String(item.queueNo) : "—");
   return `
     <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
-      <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(queueLabel)}</span></td>
+      <td class="col-queue" data-label="Черга">${queueBadgeHtml(item)}</td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
@@ -390,12 +391,11 @@ function mobileCardHtml(item) {
   const danger = infectionLabel(item);
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
   const diagnosis = item.diagnosis ? `<p class="week-diagnosis">${escapeHtml(item.diagnosis)}</p>` : "";
-  const queueLabel = item.date ? String(item.queueNo || 1) : (item.queueNo ? String(item.queueNo) : "—");
   return `
     <article class="week-card ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
       <div class="week-card-top">
         ${dangerMarkHtml(item)}
-        <span class="queue-badge">${escapeHtml(queueLabel)}</span>
+        ${queueBadgeHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
       </div>
@@ -478,7 +478,9 @@ function renderArchive() {
   const rows = [...archivedOperations].sort((a, b) => {
     const byDate = String(b.date || "").localeCompare(String(a.date || ""));
     if (byDate) return byDate;
-    return Number(a.queueNo || 0) - Number(b.queueNo || 0);
+    const aq = a.queueNo == null ? 9999 : Number(a.queueNo);
+    const bq = b.queueNo == null ? 9999 : Number(b.queueNo);
+    return aq - bq;
   });
 
   body.innerHTML = rows.map((item) => {
@@ -487,7 +489,7 @@ function renderArchive() {
     const danger = infectionLabel(item);
     return `
     <tr class="op-row is-expanded" data-id="${item.id}">
-      <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span></td>
+      <td class="col-queue" data-label="Черга">${queueBadgeHtml(item)}</td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>

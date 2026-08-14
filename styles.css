@@ -577,7 +577,10 @@ dialog.media-fs-overlay::backdrop{
   display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 8px;
   border-radius:999px;background:#17365d;color:#fff;font-weight:800;font-size:13px
 }
-.theme-dark .queue-badge{background:#47759b}
+.queue-badge.is-empty{
+  background:#94a3b8;
+  color:#fff;
+}
 .infection-ok{color:#356b45;font-weight:700}
 .infection-alert{color:#9a3412;font-weight:800}
 .theme-dark .infection-ok{color:#86efac}
