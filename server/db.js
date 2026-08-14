@@ -5,6 +5,51 @@ import mysql from "mysql2/promise";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const MIME_BY_EXT = {
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".avi": "video/x-msvideo",
+  ".mkv": "video/x-matroska",
+  ".3gp": "video/3gpp",
+  ".mpeg": "video/mpeg",
+  ".mpg": "video/mpeg",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
+};
+
+export function decodeOriginalName(name) {
+  const raw = String(name || "").trim();
+  if (!raw) return "file";
+  if (/[А-Яа-яІіЇїЄєҐґЁё]/.test(raw)) return raw;
+  try {
+    const decoded = Buffer.from(raw, "latin1").toString("utf8");
+    if (decoded.includes("\uFFFD")) return raw;
+    if (/[А-Яа-яІіЇїЄєҐґЁё]/.test(decoded)) return decoded;
+  } catch {
+    // keep original
+  }
+  return raw;
+}
+
+export function guessMime(name, fallback = "application/octet-stream") {
+  const ext = path.extname(decodeOriginalName(name)).toLowerCase();
+  const fromName = MIME_BY_EXT[ext];
+  const type = String(fallback || "").toLowerCase();
+  if (fromName && (!type || type === "application/octet-stream" || type === "binary/octet-stream")) {
+    return fromName;
+  }
+  if (type.startsWith("video/") || type.startsWith("image/")) return type;
+  return fromName || fallback || "application/octet-stream";
+}
+
 export function createPool() {
   return mysql.createPool({
     host: process.env.MYSQL_HOST || "127.0.0.1",
@@ -165,8 +210,8 @@ export function mapOperation(row, attachments = []) {
     updatedAt: row.updated_at,
     attachments: attachments.map((file) => ({
       id: file.id,
-      name: file.original_name,
-      type: file.mime_type,
+      name: decodeOriginalName(file.original_name),
+      type: guessMime(file.original_name, file.mime_type),
       size: Number(file.size_bytes),
     })),
   };

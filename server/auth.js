@@ -87,10 +87,19 @@ export async function logChange(pool, {
   );
 }
 
+export function requestToken(req) {
+  const header = req.headers.authorization || "";
+  if (header.startsWith("Bearer ")) return header.slice(7);
+  if (req.method === "GET" && /^\/api\/attachments\//.test(req.path || req.originalUrl || "")) {
+    const queryToken = req.query?.access_token || req.query?.token;
+    if (queryToken) return String(queryToken);
+  }
+  return "";
+}
+
 export function requireAuth(pool) {
   return async (req, res, next) => {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    const token = requestToken(req);
     if (!token) {
       return res.status(401).json({ error: "Unauthorized" });
     }

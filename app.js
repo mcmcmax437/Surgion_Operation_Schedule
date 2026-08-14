@@ -533,8 +533,8 @@ function formatFileSize(bytes) {
 
 function isVideoFile(file) {
   const type = file.type || file.mime || "";
-  const name = file.name || "";
-  return type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(name);
+  const name = decodeFileName(file.name || "");
+  return type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|mpeg|mpg)$/i.test(name);
 }
 
 function renderAttachmentsPanel(existing = []) {
@@ -551,7 +551,7 @@ function renderAttachmentsPanel(existing = []) {
     rows.push(`<li class="attachment-row is-saved">
       <span class="selected-file-icon">${video ? "🎥" : "🖼️"}</span>
       <span class="selected-file-meta">
-        <strong>${escapeHtml(file.name)}</strong>
+        <strong>${escapeHtml(decodeFileName(file.name))}</strong>
         <small>${video ? "відео" : "зображення"} · уже збережено</small>
       </span>
       <button type="button" class="attachment-remove" data-remove-saved="${escapeHtml(file.id)}" aria-label="Видалити файл">✕</button>
@@ -563,7 +563,7 @@ function renderAttachmentsPanel(existing = []) {
     rows.push(`<li class="attachment-row is-pending">
       <span class="selected-file-icon">${video ? "🎥" : "🖼️"}</span>
       <span class="selected-file-meta">
-        <strong>${escapeHtml(file.name)}</strong>
+        <strong>${escapeHtml(decodeFileName(file.name))}</strong>
         <small>${escapeHtml(formatFileSize(file.size))} · ${video ? "відео" : "зображення"} · нове</small>
       </span>
       <button type="button" class="attachment-remove" data-remove-pending="${index}" aria-label="Прибрати файл">✕</button>
@@ -839,14 +839,23 @@ function uploadForm(path, method, formData, onProgress) {
   });
 }
 
-async function attachmentUrl(id) {
+function attachmentUrl(id) {
   const token = getToken();
-  const response = await fetch(`${API_BASE}/attachments/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) throw new Error("Не вдалося завантажити файл");
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
+  return `${API_BASE}/attachments/${id}?access_token=${encodeURIComponent(token || "")}`;
+}
+
+function decodeFileName(name) {
+  const raw = String(name || "");
+  if (!raw) return "";
+  if (/[А-Яа-яІіЇїЄєҐґЁё]/.test(raw)) return raw;
+  try {
+    const bytes = Uint8Array.from(raw, (ch) => ch.charCodeAt(0) & 0xff);
+    const decoded = new TextDecoder("utf-8").decode(bytes);
+    if (!decoded.includes("\uFFFD") && /[А-Яа-яІіЇїЄєҐґЁё]/.test(decoded)) return decoded;
+  } catch {
+    // keep original
+  }
+  return raw;
 }
 
 async function deleteOperation(id) {
@@ -906,8 +915,7 @@ function updateMediaNavState() {
 function currentMediaIsVideo() {
   const current = mediaFiles[mediaIndex];
   if (!current) return false;
-  return (current.metadata.type || "").startsWith("video/")
-    || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(current.metadata.name || "");
+  return isVideoFile(current.metadata);
 }
 
 function updateMediaZoomUi() {
@@ -940,7 +948,7 @@ function downloadCurrentMedia() {
   if (!current) return;
   const link = document.createElement("a");
   link.href = current.url;
-  link.download = current.metadata.name || `media-${mediaIndex + 1}`;
+  link.download = decodeFileName(current.metadata.name) || `media-${mediaIndex + 1}`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -995,7 +1003,7 @@ function enterPseudoFullscreen() {
   if (!current || !overlay || !fsImg) return;
 
   fsImg.src = current.url;
-  fsImg.alt = current.metadata.name || "Зображення";
+  fsImg.alt = decodeFileName(current.metadata.name) || "Зображення";
   fsImg.style.transform = `scale(${mediaZoom})`;
   document.body.classList.add("media-fs-open");
   if (!overlay.open) overlay.showModal();
@@ -1074,23 +1082,35 @@ function renderMediaSlide() {
 
   const current = mediaFiles[mediaIndex];
   const isVideo = currentMediaIsVideo();
+  const fileName = decodeFileName(current.metadata.name);
   mediaZoom = 1;
   exitMediaFullscreen(true);
 
   body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">
     <div class="media-viewport">
       ${isVideo
-        ? `<video controls preload="metadata" playsinline src="${current.url}"></video>`
-        : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(current.metadata.name)}">`}
+        ? `<video controls playsinline webkit-playsinline preload="metadata" src="${current.url}"></video>`
+        : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(fileName)}">`}
     </div>
   </figure>`;
 
   if ($("#mediaCounter")) $("#mediaCounter").textContent = `${mediaIndex + 1} / ${mediaFiles.length}`;
-  if ($("#mediaFileName")) $("#mediaFileName").textContent = current.metadata.name || "";
+  if ($("#mediaFileName")) $("#mediaFileName").textContent = fileName || "";
   if ($("#mediaImageTools")) $("#mediaImageTools").hidden = isVideo;
   updateMediaNavState();
   updateMediaZoomUi();
   syncMediaFullscreenUi();
+
+  const video = body.querySelector("video");
+  if (video) {
+    video.addEventListener("error", () => {
+      if (body.querySelector(".empty-media")) return;
+      const note = document.createElement("p");
+      note.className = "empty-media";
+      note.textContent = "Не вдалося відтворити відео в браузері. Завантажте файл кнопкою нижче.";
+      body.appendChild(note);
+    });
+  }
 
   const img = body.querySelector("img.media-zoomable");
   if (img) {
@@ -1135,16 +1155,10 @@ async function viewOperation(id) {
   if ($("#mediaDelete")) $("#mediaDelete").hidden = true;
   dialog.showModal();
 
-  const files = [];
-  for (const metadata of item.attachments || []) {
-    try {
-      const url = await attachmentUrl(metadata.id);
-      mediaObjectUrls.push(url);
-      files.push({ metadata, url });
-    } catch {
-      // skip missing file
-    }
-  }
+  const files = (item.attachments || []).map((metadata) => ({
+    metadata: { ...metadata, name: decodeFileName(metadata.name) },
+    url: attachmentUrl(metadata.id),
+  }));
 
   mediaFiles = files;
   mediaIndex = 0;

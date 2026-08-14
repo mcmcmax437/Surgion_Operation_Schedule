@@ -12,6 +12,8 @@ import {
   seedStaff,
   mapOperation,
   parseJson,
+  decodeOriginalName,
+  guessMime,
 } from "./db.js";
 import {
   clientIp,
@@ -53,14 +55,15 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, uploadsDir),
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname || "").slice(0, 20);
+      const name = decodeOriginalName(file.originalname);
+      const ext = path.extname(name || "").slice(0, 20);
       cb(null, `${uuidv4()}${ext}`);
     },
   }),
   limits: { fileSize: 512 * 1024 * 1024, files: 12 },
   fileFilter: (_req, file, cb) => {
     const mime = String(file.mimetype || "").toLowerCase();
-    const name = String(file.originalname || "").toLowerCase();
+    const name = String(decodeOriginalName(file.originalname) || "").toLowerCase();
     const videoExt = /\.(mp4|mov|m4v|webm|avi|mkv|3gp|mpeg|mpg)$/i.test(name);
     const imageExt = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
     if (mime.startsWith("image/") || mime.startsWith("video/") || videoExt || imageExt) {
@@ -109,6 +112,64 @@ function bodyToOperation(body) {
     status: body.status || "Заплановано",
     notes: String(body.notes || "").trim(),
   };
+}
+
+function fileMeta(file) {
+  const originalName = decodeOriginalName(file.originalname);
+  return {
+    originalName,
+    mimeType: guessMime(originalName, file.mimetype),
+  };
+}
+
+function sendStoredFile(req, res, file) {
+  const full = path.join(uploadsDir, file.storage_path);
+  if (!fs.existsSync(full)) {
+    res.status(404).json({ error: "File missing" });
+    return;
+  }
+
+  const downloadName = decodeOriginalName(file.original_name);
+  const mime = guessMime(downloadName, file.mime_type);
+  const stat = fs.statSync(full);
+  const size = stat.size;
+  const range = req.headers.range;
+
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Content-Type", mime);
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+  );
+  res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+
+  if (!range) {
+    res.setHeader("Content-Length", size);
+    fs.createReadStream(full).pipe(res);
+    return;
+  }
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+  if (!match) {
+    res.status(416);
+    res.setHeader("Content-Range", `bytes */${size}`);
+    res.end();
+    return;
+  }
+
+  let start = match[1] === "" ? 0 : Number(match[1]);
+  let end = match[2] === "" ? size - 1 : Number(match[2]);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+    res.status(416);
+    res.setHeader("Content-Range", `bytes */${size}`);
+    res.end();
+    return;
+  }
+  end = Math.min(end, size - 1);
+  res.status(206);
+  res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+  res.setHeader("Content-Length", end - start + 1);
+  fs.createReadStream(full, { start, end }).pipe(res);
 }
 
 async function nextOperationId(connection) {
@@ -387,8 +448,8 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
         {
           id: uuidv4(),
           operation_id: id,
-          original_name: file.originalname,
-          mime_type: file.mimetype,
+          original_name: fileMeta(file).originalName,
+          mime_type: fileMeta(file).mimeType,
           size_bytes: file.size,
           storage_path: file.filename,
           created_at: now,
@@ -491,8 +552,8 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         {
           id: uuidv4(),
           operation_id: req.params.id,
-          original_name: file.originalname,
-          mime_type: file.mimetype,
+          original_name: fileMeta(file).originalName,
+          mime_type: fileMeta(file).mimeType,
           size_bytes: file.size,
           storage_path: file.filename,
           created_at: now,
@@ -580,17 +641,7 @@ app.get("/api/attachments/:id", auth, async (req, res) => {
     { id: req.params.id },
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
-
-  const file = rows[0];
-  const full = path.join(uploadsDir, file.storage_path);
-  if (!fs.existsSync(full)) return res.status(404).json({ error: "File missing" });
-
-  res.setHeader("Content-Type", file.mime_type);
-  res.setHeader(
-    "Content-Disposition",
-    `inline; filename*=UTF-8''${encodeURIComponent(file.original_name)}`,
-  );
-  fs.createReadStream(full).pipe(res);
+  sendStoredFile(req, res, rows[0]);
 });
 
 app.get("/api/staff", auth, async (_req, res) => {
