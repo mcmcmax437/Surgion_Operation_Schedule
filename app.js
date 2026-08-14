@@ -3,9 +3,9 @@ if (!window.SurgeryAPI) {
   throw new Error("SurgeryAPI missing");
 }
 
-const { api, AUTH_KEY, TOKEN_KEY, API_BASE } = window.SurgeryAPI;
+const { api, API_BASE, getToken, isAuthenticated, clearAuth } = window.SurgeryAPI;
 
-if (sessionStorage.getItem(AUTH_KEY) !== "1" || !sessionStorage.getItem(TOKEN_KEY)) {
+if (!isAuthenticated()) {
   window.location.replace("login.html");
 }
 
@@ -19,6 +19,78 @@ let archivedOperations = [];
 let staff = { team: [], anesthesiologists: [] };
 let editingId = null;
 const ARCHIVE_RETENTION_DAYS = 7;
+const DEPARTMENTS = [
+  { id: "dept1", label: "Хірургічне відділення №1" },
+  { id: "dept2", label: "Хірургічне відділення №2" },
+];
+const INFECTION_OPTIONS = ["HCV", "HbsAg", "HIV", "RW"];
+const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+let defaultDepartment = "dept1";
+
+function addDaysYmd(ymd, days) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const date = new Date(year, month - 1, day + days);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function todayYmd() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function mondayOf(ymd) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const sunday0 = new Date(year, month - 1, day).getDay();
+  const offset = sunday0 === 0 ? -6 : 1 - sunday0;
+  return addDaysYmd(ymd, offset);
+}
+
+function currentWorkWeekMonday() {
+  const today = todayYmd();
+  const monday = mondayOf(today);
+  const sunday0 = new Date(`${today}T12:00:00`).getDay();
+  if (sunday0 === 0 || sunday0 === 6) return addDaysYmd(monday, 7);
+  return monday;
+}
+
+function formatDayMonth(ymd) {
+  if (!ymd) return "—";
+  const [, month, day] = ymd.split("-");
+  return `${day}.${month}`;
+}
+
+function formatWeekRange(monday) {
+  return `${formatDayMonth(monday)}–${formatDayMonth(addDaysYmd(monday, 4))}`;
+}
+
+function departmentLabel(id) {
+  return DEPARTMENTS.find((item) => item.id === id)?.label || "Відділення";
+}
+
+function infectionLabel(item) {
+  const selected = (item.infections || []).filter((value) => INFECTION_OPTIONS.includes(value));
+  return selected.length ? selected.join(", ") : "Без супутніх інфекцій";
+}
+
+function selectedInfections() {
+  return [...document.querySelectorAll("#infectionPicks input:checked")].map((input) => input.value);
+}
+
+function setSelectedInfections(values = []) {
+  document.querySelectorAll("#infectionPicks input").forEach((input) => {
+    input.checked = values.includes(input.value);
+  });
+}
+
+let weekMonday = currentWorkWeekMonday();
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -204,67 +276,48 @@ async function deleteStaff(type, index) {
 }
 
 function filteredOperations() {
-  const searchTerm = $("#search").value.trim().toLowerCase();
-  const selectedStatus = $("#statusFilter").value;
+  const searchTerm = ($("#search")?.value || "").trim().toLowerCase();
+  const friday = addDaysYmd(weekMonday, 4);
 
   return [...operations]
-    .sort((a, b) => {
-      const first = new Date(`${a.date || "9999-12-31"}T${a.time || "23:59"}`).getTime();
-      const second = new Date(`${b.date || "9999-12-31"}T${b.time || "23:59"}`).getTime();
-      return first - second;
-    })
     .filter((item) => {
-      const text = [item.patient, item.diagnosis, item.procedure, item.team, ...(item.teamMembers || []), ...(item.anesthesiologists || []), item.id]
-        .join(" ")
-        .toLowerCase();
-      return (!searchTerm || text.includes(searchTerm))
-        && (selectedStatus === "all" || item.status === selectedStatus);
+      if (!item.date || item.date < weekMonday || item.date > friday) return false;
+      const text = [
+        item.patient,
+        item.diagnosis,
+        item.procedure,
+        ...(item.teamMembers || []),
+        ...(item.anesthesiologists || []),
+        infectionLabel(item),
+        item.id,
+      ].join(" ").toLowerCase();
+      return !searchTerm || text.includes(searchTerm);
+    })
+    .sort((a, b) => {
+      const byDate = String(a.date || "").localeCompare(String(b.date || ""));
+      if (byDate) return byDate;
+      return Number(a.queueNo || 0) - Number(b.queueNo || 0);
     });
 }
 
-const expandedOperations = new Set();
-let mediaObjectUrls = [];
-let mediaFiles = [];
-let mediaIndex = 0;
-let mediaZoom = 1;
-const MEDIA_ZOOM_MIN = 1;
-const MEDIA_ZOOM_MAX = 4;
-const MEDIA_ZOOM_STEP = 0.25;
-
-function render() {
-  const rows = filteredOperations();
-
-  $("#operationsBody").innerHTML = rows.map((item) => {
-    const expanded = expandedOperations.has(item.id);
-    return `
-    <tr class="op-row ${expanded ? "is-expanded" : "is-collapsed"}" data-id="${item.id}">
-      <td class="col-when" data-label="Дата / час">
-        <span class="date">${formatDate(item.date)}</span>
-        <span class="time">${escapeHtml(item.time || "Час не вказано")}</span>
-      </td>
+function operationRowHtml(item) {
+  const danger = infectionLabel(item);
+  const dangerClass = (item.infections || []).length ? "infection-alert" : "infection-ok";
+  return `
+    <tr class="op-row is-expanded" data-id="${item.id}">
+      <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span></td>
+      <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
-        <div class="patient-head">
-          <div class="patient-text">
-            <span class="patient">${escapeHtml(item.patient)}</span>
-            <span class="sub">${item.isExample ? "Прикладовий рядок" : escapeHtml(item.id)}</span>
-          </div>
-          <div class="patient-mobile-actions mobile-only">
-            <button class="collapse-toggle" data-action="toggle" data-id="${item.id}" type="button" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Згорнути" : "Розгорнути"}">
-              <span class="collapse-chevron" aria-hidden="true"></span>
-              <span class="collapse-label">${expanded ? "Згорнути" : "Деталі"}</span>
-            </button>
-            <button class="icon-action media-quick-btn" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
-            </button>
-          </div>
-        </div>
+        <span class="patient">${escapeHtml(item.patient)}</span>
+        <span class="sub">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
+      <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
+      <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
       <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
       <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
-      <td class="col-status" data-label="Статус"><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
-      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0} файл(ів)</span></td>
+      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
       <td class="col-actions" data-label="Дії">
         <div class="row-actions">
           <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
@@ -279,18 +332,79 @@ function render() {
         </div>
       </td>
     </tr>`;
-  }).join("");
+}
 
-  $("#emptyState").hidden = rows.length > 0;
-  const realOperations = operations.filter((item) => !item.isExample);
-  $("#totalCount").textContent = realOperations.length;
-  $("#plannedCount").textContent = realOperations.filter((item) => item.status === "Заплановано").length;
+function mobileCardHtml(item) {
+  const danger = infectionLabel(item);
+  const dangerClass = (item.infections || []).length ? "infection-alert" : "infection-ok";
+  const diagnosis = item.diagnosis ? `<p class="week-diagnosis">${escapeHtml(item.diagnosis)}</p>` : "";
+  return `
+    <article class="week-card" data-id="${item.id}">
+      <div class="week-card-top">
+        <span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span>
+        <strong class="patient">${escapeHtml(item.patient)}</strong>
+        ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
+      </div>
+      <p class="week-procedure">${escapeHtml(item.procedure || "—")}</p>
+      ${diagnosis}
+      <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
+      <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
+      <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
+      <div class="row-actions">
+        <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+        </button>
+        <button class="icon-action" data-action="edit" data-id="${item.id}" type="button" title="Змінити" aria-label="Змінити">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </button>
+        <button class="icon-action danger-action" data-action="delete" data-id="${item.id}" type="button" title="Видалити" aria-label="Видалити">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6 7h12v2H6V7zm2 3h8l-1 10H9L8 10zm3-6h2l1 2H10l1-2z"/></svg>
+        </button>
+      </div>
+    </article>`;
+}
 
-  const next = realOperations
-    .filter((item) => item.date && item.status !== "Скасовано")
-    .sort((a, b) => a.date.localeCompare(b.date))[0];
-  $("#nextDate").textContent = next ? formatDate(next.date) : "—";
-  $("#fileCount").textContent = operations.reduce((sum, item) => sum + (item.attachments?.length || 0), 0);
+function renderDepartment(deptId, rows) {
+  const body = $(`#${deptId}Body`);
+  const empty = $(`#${deptId}Empty`);
+  const days = $(`#${deptId}Days`);
+  if (body) body.innerHTML = rows.map(operationRowHtml).join("");
+  if (empty) empty.hidden = rows.length > 0;
+
+  if (days) {
+    days.innerHTML = WEEKDAY_SHORT.map((label, index) => {
+      const date = addDaysYmd(weekMonday, index);
+      const dayRows = rows.filter((item) => item.date === date);
+      return `
+        <section class="week-day">
+          <h3>${label} ${formatDayMonth(date)}</h3>
+          ${dayRows.length ? dayRows.map(mobileCardHtml).join("") : `<p class="week-empty">Немає операцій</p>`}
+        </section>`;
+    }).join("");
+  }
+}
+
+const expandedOperations = new Set();
+let mediaObjectUrls = [];
+let mediaFiles = [];
+let mediaIndex = 0;
+let mediaZoom = 1;
+const MEDIA_ZOOM_MIN = 1;
+const MEDIA_ZOOM_MAX = 4;
+const MEDIA_ZOOM_STEP = 0.25;
+
+function render() {
+  if ($("#weekLabel")) $("#weekLabel").textContent = formatWeekRange(weekMonday);
+  const rows = filteredOperations();
+  renderDepartment("dept1", rows.filter((item) => item.department !== "dept2"));
+  renderDepartment("dept2", rows.filter((item) => item.department === "dept2"));
+
+  if ($("#weekCount")) $("#weekCount").textContent = String(rows.length);
+  if ($("#dept1Count")) $("#dept1Count").textContent = String(rows.filter((item) => item.department !== "dept2").length);
+  if ($("#dept2Count")) $("#dept2Count").textContent = String(rows.filter((item) => item.department === "dept2").length);
+  if ($("#fileCount")) {
+    $("#fileCount").textContent = rows.reduce((sum, item) => sum + (item.attachments?.length || 0), 0);
+  }
   renderArchive();
 }
 
@@ -301,30 +415,27 @@ function renderArchive() {
   if (!body) return;
 
   const rows = [...archivedOperations].sort((a, b) => {
-    const first = `${b.date || ""}T${b.time || "00:00"}`;
-    const second = `${a.date || ""}T${a.time || "00:00"}`;
-    return first.localeCompare(second);
+    const byDate = String(b.date || "").localeCompare(String(a.date || ""));
+    if (byDate) return byDate;
+    return Number(a.queueNo || 0) - Number(b.queueNo || 0);
   });
 
   body.innerHTML = rows.map((item) => {
     const daysLeft = archiveDaysLeft(item.archivedAt);
-    const deleteLabel = daysLeft <= 0
-      ? "сьогодні"
-      : `через ${daysLeft} дн.`;
+    const deleteLabel = daysLeft <= 0 ? "сьогодні" : `через ${daysLeft} дн.`;
+    const danger = infectionLabel(item);
     return `
     <tr class="op-row is-expanded" data-id="${item.id}">
-      <td class="col-when" data-label="Дата / час">
-        <span class="date">${formatDate(item.date)}</span>
-        <span class="time">${escapeHtml(item.time || "Час не вказано")}</span>
-      </td>
+      <td class="col-queue" data-label="Черга"><span class="queue-badge">${escapeHtml(String(item.queueNo || 1))}</span></td>
+      <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${escapeHtml(item.patient)}</span>
         <span class="sub">${escapeHtml(item.id)}</span>
       </td>
-      <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
+      <td data-label="Відділення">${escapeHtml(departmentLabel(item.department))}</td>
+      <td class="col-infection" data-label="Небезпека">${escapeHtml(danger)}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
-      <td class="col-status" data-label="Статус"><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
-      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0} файл(ів)</span></td>
+      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
       <td class="col-purge" data-label="Автовидалення"><span class="archive-purge">${escapeHtml(deleteLabel)}</span></td>
       <td class="col-actions" data-label="Дії">
         <div class="row-actions">
@@ -421,6 +532,8 @@ function resetForm() {
   if ($("#teamPickerSearch")) $("#teamPickerSearch").value = "";
   if ($("#anesthesiologistPickerSearch")) $("#anesthesiologistPickerSearch").value = "";
   if ($("#deleteOperation")) $("#deleteOperation").hidden = true;
+  setSelectedInfections([]);
+  if ($("#department")) $("#department").value = defaultDepartment;
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
@@ -439,26 +552,32 @@ function openForm(id = null) {
     if ($("#deleteOperation")) $("#deleteOperation").hidden = false;
 
     const fields = {
+      department: item.department || "dept1",
       operationDate: item.date,
-      operationTime: item.time,
+      queueNo: item.queueNo || "",
       patientName: item.patient,
-      birthDate: item.birthDate,
+      patientAge: item.patientAge,
       bloodGroup: item.bloodGroup,
       diagnosis: item.diagnosis,
       procedure: item.procedure,
-      status: item.status,
       notes: item.notes,
     };
 
     Object.entries(fields).forEach(([field, value]) => {
-      if ($(`#${field}`)) $(`#${field}`).value = value || "";
+      if ($(`#${field}`)) $(`#${field}`).value = value ?? "";
     });
+    setSelectedInfections(item.infections || []);
     renderPicker("teamPicker", staff.team, namesForOperation(item, "teamMembers", "team"));
     renderPicker("anesthesiologistPicker", staff.anesthesiologists, namesForOperation(item, "anesthesiologists", "anesthesiologist"));
     currentFormAttachments = item.attachments || [];
     renderAttachmentsPanel(currentFormAttachments);
   } else {
     renderAttachmentsPanel([]);
+    if ($("#operationDate") && !$("#operationDate").value) {
+      $("#operationDate").value = todayYmd() < weekMonday || todayYmd() > addDaysYmd(weekMonday, 4)
+        ? weekMonday
+        : todayYmd();
+    }
   }
 
   $("#operationDialog").showModal();
@@ -469,15 +588,16 @@ async function saveOperation(event) {
 
   const data = {
     date: $("#operationDate").value,
-    time: $("#operationTime").value,
+    queueNo: $("#queueNo")?.value || "",
+    department: $("#department")?.value || "dept1",
     patient: $("#patientName").value.trim(),
-    birthDate: $("#birthDate").value,
+    patientAge: $("#patientAge")?.value || "",
     bloodGroup: $("#bloodGroup").value,
     teamMembers: selectedPickerValues("teamPicker"),
     diagnosis: $("#diagnosis").value.trim(),
     procedure: $("#procedure").value.trim(),
     anesthesiologists: selectedPickerValues("anesthesiologistPicker"),
-    status: $("#status").value,
+    infections: selectedInfections(),
     notes: $("#notes").value.trim(),
   };
 
@@ -556,7 +676,7 @@ function uploadForm(path, method, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, `${API_BASE}${path}`);
-    const token = sessionStorage.getItem(TOKEN_KEY);
+    const token = getToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
     xhr.upload.onprogress = (event) => {
@@ -567,8 +687,7 @@ function uploadForm(path, method, formData, onProgress) {
 
     xhr.onload = () => {
       if (xhr.status === 401) {
-        sessionStorage.removeItem(AUTH_KEY);
-        sessionStorage.removeItem(TOKEN_KEY);
+        clearAuth();
         window.location.replace("login.html");
         reject(new Error("Unauthorized"));
         return;
@@ -601,7 +720,7 @@ function uploadForm(path, method, formData, onProgress) {
 }
 
 async function attachmentUrl(id) {
-  const token = sessionStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   const response = await fetch(`${API_BASE}/attachments/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -959,17 +1078,36 @@ on("#logout", "click", async () => {
   } catch {
     // ignore
   }
-  sessionStorage.removeItem(AUTH_KEY);
-  sessionStorage.removeItem(TOKEN_KEY);
+  clearAuth();
   window.location.replace("login.html");
 });
-on("#addOperation", "click", () => openForm());
+on("#addOperation", "click", () => {
+  defaultDepartment = "dept1";
+  openForm();
+});
+on("#prevWeek", "click", () => {
+  weekMonday = addDaysYmd(weekMonday, -7);
+  render();
+});
+on("#nextWeek", "click", () => {
+  weekMonday = addDaysYmd(weekMonday, 7);
+  render();
+});
+on("#thisWeek", "click", () => {
+  weekMonday = currentWorkWeekMonday();
+  render();
+});
+document.addEventListener("click", (event) => {
+  const addBtn = event.target.closest("[data-add-dept]");
+  if (!addBtn) return;
+  defaultDepartment = addBtn.dataset.addDept === "dept2" ? "dept2" : "dept1";
+  openForm();
+});
 on("#closeOperation", "click", () => $("#operationDialog")?.close());
 on("#cancelOperation", "click", () => $("#operationDialog")?.close());
 on("#attachments", "change", () => renderAttachmentsPanel(currentFormAttachments));
 on("#operationForm", "submit", saveOperation);
 on("#search", "input", render);
-on("#statusFilter", "change", render);
 on("#teamPickerSearch", "input", () => paintPicker("teamPicker"));
 on("#anesthesiologistPickerSearch", "input", () => paintPicker("anesthesiologistPicker"));
 on("#deleteOperation", "click", () => {
@@ -1028,7 +1166,10 @@ function handleOperationRowClick(event) {
   if (button.dataset.action === "view") viewOperation(button.dataset.id);
   if (button.dataset.action === "delete") deleteOperation(button.dataset.id);
 }
-on("#operationsBody", "click", handleOperationRowClick);
+on("#dept1Body", "click", handleOperationRowClick);
+on("#dept2Body", "click", handleOperationRowClick);
+on("#dept1Days", "click", handleOperationRowClick);
+on("#dept2Days", "click", handleOperationRowClick);
 on("#archiveBody", "click", handleOperationRowClick);
 on("#exportData", "click", () => {
   const blob = new Blob([JSON.stringify(operations, null, 2)], { type: "application/json" });

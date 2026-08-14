@@ -2,9 +2,9 @@ if (!window.SurgeryAPI) {
   alert("Не завантажено api.js. Оновіть сторінку (Ctrl+F5).");
   throw new Error("SurgeryAPI missing");
 }
-const { api, AUTH_KEY, TOKEN_KEY } = window.SurgeryAPI;
+const { api, isAuthenticated, setAuth } = window.SurgeryAPI;
 
-if (sessionStorage.getItem(AUTH_KEY) === "1" && sessionStorage.getItem(TOKEN_KEY)) {
+if (isAuthenticated()) {
   window.location.replace("index.html");
 }
 
@@ -16,8 +16,7 @@ document.querySelector("#loginForm").addEventListener("submit", async (event) =>
 
   try {
     const data = await api("/login", { method: "POST", json: { password } });
-    sessionStorage.setItem(AUTH_KEY, "1");
-    sessionStorage.setItem(TOKEN_KEY, data.token);
+    setAuth(data.token);
     window.location.replace("index.html");
   } catch (err) {
     const message = String(err.message || "");

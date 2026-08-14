@@ -29,7 +29,7 @@ const rootDir = path.join(__dirname, "..");
 const uploadsDir = path.join(rootDir, "uploads");
 const PORT = Number(process.env.PORT || 3001);
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "";
-const SESSION_DAYS = Number(process.env.SESSION_DAYS || 7);
+const SESSION_DAYS = Number(process.env.SESSION_DAYS || 365);
 const ARCHIVE_RETENTION_DAYS = Number(process.env.ARCHIVE_RETENTION_DAYS || 7);
 const ARCHIVE_TZ = process.env.ARCHIVE_TZ || "Europe/Kyiv";
 const ARCHIVE_JOB_MS = Number(process.env.ARCHIVE_JOB_MS || 60 * 60 * 1000);
@@ -82,17 +82,30 @@ function bodyToOperation(body) {
   const anesthesiologists = Array.isArray(body.anesthesiologists)
     ? body.anesthesiologists
     : parseJson(body.anesthesiologists, []);
+  const infectionsRaw = Array.isArray(body.infections)
+    ? body.infections
+    : parseJson(body.infections, []);
+  const allowedInfections = ["HCV", "HbsAg", "HIV", "RW"];
+  const infections = infectionsRaw.filter((item) => allowedInfections.includes(item));
+  const ageRaw = body.patientAge;
+  const patientAge = ageRaw === "" || ageRaw == null ? null : Number(ageRaw);
+  const queueRaw = body.queueNo;
+  const queueNo = queueRaw === "" || queueRaw == null ? null : Number(queueRaw);
 
   return {
     date: body.date || null,
     time: body.time || null,
+    queueNo: Number.isFinite(queueNo) && queueNo > 0 ? Math.round(queueNo) : null,
+    department: body.department === "dept2" ? "dept2" : "dept1",
     patient: String(body.patient || "").trim(),
     birthDate: body.birthDate || null,
+    patientAge: Number.isFinite(patientAge) && patientAge >= 0 ? Math.round(patientAge) : null,
     bloodGroup: body.bloodGroup || null,
     diagnosis: String(body.diagnosis || "").trim(),
     procedure: String(body.procedure || "").trim(),
     teamMembers,
     anesthesiologists,
+    infections,
     status: body.status || "Заплановано",
     notes: String(body.notes || "").trim(),
   };
@@ -131,8 +144,40 @@ function todayInArchiveTz() {
   return new Date().toLocaleDateString("en-CA", { timeZone: ARCHIVE_TZ });
 }
 
+function addDaysYmd(ymd, days) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function mondayOfWeek(ymd) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const sunday0 = date.getUTCDay();
+  const mondayOffset = sunday0 === 0 ? -6 : 1 - sunday0;
+  return addDaysYmd(ymd, mondayOffset);
+}
+
+function currentWeekMonday() {
+  return mondayOfWeek(todayInArchiveTz());
+}
+
 function shouldArchiveDate(dateYmd) {
-  return Boolean(dateYmd && dateYmd < todayInArchiveTz());
+  return Boolean(dateYmd && dateYmd < currentWeekMonday());
+}
+
+async function nextQueueNo(connection, { date, department, excludeId = null }) {
+  const [rows] = await connection.query(
+    excludeId
+      ? `SELECT COALESCE(MAX(queue_no), 0) AS max_queue
+         FROM operations
+         WHERE date = :date AND department = :department AND id <> :excludeId`
+      : `SELECT COALESCE(MAX(queue_no), 0) AS max_queue
+         FROM operations
+         WHERE date = :date AND department = :department`,
+    { date, department, excludeId },
+  );
+  return Number(rows[0]?.max_queue || 0) + 1;
 }
 
 async function unlinkAttachmentFiles(files) {
@@ -184,8 +229,8 @@ async function runArchiveMaintenance(force = false) {
          updated_at = UTC_TIMESTAMP(3)
      WHERE archived_at IS NULL
        AND date IS NOT NULL
-       AND date < :today`,
-    { today },
+       AND date < :weekMonday`,
+    { weekMonday: currentWeekMonday() },
   );
 
   const [expired] = await pool.query(
@@ -291,10 +336,10 @@ app.get("/api/operations", auth, async (req, res) => {
     archived
       ? `SELECT * FROM operations
          WHERE archived_at IS NOT NULL
-         ORDER BY date DESC, time DESC, id DESC`
+         ORDER BY date DESC, queue_no DESC, id DESC`
       : `SELECT * FROM operations
          WHERE archived_at IS NULL
-         ORDER BY date IS NULL, date ASC, time ASC, id ASC`,
+         ORDER BY date IS NULL, date ASC, department ASC, queue_no ASC, id ASC`,
   );
   const result = [];
   for (const row of rows) {
@@ -317,24 +362,32 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
     const now = new Date();
 
     const archivedAt = shouldArchiveDate(data.date) ? now : null;
+    const queueNo = data.queueNo || await nextQueueNo(connection, {
+      date: data.date,
+      department: data.department,
+    });
     await connection.query(
       `INSERT INTO operations
-        (id, date, time, patient, birth_date, blood_group, diagnosis, \`procedure\`,
-         team_members, anesthesiologists, status, notes, is_example, archived_at, created_at, updated_at)
+        (id, date, time, queue_no, department, patient, birth_date, patient_age, blood_group, diagnosis, \`procedure\`,
+         team_members, anesthesiologists, infections, status, notes, is_example, archived_at, created_at, updated_at)
        VALUES
-        (:id, :date, :time, :patient, :birth_date, :blood_group, :diagnosis, :procedure,
-         :team_members, :anesthesiologists, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
+        (:id, :date, :time, :queue_no, :department, :patient, :birth_date, :patient_age, :blood_group, :diagnosis, :procedure,
+         :team_members, :anesthesiologists, :infections, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
       {
         id,
         date: data.date,
         time: data.time || null,
+        queue_no: queueNo,
+        department: data.department,
         patient: data.patient,
         birth_date: data.birthDate || null,
+        patient_age: data.patientAge,
         blood_group: data.bloodGroup || null,
         diagnosis: data.diagnosis || null,
         procedure: data.procedure,
         team_members: JSON.stringify(data.teamMembers),
         anesthesiologists: JSON.stringify(data.anesthesiologists),
+        infections: JSON.stringify(data.infections),
         status: data.status,
         notes: data.notes || null,
         archived_at: archivedAt,
@@ -401,17 +454,26 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
 
     const now = new Date();
     const keepArchived = shouldArchiveDate(data.date);
+    const queueNo = data.queueNo || await nextQueueNo(connection, {
+      date: data.date,
+      department: data.department,
+      excludeId: req.params.id,
+    });
     await connection.query(
       `UPDATE operations SET
         date = :date,
         time = :time,
+        queue_no = :queue_no,
+        department = :department,
         patient = :patient,
         birth_date = :birth_date,
+        patient_age = :patient_age,
         blood_group = :blood_group,
         diagnosis = :diagnosis,
         \`procedure\` = :procedure,
         team_members = :team_members,
         anesthesiologists = :anesthesiologists,
+        infections = :infections,
         status = :status,
         notes = :notes,
         archived_at = CASE
@@ -424,13 +486,17 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         id: req.params.id,
         date: data.date,
         time: data.time || null,
+        queue_no: queueNo,
+        department: data.department,
         patient: data.patient,
         birth_date: data.birthDate || null,
+        patient_age: data.patientAge,
         blood_group: data.bloodGroup || null,
         diagnosis: data.diagnosis || null,
         procedure: data.procedure,
         team_members: JSON.stringify(data.teamMembers),
         anesthesiologists: JSON.stringify(data.anesthesiologists),
+        infections: JSON.stringify(data.infections),
         status: data.status,
         notes: data.notes || null,
         keep_archived: keepArchived ? 1 : 0,
@@ -461,8 +527,8 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
     await connection.commit();
 
     const fields = [
-      "date", "time", "patient", "birthDate", "bloodGroup", "diagnosis",
-      "procedure", "teamMembers", "anesthesiologists", "status", "notes", "attachments",
+      "date", "queueNo", "department", "patient", "patientAge", "bloodGroup", "diagnosis",
+      "procedure", "teamMembers", "anesthesiologists", "infections", "notes", "attachments",
     ];
     const changed = diffFields(before, after, fields);
 

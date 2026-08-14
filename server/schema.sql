@@ -2,13 +2,17 @@ CREATE TABLE IF NOT EXISTS operations (
   id VARCHAR(32) PRIMARY KEY,
   date DATE NULL,
   time TIME NULL,
+  queue_no INT NOT NULL DEFAULT 1,
+  department VARCHAR(16) NOT NULL DEFAULT 'dept1',
   patient VARCHAR(255) NOT NULL,
   birth_date DATE NULL,
+  patient_age INT NULL,
   blood_group VARCHAR(64) NULL,
   diagnosis TEXT NULL,
   `procedure` TEXT NULL,
   team_members JSON NOT NULL,
   anesthesiologists JSON NOT NULL,
+  infections JSON NULL,
   status VARCHAR(64) NOT NULL DEFAULT 'Заплановано',
   notes TEXT NULL,
   is_example TINYINT(1) NOT NULL DEFAULT 0,
@@ -16,7 +20,8 @@ CREATE TABLE IF NOT EXISTS operations (
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
   INDEX idx_operations_archived_at (archived_at),
-  INDEX idx_operations_date (date)
+  INDEX idx_operations_date (date),
+  INDEX idx_operations_dept_date (department, date, queue_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS attachments (

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260814a" />
+    <link rel="stylesheet" href="styles.css?v=20260814b" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -58,46 +58,70 @@
       <nav class="view-tabs" aria-label="Розділи сайту">
         <button class="view-tab active" id="scheduleTab" type="button"><span class="tab-label-full">Розклад операцій</span><span class="tab-label-short">Розклад</span></button>
         <button class="view-tab" id="archiveTab" type="button">Архів</button>
-        <button class="view-tab" id="staffTab" type="button">Працівники</button>
+        <button class="view-tab" id="staffTab" type="button">Лікарі</button>
         <button class="view-tab" id="logsTab" type="button" hidden>Журнали</button>
       </nav>
 
       <section id="scheduleView">
 
+      <section class="week-bar" aria-label="Тиждень розкладу">
+        <button class="secondary week-nav-btn" id="prevWeek" type="button" aria-label="Попередній тиждень">‹</button>
+        <div class="week-label-wrap">
+          <p class="eyebrow">Розклад на тиждень</p>
+          <strong id="weekLabel">—</strong>
+        </div>
+        <button class="secondary week-nav-btn" id="nextWeek" type="button" aria-label="Наступний тиждень">›</button>
+        <button class="secondary" id="thisWeek" type="button">Цей тиждень</button>
+      </section>
+
       <section class="stats" aria-label="Статистика">
-        <article><span>Усього операцій</span><strong id="totalCount">0</strong></article>
-        <article><span>Заплановано</span><strong id="plannedCount">0</strong></article>
-        <article><span>Найближча дата</span><strong id="nextDate">—</strong></article>
+        <article><span>Цього тижня</span><strong id="weekCount">0</strong></article>
+        <article><span>Відділення №1</span><strong id="dept1Count">0</strong></article>
+        <article><span>Відділення №2</span><strong id="dept2Count">0</strong></article>
         <article><span>Файлів прикріплено</span><strong id="fileCount">0</strong></article>
       </section>
 
       <section class="toolbar">
         <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Пошук пацієнта, діагнозу або бригади" /></label>
-        <select id="statusFilter" aria-label="Фільтр статусу">
-          <option value="all">Усі статуси</option>
-          <option>Заплановано</option>
-          <option>Підтверджено</option>
-          <option>Виконано</option>
-          <option>Скасовано</option>
-          <option>Перенесено</option>
-        </select>
         <button class="secondary" id="exportData">Експорт</button>
       </section>
 
-      <section class="table-card operations-list">
-        <div class="list-heading mobile-only">
-          <p class="eyebrow">Список</p>
-          <h2>Операції</h2>
+      <section class="dept-board" data-dept="dept1">
+        <div class="dept-head">
+          <h2>Хірургічне відділення №1</h2>
+          <button class="secondary" type="button" data-add-dept="dept1">+ Додати операцію</button>
         </div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th>Дата / час</th><th>Пацієнт</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Статус</th><th>Файли</th><th></th>
-            </tr></thead>
-            <tbody id="operationsBody"></tbody>
-          </table>
+        <div class="week-days mobile-week" id="dept1Days"></div>
+        <section class="table-card desktop-week">
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Черга</th><th>Дата</th><th>Пацієнт</th><th>Вік</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+              </tr></thead>
+              <tbody id="dept1Body"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="dept1Empty" hidden>Немає операцій цього тижня.</div>
+        </section>
+      </section>
+
+      <section class="dept-board" data-dept="dept2">
+        <div class="dept-head">
+          <h2>Хірургічне відділення №2</h2>
+          <button class="secondary" type="button" data-add-dept="dept2">+ Додати операцію</button>
         </div>
-        <div class="empty" id="emptyState" hidden>Операцій не знайдено.</div>
+        <div class="week-days mobile-week" id="dept2Days"></div>
+        <section class="table-card desktop-week">
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Черга</th><th>Дата</th><th>Пацієнт</th><th>Вік</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+              </tr></thead>
+              <tbody id="dept2Body"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="dept2Empty" hidden>Немає операцій цього тижня.</div>
+        </section>
       </section>
       </section>
 
@@ -114,7 +138,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Дата / час</th><th>Пацієнт</th><th>Діагноз</th><th>Втручання</th><th>Статус</th><th>Файли</th><th>Автовидалення</th><th></th>
+                <th>Черга</th><th>Дата</th><th>Пацієнт</th><th>Відділення</th><th>Небезпека</th><th>Втручання</th><th>Файли</th><th>Автовидалення</th><th></th>
               </tr></thead>
               <tbody id="archiveBody"></tbody>
             </table>
@@ -155,7 +179,7 @@
       </section>
 
       <section id="staffView" class="staff-view" hidden>
-        <div class="section-heading"><div><p class="eyebrow">Налаштування списків</p><h2>Працівники</h2><p>Додавайте, редагуйте або видаляйте людей, яких можна призначати на операції.</p></div></div>
+        <div class="section-heading"><div><p class="eyebrow">Налаштування списків</p><h2>Лікарі</h2><p>Додавайте, редагуйте або видаляйте лікарів, яких можна призначати на операції.</p></div></div>
         <div class="staff-grid">
           <article class="staff-card">
             <div class="staff-card-head"><div><h3>Операційна бригада</h3><p>Можна призначити кількох людей.</p></div><span class="staff-count" id="teamCount">0</span></div>
@@ -176,11 +200,25 @@
         <div class="dialog-head"><div><p class="eyebrow">Картка операції</p><h2 id="dialogTitle">Нова операція</h2></div><button class="icon-button" id="closeOperation" type="button" aria-label="Закрити"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5.3 5.3 6.4 10.9 12l-5.6 5.6 1.1 1.1L12 13.1l5.6 5.6 1.1-1.1L13.1 12l5.6-5.6-1.1-1.1L12 10.9 6.4 5.3z"/></svg></button></div>
         <input type="hidden" id="operationId" />
         <div class="form-grid">
+          <label>Відділення *<select id="department" required>
+            <option value="dept1">Хірургічне відділення №1</option>
+            <option value="dept2">Хірургічне відділення №2</option>
+          </select></label>
           <label>Дата операції *<input id="operationDate" type="date" required /></label>
-          <label>Час<input id="operationTime" type="time" /></label>
+          <label>Номер у черзі<input id="queueNo" type="number" min="1" step="1" placeholder="авто" /></label>
           <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Прізвище Ім’я По батькові" /></label>
-          <label>Дата народження<input id="birthDate" type="date" /></label>
+          <label>Вік пацієнта<input id="patientAge" type="number" min="0" max="120" step="1" placeholder="років" /></label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
+          <fieldset class="wide picker-field">
+            <legend>Потенційна небезпека для лікаря</legend>
+            <div class="infection-picks" id="infectionPicks">
+              <label><input type="checkbox" name="infection" value="HCV" /> HCV</label>
+              <label><input type="checkbox" name="infection" value="HbsAg" /> HbsAg</label>
+              <label><input type="checkbox" name="infection" value="HIV" /> HIV</label>
+              <label><input type="checkbox" name="infection" value="RW" /> RW</label>
+            </div>
+            <small class="picker-help">Якщо нічого не обрано — «Без супутніх інфекцій».</small>
+          </fieldset>
           <fieldset class="wide picker-field">
             <legend>Операційна бригада</legend>
             <input class="picker-search" id="teamPickerSearch" type="search" placeholder="Пошук лікаря…" />
@@ -195,7 +233,6 @@
             <div id="anesthesiologistPicker" class="picker picker-scroll"></div>
             <small class="picker-help">Оберіть одного або кількох. Список прокручується.</small>
           </fieldset>
-          <label>Статус<select id="status"><option>Заплановано</option><option>Підтверджено</option><option>Виконано</option><option>Скасовано</option><option>Перенесено</option></select></label>
           <label class="wide">Примітки<textarea id="notes" rows="3"></textarea></label>
           <label class="wide upload"><span class="upload-icon">📎</span><strong>Додайте КТ, фото або відео</strong><small>Натисніть тут або виберіть кілька файлів (до 512 МБ кожен)</small><span class="upload-button">Вибрати файли</span><input id="attachments" type="file" accept="image/*,video/*,.mp4,.mov,.m4v,.webm,.avi,.mkv" multiple /></label>
           <div id="attachmentsPanel" class="attachments-panel">
@@ -263,7 +300,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260812d"></script>
-    <script src="app.js?v=20260812v"></script>
+    <script src="api.js?v=20260814b"></script>
+    <script src="app.js?v=20260814b"></script>
   </body>
 </html>

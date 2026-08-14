@@ -103,9 +103,12 @@ export function requireAuth(pool) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const sessionDays = Number(process.env.SESSION_DAYS || 365);
+    const now = new Date();
+    const expires = new Date(now.getTime() + sessionDays * 24 * 60 * 60 * 1000);
     await pool.query(
-      `UPDATE sessions SET last_seen_at = :now WHERE token = :token`,
-      { now: new Date(), token },
+      `UPDATE sessions SET last_seen_at = :now, expires_at = :expires WHERE token = :token`,
+      { now, expires, token },
     );
 
     req.sessionToken = token;
