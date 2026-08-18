@@ -139,6 +139,12 @@ export async function migrate(pool) {
       `ALTER TABLE operations ADD INDEX idx_operations_dept_date (department, date, queue_no)`,
     );
   }
+  if (!(await columnExists(pool, "access_logs", "geo"))) {
+    await pool.query(`ALTER TABLE access_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
+  }
+  if (!(await columnExists(pool, "change_logs", "geo"))) {
+    await pool.query(`ALTER TABLE change_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
+  }
 }
 
 export async function seedStaff(pool) {

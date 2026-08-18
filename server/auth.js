@@ -12,6 +12,79 @@ export function normalizeIp(ip = "") {
   return String(ip).trim().replace(/^::ffff:/i, "");
 }
 
+export function isPrivateIp(ip = "") {
+  const value = normalizeIp(ip);
+  if (!value) return true;
+  if (value === "::1" || value === "localhost") return true;
+  if (value.includes(":")) {
+    const lower = value.toLowerCase();
+    return lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd");
+  }
+  const parts = value.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return true;
+  const [a, b] = parts;
+  if (a === 10 || a === 127) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
+const geoCache = new Map();
+const GEO_OK_MS = 7 * 24 * 60 * 60 * 1000;
+const GEO_FAIL_MS = 10 * 60 * 1000;
+
+function formatGeoLabel(data) {
+  const city = data.city || data.region || "";
+  const country = data.country || "";
+  const parts = [...new Set([city, country].filter(Boolean))];
+  return parts.join(", ") || null;
+}
+
+export async function lookupGeo(ip) {
+  const value = normalizeIp(ip);
+  if (!value) return null;
+
+  const cached = geoCache.get(value);
+  if (cached && cached.expires > Date.now()) return cached.label;
+
+  if (isPrivateIp(value)) {
+    const label = "Локальна мережа";
+    geoCache.set(value, { label, expires: Date.now() + GEO_OK_MS });
+    return label;
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(`https://ipwho.is/${encodeURIComponent(value)}`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json();
+    const label = data?.success === false ? null : formatGeoLabel(data || {});
+    geoCache.set(value, {
+      label,
+      expires: Date.now() + (label ? GEO_OK_MS : GEO_FAIL_MS),
+    });
+    return label;
+  } catch {
+    geoCache.set(value, { label: null, expires: Date.now() + GEO_FAIL_MS });
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function attachGeo(rows) {
+  const ips = [...new Set(rows.map((row) => normalizeIp(row.ip)).filter(Boolean))];
+  await Promise.all(ips.map((ip) => lookupGeo(ip)));
+  return rows.map((row) => ({
+    ...row,
+    geo: row.geo || (geoCache.get(normalizeIp(row.ip))?.label ?? null),
+  }));
+}
+
 export function logsAllowedIps() {
   const fromEnv = String(process.env.LOGS_ALLOWED_IPS || "212.75.114.136")
     .split(",")
@@ -33,12 +106,14 @@ export function newToken() {
 }
 
 export async function logAccess(pool, { event, ip, userAgent: ua, details = null }) {
+  const geo = await lookupGeo(ip);
   await pool.query(
-    `INSERT INTO access_logs (event, ip, user_agent, details, created_at)
-     VALUES (:event, :ip, :user_agent, :details, :created_at)`,
+    `INSERT INTO access_logs (event, ip, geo, user_agent, details, created_at)
+     VALUES (:event, :ip, :geo, :user_agent, :details, :created_at)`,
     {
       event,
       ip,
+      geo,
       user_agent: ua,
       details: details ? JSON.stringify(details) : null,
       created_at: new Date(),
@@ -67,11 +142,12 @@ export async function logChange(pool, {
   ip,
   userAgent: ua,
 }) {
+  const geo = await lookupGeo(ip);
   await pool.query(
     `INSERT INTO change_logs
-      (entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, user_agent, created_at)
+      (entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, geo, user_agent, created_at)
      VALUES
-      (:entity_type, :entity_id, :action, :summary, :changed_fields, :before_json, :after_json, :ip, :user_agent, :created_at)`,
+      (:entity_type, :entity_id, :action, :summary, :changed_fields, :before_json, :after_json, :ip, :geo, :user_agent, :created_at)`,
     {
       entity_type: entityType,
       entity_id: entityId,
@@ -81,6 +157,7 @@ export async function logChange(pool, {
       before_json: before ? JSON.stringify(before) : null,
       after_json: after ? JSON.stringify(after) : null,
       ip,
+      geo,
       user_agent: ua,
       created_at: new Date(),
     },

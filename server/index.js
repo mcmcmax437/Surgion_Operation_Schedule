@@ -24,6 +24,7 @@ import {
   diffFields,
   requireAuth,
   canViewLogs,
+  attachGeo,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -728,12 +729,12 @@ function requireLogsAccess(req, res, next) {
 app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
-    `SELECT id, entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, user_agent, created_at
+    `SELECT id, entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, geo, user_agent, created_at
      FROM change_logs
      ORDER BY created_at DESC
      LIMIT ${limit}`,
   );
-  res.json(rows.map((row) => ({
+  const mapped = rows.map((row) => ({
     id: row.id,
     entityType: row.entity_type,
     entityId: row.entity_id,
@@ -743,27 +744,31 @@ app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
     before: parseJson(row.before_json, null),
     after: parseJson(row.after_json, null),
     ip: row.ip,
+    geo: row.geo,
     userAgent: row.user_agent,
     createdAt: row.created_at,
-  })));
+  }));
+  res.json(await attachGeo(mapped));
 });
 
 app.get("/api/logs/access", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
-    `SELECT id, event, ip, user_agent, details, created_at
+    `SELECT id, event, ip, geo, user_agent, details, created_at
      FROM access_logs
      ORDER BY created_at DESC
      LIMIT ${limit}`,
   );
-  res.json(rows.map((row) => ({
+  const mapped = rows.map((row) => ({
     id: row.id,
     event: row.event,
     ip: row.ip,
+    geo: row.geo,
     userAgent: row.user_agent,
     details: parseJson(row.details, null),
     createdAt: row.created_at,
-  })));
+  }));
+  res.json(await attachGeo(mapped));
 });
 
 app.use((error, _req, res, _next) => {

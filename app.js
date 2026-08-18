@@ -1174,6 +1174,12 @@ function toggleOperation(id) {
   render();
 }
 
+function logPlaceHtml(item) {
+  const ip = item.ip || "—";
+  const geo = item.geo ? `<span class="sub">${escapeHtml(item.geo)}</span>` : "";
+  return `${escapeHtml(ip)}${geo}`;
+}
+
 async function loadLogs() {
   try {
     const [changes, access] = await Promise.all([
@@ -1187,7 +1193,7 @@ async function loadLogs() {
         <td data-label="Дія">${escapeHtml(item.action)}</td>
         <td data-label="Опис">${escapeHtml(item.summary)}</td>
         <td data-label="Поля">${escapeHtml((item.changedFields || []).join(", ") || "—")}</td>
-        <td data-label="IP">${escapeHtml(item.ip || "—")}</td>
+        <td data-label="IP / місце">${logPlaceHtml(item)}</td>
       </tr>
     `).join("") || `<tr><td colspan="5">Змін ще немає.</td></tr>`;
 
@@ -1195,7 +1201,7 @@ async function loadLogs() {
       <tr>
         <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
         <td data-label="Подія">${escapeHtml(item.event)}</td>
-        <td data-label="IP">${escapeHtml(item.ip || "—")}</td>
+        <td data-label="IP / місце">${logPlaceHtml(item)}</td>
         <td data-label="Браузер">${escapeHtml(item.userAgent || "—")}</td>
       </tr>
     `).join("") || `<tr><td colspan="4">Записів ще немає.</td></tr>`;

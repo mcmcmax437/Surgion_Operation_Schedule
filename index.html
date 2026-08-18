@@ -170,7 +170,7 @@
           <div>
             <p class="eyebrow">Аудит</p>
             <h2>Журнали змін і доступів</h2>
-            <p>Історія додавання/редагування даних та IP-адреси входів на сайт.</p>
+            <p>Історія додавання/редагування даних, IP-адреси входів і приблизне місце за IP (без дозволу користувача).</p>
           </div>
           <button class="secondary" id="refreshLogs" type="button">Оновити</button>
         </div>
@@ -179,7 +179,7 @@
         <section class="table-card">
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Час</th><th>Дія</th><th>Опис</th><th>Поля</th><th>IP</th></tr></thead>
+              <thead><tr><th>Час</th><th>Дія</th><th>Опис</th><th>Поля</th><th>IP / місце</th></tr></thead>
               <tbody id="changeLogsBody"></tbody>
             </table>
           </div>
@@ -189,7 +189,7 @@
         <section class="table-card">
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Час</th><th>Подія</th><th>IP</th><th>Браузер</th></tr></thead>
+              <thead><tr><th>Час</th><th>Подія</th><th>IP / місце</th><th>Браузер</th></tr></thead>
               <tbody id="accessLogsBody"></tbody>
             </table>
           </div>
@@ -320,6 +320,6 @@
     </dialog>
 
     <script src="api.js?v=20260814c"></script>
-    <script src="app.js?v=20260814l"></script>
+    <script src="app.js?v=20260818a"></script>
   </body>
 </html>
