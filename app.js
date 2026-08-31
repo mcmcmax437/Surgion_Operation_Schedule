@@ -25,7 +25,7 @@ const DEPARTMENTS = [
 ];
 const INFECTION_OPTIONS = ["HCV", "HbsAg", "HIV", "RW"];
 const PATIENT_FLAG_OPTIONS = [
-  { id: "zsu", label: "ЗСУ", title: "ЗСУ (військовий)" },
+  { id: "zsu", label: "ЗСУ", title: "ЗСУ" },
   { id: "vip", label: "VIP", title: "VIP персона" },
 ];
 const MAX_SURGEONS = 3;
