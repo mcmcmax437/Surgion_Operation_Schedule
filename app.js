@@ -210,7 +210,7 @@ function bloodBadgeHtml(item) {
   const parsed = parseBloodGroup(item.bloodGroup);
   if (!parsed) return `<span class="blood-badge is-empty" title="Група крові не вказана">—</span>`;
   const rhClass = parsed.rh === "-" ? "rh-neg" : (parsed.rh === "+" ? "rh-pos" : "");
-  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(parsed.full)}"><span class="blood-abo">${escapeHtml(parsed.abo || parsed.short)}</span>${parsed.rh ? `<span class="blood-rh">${parsed.rh}</span>` : ""}</span>`;
+  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(parsed.full)}">${escapeHtml(parsed.short)}</span>`;
 }
 
 function patientFlagsHtml(item) {
@@ -415,7 +415,6 @@ async function deleteStaff(type, index) {
 }
 
 function filteredOperations() {
-  const searchTerm = ($("#search")?.value || "").trim().toLowerCase();
   const sunday = addDaysYmd(weekMonday, 6);
 
   return [...operations]
@@ -425,18 +424,7 @@ function filteredOperations() {
       } else if (item.date && (item.date < weekMonday || item.date > sunday)) {
         return false;
       }
-      const text = [
-        item.patient,
-        item.diagnosis,
-        item.procedure,
-        ...(item.teamMembers || []),
-        ...(item.anesthesiologists || []),
-        infectionLabel(item),
-        (item.patientFlags || []).join(" "),
-        item.bloodGroup,
-        item.id,
-      ].join(" ").toLowerCase();
-      return !searchTerm || text.includes(searchTerm);
+      return true;
     })
     .sort((a, b) => {
       if (!a.date && b.date) return -1;
@@ -1419,7 +1407,6 @@ on("#attachmentsPanelList", "click", (event) => {
   removePendingFile(Number(pending.dataset.removePending));
 });
 on("#operationForm", "submit", saveOperation);
-on("#search", "input", render);
 on("#patientName", "blur", (event) => {
   event.target.value = formatShortName(event.target.value);
 });
@@ -1510,13 +1497,6 @@ on("#dept2Body", "click", handleOperationRowClick);
 on("#dept1Days", "click", handleOperationRowClick);
 on("#dept2Days", "click", handleOperationRowClick);
 on("#archiveBody", "click", handleOperationRowClick);
-on("#exportData", "click", () => {
-  const blob = new Blob([JSON.stringify(operations, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `surgery-operations-${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-});
 on("#refreshLogs", "click", () => loadLogs());
 
 setTheme(localStorage.getItem("surgery-theme") || "light");

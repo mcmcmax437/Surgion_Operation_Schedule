@@ -579,8 +579,9 @@ dialog.media-fs-overlay::backdrop{
 .dept-board{margin:0 0 22px}
 .dept-head{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:0 0 10px}
 .queue-badge{
-  display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 8px;
-  border-radius:999px;background:#17365d;color:#fff;font-weight:800;font-size:13px
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:28px;height:28px;padding:0 8px;box-sizing:border-box;
+  border-radius:999px;background:#17365d;color:#fff;font-weight:800;font-size:13px;line-height:1
 }
 .queue-badge.is-empty{
   background:#94a3b8;
@@ -709,18 +710,47 @@ button:active:not(:disabled),
 #scheduleView.mode-plan .desktop-week{display:block!important}
 
 .blood-badge{
-  display:inline-flex;align-items:center;justify-content:center;gap:0;
-  min-width:38px;height:26px;padding:0 7px;border-radius:999px;
-  font-weight:800;font-size:12px;line-height:1;letter-spacing:.02em;
-  background:#e2e8f0;color:#334155;border:1px solid #cbd5e1;white-space:nowrap
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:42px;
+  height:24px;
+  padding:0 8px;
+  box-sizing:border-box;
+  border-radius:999px;
+  font-weight:800;
+  font-size:12px;
+  line-height:1;
+  letter-spacing:0;
+  font-variant-numeric:tabular-nums;
+  background:#e2e8f0;
+  color:#334155;
+  border:1px solid #cbd5e1;
+  white-space:nowrap;
+  vertical-align:middle;
 }
 .blood-badge.rh-pos{background:#fee2e2;color:#9f1239;border-color:#fca5a5}
 .blood-badge.rh-neg{background:#e0f2fe;color:#075985;border-color:#7dd3fc}
 .blood-badge.is-empty{opacity:.55;font-weight:700;min-width:28px}
-.blood-rh{margin-left:1px;font-size:13px}
 .theme-dark .blood-badge{background:#334155;color:#e2e8f0;border-color:#475569}
 .theme-dark .blood-badge.rh-pos{background:#7f1d1d;color:#fecaca;border-color:#b91c1c}
 .theme-dark .blood-badge.rh-neg{background:#0c4a6e;color:#bae6fd;border-color:#0369a1}
+
+@media (min-width:761px){
+  .desktop-week td,
+  .desktop-week th{vertical-align:middle}
+  .desktop-week .col-queue,
+  .desktop-week .col-age,
+  .desktop-week .col-blood{
+    text-align:center;
+    width:1%;
+    white-space:nowrap;
+  }
+  .desktop-week .col-queue .queue-badge,
+  .desktop-week .col-blood .blood-badge{
+    margin:0 auto;
+  }
+}
 
 .flag-chip{
   display:inline-flex;align-items:center;margin-left:6px;padding:2px 7px;

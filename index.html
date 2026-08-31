@@ -11,7 +11,7 @@
       })();
     </script>
     <style>html:not(.app-ready) body{visibility:hidden}</style>
-    <link rel="stylesheet" href="styles.css?v=20260831b" />
+    <link rel="stylesheet" href="styles.css?v=20260831d" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -106,11 +106,6 @@
         <button class="secondary" id="thisWeek" type="button">Цей тиждень</button>
       </section>
 
-      <section class="toolbar">
-        <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Пошук пацієнта, діагнозу або бригади" /></label>
-        <button class="secondary" id="exportData">Експорт</button>
-      </section>
-
       <section class="dept-board" data-dept="dept1">
         <div class="dept-head">
           <button class="secondary" type="button" data-add-dept="dept1">+ Додати операцію</button>
@@ -120,7 +115,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Черга</th><th>Дата</th><th>Пацієнт</th><th>Вік</th><th>Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+                <th class="col-queue">Черга</th><th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept1Body"></tbody>
             </table>
@@ -138,7 +133,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Черга</th><th>Дата</th><th>Пацієнт</th><th>Вік</th><th>Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+                <th class="col-queue">Черга</th><th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept2Body"></tbody>
             </table>
@@ -333,6 +328,6 @@
     </dialog>
 
     <script src="api.js?v=20260814c"></script>
-    <script src="app.js?v=20260831c"></script>
+    <script src="app.js?v=20260831e"></script>
   </body>
 </html>
