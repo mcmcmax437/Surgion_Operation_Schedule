@@ -24,6 +24,13 @@ const DEPARTMENTS = [
   { id: "dept2", label: "Хірургічне відділення №2" },
 ];
 const INFECTION_OPTIONS = ["HCV", "HbsAg", "HIV", "RW"];
+const PATIENT_FLAG_OPTIONS = [
+  { id: "zsu", label: "ЗСУ", title: "ЗСУ (військовий)" },
+  { id: "vip", label: "VIP", title: "VIP персона" },
+];
+const MAX_SURGEONS = 3;
+const MAX_ANESTHESIOLOGISTS = 1;
+const PICKER_LIMITS = { teamPicker: MAX_SURGEONS, anesthesiologistPicker: MAX_ANESTHESIOLOGISTS };
 const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 let defaultDepartment = localStorage.getItem("surgery-dept") === "dept2" ? "dept2" : "dept1";
 
@@ -63,6 +70,17 @@ function formatDayMonth(ymd) {
   return `${day}/${month}/${String(year).slice(-2)}`;
 }
 
+function weekdayIndex(ymd) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const sunday0 = new Date(year, month - 1, day).getDay();
+  return sunday0 === 0 ? 6 : sunday0 - 1;
+}
+
+function formatDayHeading(ymd) {
+  if (!ymd) return "—";
+  return `${WEEKDAY_SHORT[weekdayIndex(ymd)]} ${formatDayMonth(ymd)}`;
+}
+
 function formatWeekRange(monday) {
   return `${formatDayMonth(monday)}–${formatDayMonth(addDaysYmd(monday, 6))}`;
 }
@@ -95,6 +113,18 @@ function setSelectedInfections(values = []) {
   });
 }
 
+function selectedPatientFlags() {
+  return [...document.querySelectorAll("#patientFlagPicks input:checked")]
+    .map((input) => input.value)
+    .filter((value) => PATIENT_FLAG_OPTIONS.some((item) => item.id === value));
+}
+
+function setSelectedPatientFlags(values = []) {
+  document.querySelectorAll("#patientFlagPicks input").forEach((input) => {
+    input.checked = values.includes(input.value);
+  });
+}
+
 function setActiveDepartment(id) {
   defaultDepartment = id === "dept2" ? "dept2" : "dept1";
   localStorage.setItem("surgery-dept", defaultDepartment);
@@ -117,6 +147,9 @@ function cycleDepartment(step) {
 }
 
 let weekMonday = currentWorkWeekMonday();
+let selectedDay = todayYmd();
+let scheduleMode = "day";
+let currentView = "schedule";
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -158,6 +191,34 @@ function hasInfectionRisk(item) {
 function dangerMarkHtml(item) {
   if (!hasInfectionRisk(item)) return "";
   return `<span class="danger-bang" title="${escapeHtml(infectionLabel(item))}" aria-label="Потенційна небезпека для лікаря">!</span>`;
+}
+
+function parseBloodGroup(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const rh = /Rh\s*-/i.test(raw) ? "-" : (/Rh\s*\+/i.test(raw) ? "+" : "");
+  let abo = "";
+  if (/^AB/i.test(raw) || /\(IV\)/i.test(raw)) abo = "AB";
+  else if (/^A/i.test(raw) || /\(II\)/i.test(raw)) abo = "A";
+  else if (/^B/i.test(raw) || /\(III\)/i.test(raw)) abo = "B";
+  else if (/^0|^O/i.test(raw) || /\(I\)/i.test(raw)) abo = "0";
+  if (!abo) return { short: raw, full: raw, rh };
+  return { short: `${abo}${rh}`, full: raw, rh, abo };
+}
+
+function bloodBadgeHtml(item) {
+  const parsed = parseBloodGroup(item.bloodGroup);
+  if (!parsed) return `<span class="blood-badge is-empty" title="Група крові не вказана">—</span>`;
+  const rhClass = parsed.rh === "-" ? "rh-neg" : (parsed.rh === "+" ? "rh-pos" : "");
+  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(parsed.full)}"><span class="blood-abo">${escapeHtml(parsed.abo || parsed.short)}</span>${parsed.rh ? `<span class="blood-rh">${parsed.rh}</span>` : ""}</span>`;
+}
+
+function patientFlagsHtml(item) {
+  const flags = item.patientFlags || [];
+  return PATIENT_FLAG_OPTIONS
+    .filter((option) => flags.includes(option.id))
+    .map((option) => `<span class="flag-chip flag-${option.id}" title="${escapeHtml(option.title)}">${escapeHtml(option.label)}</span>`)
+    .join("");
 }
 
 function formatDateTime(value) {
@@ -219,20 +280,53 @@ function selectedPickerValues(containerId) {
 
 let canViewLogs = false;
 
+function applyScheduleMode() {
+  const view = $("#scheduleView");
+  if (view) {
+    view.classList.toggle("mode-day", scheduleMode === "day");
+    view.classList.toggle("mode-week", scheduleMode === "week");
+    view.classList.toggle("mode-plan", scheduleMode === "plan");
+  }
+  if ($("#dayBar")) $("#dayBar").hidden = scheduleMode !== "day";
+  if ($("#weekBar")) $("#weekBar").hidden = scheduleMode === "day";
+  const weekEyebrow = $("#weekBar .eyebrow");
+  if (weekEyebrow) weekEyebrow.textContent = scheduleMode === "plan" ? "План операцій" : "Розклад на тиждень";
+}
+
 function showView(view) {
-  if (view === "logs" && !canViewLogs) {
+  if ((view === "logs" || view === "staff" || view === "archive") && !canViewLogs) {
+    view = "day";
+  }
+  if (view === "day" || view === "week" || view === "plan") {
+    scheduleMode = view;
     view = "schedule";
   }
+  currentView = view;
   if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
   if ($("#archiveView")) $("#archiveView").hidden = view !== "archive";
   if ($("#staffView")) $("#staffView").hidden = view !== "staff";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
-  if ($("#scheduleTab")) $("#scheduleTab").classList.toggle("active", view === "schedule");
+  if ($("#dayTab")) $("#dayTab").classList.toggle("active", view === "schedule" && scheduleMode === "day");
+  if ($("#weekTab")) $("#weekTab").classList.toggle("active", view === "schedule" && scheduleMode === "week");
+  if ($("#planTab")) $("#planTab").classList.toggle("active", view === "schedule" && scheduleMode === "plan");
   if ($("#archiveTab")) $("#archiveTab").classList.toggle("active", view === "archive");
   if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
+  applyScheduleMode();
+  if (view === "schedule") render();
   if (view === "logs") loadLogs();
   if (view === "archive") renderArchive();
+}
+
+function applyAdminVisibility(allowed) {
+  canViewLogs = Boolean(allowed);
+  ["logsTab", "staffTab", "archiveTab"].forEach((id) => {
+    if ($(`#${id}`)) $(`#${id}`).hidden = !canViewLogs;
+  });
+  document.querySelector(".view-tabs")?.classList.toggle("is-admin", canViewLogs);
+  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "archive")) {
+    showView("day");
+  }
 }
 
 function findOperation(id) {
@@ -250,11 +344,7 @@ function archiveDaysLeft(archivedAt) {
 }
 
 function applyLogsVisibility(allowed) {
-  canViewLogs = Boolean(allowed);
-  if ($("#logsTab")) $("#logsTab").hidden = !canViewLogs;
-  if (!canViewLogs && $("#logsView") && !$("#logsView").hidden) {
-    showView("schedule");
-  }
+  applyAdminVisibility(allowed);
 }
 
 function renderStaffLists() {
@@ -330,7 +420,11 @@ function filteredOperations() {
 
   return [...operations]
     .filter((item) => {
-      if (item.date && (item.date < weekMonday || item.date > sunday)) return false;
+      if (scheduleMode === "day") {
+        if (item.date !== selectedDay) return false;
+      } else if (item.date && (item.date < weekMonday || item.date > sunday)) {
+        return false;
+      }
       const text = [
         item.patient,
         item.diagnosis,
@@ -338,6 +432,8 @@ function filteredOperations() {
         ...(item.teamMembers || []),
         ...(item.anesthesiologists || []),
         infectionLabel(item),
+        (item.patientFlags || []).join(" "),
+        item.bloodGroup,
         item.id,
       ].join(" ").toLowerCase();
       return !searchTerm || text.includes(searchTerm);
@@ -361,10 +457,11 @@ function operationRowHtml(item) {
       <td class="col-queue" data-label="Черга">${queueBadgeHtml(item)}</td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
+        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}${patientFlagsHtml(item)}</span>
         <span class="sub">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
+      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}</td>
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
@@ -397,7 +494,9 @@ function mobileCardHtml(item) {
         ${dangerMarkHtml(item)}
         ${queueBadgeHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
+        ${patientFlagsHtml(item)}
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
+        ${bloodBadgeHtml(item)}
       </div>
       <p class="week-procedure">${escapeHtml(item.procedure || "—")}</p>
       ${diagnosis}
@@ -424,28 +523,40 @@ function renderDepartment(deptId, rows) {
   const days = $(`#${deptId}Days`);
   if (body) body.innerHTML = rows.map(operationRowHtml).join("");
   if (empty) empty.hidden = rows.length > 0;
+  if (!days) return;
 
-  if (days) {
-    const undated = rows.filter((item) => !item.date);
-    const undatedBlock = undated.length
-      ? `<section class="week-day week-undated">
-          <h3>Без дати</h3>
-          ${undated.map(mobileCardHtml).join("")}
-        </section>`
-      : "";
-    const dayBlocks = WEEKDAY_SHORT.map((label, index) => {
-      const date = addDaysYmd(weekMonday, index);
-      const dayRows = rows.filter((item) => item.date === date);
-      if (!dayRows.length) return "";
-      return `
-        <section class="week-day">
+  if (scheduleMode === "day") {
+    const date = selectedDay;
+    const dayRows = rows.filter((item) => item.date === date);
+    const label = WEEKDAY_SHORT[weekdayIndex(date)] || "";
+    days.innerHTML = dayRows.length
+      ? `<section class="week-day">
           <h3>${label} ${formatDayMonth(date)}</h3>
           ${dayRows.map(mobileCardHtml).join("")}
-        </section>`;
-    }).join("");
-    days.innerHTML = undatedBlock + dayBlocks
-      || `<p class="week-empty">Немає операцій цього тижня.</p>`;
+        </section>`
+      : `<p class="week-empty">Немає операцій на цей день.</p>`;
+    return;
   }
+
+  const undated = rows.filter((item) => !item.date);
+  const undatedBlock = undated.length
+    ? `<section class="week-day week-undated">
+        <h3>Без дати</h3>
+        ${undated.map(mobileCardHtml).join("")}
+      </section>`
+    : "";
+  const dayBlocks = WEEKDAY_SHORT.map((label, index) => {
+    const date = addDaysYmd(weekMonday, index);
+    const dayRows = rows.filter((item) => item.date === date);
+    if (!dayRows.length) return "";
+    return `
+      <section class="week-day">
+        <h3>${label} ${formatDayMonth(date)}</h3>
+        ${dayRows.map(mobileCardHtml).join("")}
+      </section>`;
+  }).join("");
+  days.innerHTML = undatedBlock + dayBlocks
+    || `<p class="week-empty">Немає операцій цього тижня.</p>`;
 }
 
 const expandedOperations = new Set();
@@ -460,16 +571,11 @@ const MEDIA_ZOOM_STEP = 0.25;
 
 function render() {
   if ($("#weekLabel")) $("#weekLabel").textContent = formatWeekRange(weekMonday);
+  if ($("#dayLabel")) $("#dayLabel").textContent = formatDayHeading(selectedDay);
+  applyScheduleMode();
   const rows = filteredOperations();
   renderDepartment("dept1", rows.filter((item) => item.department !== "dept2"));
   renderDepartment("dept2", rows.filter((item) => item.department === "dept2"));
-
-  if ($("#weekCount")) $("#weekCount").textContent = String(rows.length);
-  if ($("#dept1Count")) $("#dept1Count").textContent = String(rows.filter((item) => item.department !== "dept2").length);
-  if ($("#dept2Count")) $("#dept2Count").textContent = String(rows.filter((item) => item.department === "dept2").length);
-  if ($("#fileCount")) {
-    $("#fileCount").textContent = rows.reduce((sum, item) => sum + (item.attachments?.length || 0), 0);
-  }
   renderArchive();
 }
 
@@ -658,6 +764,7 @@ function resetForm() {
   if ($("#anesthesiologistPickerSearch")) $("#anesthesiologistPickerSearch").value = "";
   if ($("#deleteOperation")) $("#deleteOperation").hidden = true;
   setSelectedInfections([]);
+  setSelectedPatientFlags([]);
   if ($("#department")) $("#department").value = defaultDepartment;
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
@@ -692,6 +799,7 @@ function openForm(id = null) {
       if ($(`#${field}`)) $(`#${field}`).value = value ?? "";
     });
     setSelectedInfections(item.infections || []);
+    setSelectedPatientFlags(item.patientFlags || []);
     renderPicker("teamPicker", staff.team, namesForOperation(item, "teamMembers", "team"));
     renderPicker("anesthesiologistPicker", staff.anesthesiologists, namesForOperation(item, "anesthesiologists", "anesthesiologist"));
     currentFormAttachments = item.attachments || [];
@@ -713,11 +821,12 @@ async function saveOperation(event) {
     patient: formatShortName($("#patientName").value),
     patientAge: $("#patientAge")?.value || "",
     bloodGroup: $("#bloodGroup").value,
-    teamMembers: selectedPickerValues("teamPicker"),
+    teamMembers: selectedPickerValues("teamPicker").slice(0, MAX_SURGEONS),
     diagnosis: $("#diagnosis").value.trim(),
     procedure: $("#procedure").value.trim(),
-    anesthesiologists: selectedPickerValues("anesthesiologistPicker"),
+    anesthesiologists: selectedPickerValues("anesthesiologistPicker").slice(0, MAX_ANESTHESIOLOGISTS),
     infections: selectedInfections(),
+    patientFlags: selectedPatientFlags(),
     notes: $("#notes").value.trim(),
   };
 
@@ -1226,13 +1335,15 @@ async function refresh() {
   operations = ops;
   archivedOperations = archived;
   staff = staffData;
-  applyLogsVisibility(session?.canViewLogs);
+  applyAdminVisibility(session?.isAdmin || session?.canViewLogs);
   renderStaffLists();
   render();
 }
 
 on("#themeToggle", "change", (event) => setTheme(event.target.checked ? "dark" : "light"));
-on("#scheduleTab", "click", () => showView("schedule"));
+on("#dayTab", "click", () => showView("day"));
+on("#weekTab", "click", () => showView("week"));
+on("#planTab", "click", () => showView("plan"));
 on("#archiveTab", "click", () => showView("archive"));
 on("#staffTab", "click", () => showView("staff"));
 on("#logsTab", "click", () => showView("logs"));
@@ -1268,6 +1379,18 @@ on("#nextWeek", "click", () => {
 });
 on("#thisWeek", "click", () => {
   weekMonday = currentWorkWeekMonday();
+  render();
+});
+on("#prevDay", "click", () => {
+  selectedDay = addDaysYmd(selectedDay, -1);
+  render();
+});
+on("#nextDay", "click", () => {
+  selectedDay = addDaysYmd(selectedDay, 1);
+  render();
+});
+on("#thisDay", "click", () => {
+  selectedDay = todayYmd();
   render();
 });
 on("#prevDept", "click", () => cycleDepartment(-1));
@@ -1308,6 +1431,23 @@ on("#anesthesiologistNameInput", "blur", (event) => {
 });
 on("#teamPickerSearch", "input", () => paintPicker("teamPicker"));
 on("#anesthesiologistPickerSearch", "input", () => paintPicker("anesthesiologistPicker"));
+document.addEventListener("change", (event) => {
+  const input = event.target.closest("input[data-picker]");
+  if (!input) return;
+  const pickerId = input.dataset.picker;
+  const max = PICKER_LIMITS[pickerId];
+  if (!max) return;
+  const selected = selectedPickerValues(pickerId);
+  if (selected.length <= max) return;
+  if (max === 1) {
+    document.querySelectorAll(`#${pickerId} input[type="checkbox"]`).forEach((box) => {
+      if (box !== input) box.checked = false;
+    });
+    return;
+  }
+  input.checked = false;
+  alert(pickerId === "teamPicker" ? "Можна обрати максимум 3 хірургів." : "Можна обрати максимум 1 анестезіолога.");
+});
 on("#deleteOperation", "click", () => {
   if (editingId) deleteOperation(editingId);
 });
@@ -1380,7 +1520,7 @@ on("#exportData", "click", () => {
 on("#refreshLogs", "click", () => loadLogs());
 
 setTheme(localStorage.getItem("surgery-theme") || "light");
-showView("schedule");
+showView("day");
 
 (async function boot() {
   try {

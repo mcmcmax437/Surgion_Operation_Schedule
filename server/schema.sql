@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS operations (
   team_members JSON NOT NULL,
   anesthesiologists JSON NOT NULL,
   infections JSON NULL,
+  patient_flags JSON NULL,
   status VARCHAR(64) NOT NULL DEFAULT 'Заплановано',
   notes TEXT NULL,
   is_example TINYINT(1) NOT NULL DEFAULT 0,

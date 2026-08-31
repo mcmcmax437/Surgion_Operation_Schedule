@@ -37,12 +37,12 @@
   .topbar{gap:14px;margin-bottom:16px}
   .view-tabs{
     display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-columns:repeat(3,minmax(0,1fr));
     width:100%;
     gap:6px;
     margin-bottom:14px;
   }
-  .view-tabs:has(#logsTab[hidden]){
+  .view-tabs.is-admin{
     grid-template-columns:repeat(3,minmax(0,1fr));
   }
   .view-tab{
@@ -700,4 +700,39 @@ button:active:not(:disabled),
 .attachment-remove:hover{background:#f4cccc}
 .theme-dark .attachment-remove{color:#fca5a5}
 .theme-dark .attachment-remove:hover{background:#3f1d1d}
+
+#scheduleView.mode-day .desktop-week,
+#scheduleView.mode-week .desktop-week{display:none!important}
+#scheduleView.mode-day .mobile-week,
+#scheduleView.mode-week .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
+#scheduleView.mode-plan .mobile-week{display:none!important}
+#scheduleView.mode-plan .desktop-week{display:block!important}
+
+.blood-badge{
+  display:inline-flex;align-items:center;justify-content:center;gap:0;
+  min-width:38px;height:26px;padding:0 7px;border-radius:999px;
+  font-weight:800;font-size:12px;line-height:1;letter-spacing:.02em;
+  background:#e2e8f0;color:#334155;border:1px solid #cbd5e1;white-space:nowrap
+}
+.blood-badge.rh-pos{background:#fee2e2;color:#9f1239;border-color:#fca5a5}
+.blood-badge.rh-neg{background:#e0f2fe;color:#075985;border-color:#7dd3fc}
+.blood-badge.is-empty{opacity:.55;font-weight:700;min-width:28px}
+.blood-rh{margin-left:1px;font-size:13px}
+.theme-dark .blood-badge{background:#334155;color:#e2e8f0;border-color:#475569}
+.theme-dark .blood-badge.rh-pos{background:#7f1d1d;color:#fecaca;border-color:#b91c1c}
+.theme-dark .blood-badge.rh-neg{background:#0c4a6e;color:#bae6fd;border-color:#0369a1}
+
+.flag-chip{
+  display:inline-flex;align-items:center;margin-left:6px;padding:2px 7px;
+  border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;line-height:1.4
+}
+.flag-zsu{background:#3f6212;color:#ecfccb}
+.flag-vip{background:#a16207;color:#fef9c3}
+.theme-dark .flag-zsu{background:#365314;color:#d9f99d}
+.theme-dark .flag-vip{background:#854d0e;color:#fde68a}
+.patient .flag-chip{vertical-align:middle}
+
+@media (max-width:760px){
+  #thisDay{grid-column:1/-1}
+}
 

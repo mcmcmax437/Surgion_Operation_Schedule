@@ -91,6 +91,11 @@ function bodyToOperation(body) {
     : parseJson(body.infections, []);
   const allowedInfections = ["HCV", "HbsAg", "HIV", "RW"];
   const infections = infectionsRaw.filter((item) => allowedInfections.includes(item));
+  const allowedFlags = ["zsu", "vip"];
+  const flagsRaw = Array.isArray(body.patientFlags)
+    ? body.patientFlags
+    : parseJson(body.patientFlags, []);
+  const patientFlags = flagsRaw.filter((item) => allowedFlags.includes(item));
   const ageRaw = body.patientAge;
   const patientAge = ageRaw === "" || ageRaw == null ? null : Number(ageRaw);
   const queueRaw = body.queueNo;
@@ -107,9 +112,10 @@ function bodyToOperation(body) {
     bloodGroup: body.bloodGroup || null,
     diagnosis: String(body.diagnosis || "").trim(),
     procedure: String(body.procedure || "").trim(),
-    teamMembers,
-    anesthesiologists,
+    teamMembers: Array.isArray(teamMembers) ? teamMembers.slice(0, 3) : [],
+    anesthesiologists: Array.isArray(anesthesiologists) ? anesthesiologists.slice(0, 1) : [],
     infections,
+    patientFlags,
     status: body.status || "Заплановано",
     notes: String(body.notes || "").trim(),
   };
@@ -321,6 +327,7 @@ app.get("/api/session", auth, async (req, res) => {
   res.json({
     ip: req.clientIp,
     canViewLogs: canViewLogs(req.clientIp),
+    isAdmin: canViewLogs(req.clientIp),
   });
 });
 
@@ -413,10 +420,10 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
     await connection.query(
       `INSERT INTO operations
         (id, date, time, queue_no, department, patient, birth_date, patient_age, blood_group, diagnosis, \`procedure\`,
-         team_members, anesthesiologists, infections, status, notes, is_example, archived_at, created_at, updated_at)
+         team_members, anesthesiologists, infections, patient_flags, status, notes, is_example, archived_at, created_at, updated_at)
        VALUES
         (:id, :date, :time, :queue_no, :department, :patient, :birth_date, :patient_age, :blood_group, :diagnosis, :procedure,
-         :team_members, :anesthesiologists, :infections, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
+         :team_members, :anesthesiologists, :infections, :patient_flags, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
       {
         id,
         date: data.date,
@@ -432,6 +439,7 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
         team_members: JSON.stringify(data.teamMembers),
         anesthesiologists: JSON.stringify(data.anesthesiologists),
         infections: JSON.stringify(data.infections),
+        patient_flags: JSON.stringify(data.patientFlags),
         status: data.status,
         notes: data.notes || null,
         archived_at: archivedAt,
@@ -513,6 +521,7 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         team_members = :team_members,
         anesthesiologists = :anesthesiologists,
         infections = :infections,
+        patient_flags = :patient_flags,
         status = :status,
         notes = :notes,
         archived_at = CASE
@@ -536,6 +545,7 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
         team_members: JSON.stringify(data.teamMembers),
         anesthesiologists: JSON.stringify(data.anesthesiologists),
         infections: JSON.stringify(data.infections),
+        patient_flags: JSON.stringify(data.patientFlags),
         status: data.status,
         notes: data.notes || null,
         keep_archived: keepArchived ? 1 : 0,
@@ -567,7 +577,7 @@ app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res)
 
     const fields = [
       "date", "queueNo", "department", "patient", "patientAge", "bloodGroup", "diagnosis",
-      "procedure", "teamMembers", "anesthesiologists", "infections", "notes", "attachments",
+      "procedure", "teamMembers", "anesthesiologists", "infections", "patientFlags", "notes", "attachments",
     ];
     const changed = diffFields(before, after, fields);
 
@@ -658,6 +668,9 @@ app.get("/api/staff", auth, async (_req, res) => {
 });
 
 app.put("/api/staff", auth, async (req, res) => {
+  if (!canViewLogs(req.clientIp)) {
+    return res.status(403).json({ error: "Staff list is available only for allowed IP" });
+  }
   const before = {
     team: [],
     anesthesiologists: [],

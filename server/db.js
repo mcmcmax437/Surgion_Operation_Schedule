@@ -134,6 +134,11 @@ export async function migrate(pool) {
       `ALTER TABLE operations ADD COLUMN infections JSON NULL AFTER anesthesiologists`,
     );
   }
+  if (!(await columnExists(pool, "operations", "patient_flags"))) {
+    await pool.query(
+      `ALTER TABLE operations ADD COLUMN patient_flags JSON NULL AFTER infections`,
+    );
+  }
   if (!(await indexExists(pool, "operations", "idx_operations_dept_date"))) {
     await pool.query(
       `ALTER TABLE operations ADD INDEX idx_operations_dept_date (department, date, queue_no)`,
@@ -193,6 +198,7 @@ export function parseJson(value, fallback) {
 
 export function mapOperation(row, attachments = []) {
   const infections = parseJson(row.infections, []);
+  const flags = parseJson(row.patient_flags, []);
   return {
     id: row.id,
     date: row.date || "",
@@ -208,6 +214,7 @@ export function mapOperation(row, attachments = []) {
     teamMembers: parseJson(row.team_members, []),
     anesthesiologists: parseJson(row.anesthesiologists, []),
     infections: Array.isArray(infections) ? infections : [],
+    patientFlags: Array.isArray(flags) ? flags : [],
     status: row.status,
     notes: row.notes || "",
     isExample: Boolean(row.is_example),
