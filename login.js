@@ -44,10 +44,18 @@ form.addEventListener("submit", async (event) => {
   } catch (err) {
     clearAuth();
     const message = String(err.message || "");
-    if (message.includes("API error 404") || message.includes("Немає зв")) {
-      showError("API недоступне (404). Перевірте nginx /api/ і pm2.");
+    if (
+      message.includes("API error 404") ||
+      message.includes("Немає зв") ||
+      message.includes("шлюз") ||
+      message.includes("502") ||
+      message.includes("503")
+    ) {
+      showError("API недоступне. Перевірте nginx /api/ і pm2 (surgion-schedule-api).");
     } else if (message.includes("401") || message.toLowerCase().includes("invalid") || message === "Unauthorized") {
       showError("Неправильний пароль.");
+    } else if (message.includes("тимчасово недоступний")) {
+      showError(message);
     } else {
       showError(message || "Помилка входу.");
     }

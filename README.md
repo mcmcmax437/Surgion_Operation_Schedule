@@ -71,6 +71,19 @@ server {
 
 Після змін: `nginx -t && systemctl reload nginx`.
 
+Якщо логін показує **502 Bad Gateway** — nginx не може достукатись до API на `127.0.0.1:3001`. На VPS:
+
+```bash
+pm2 status
+pm2 logs surgion-schedule-api --lines 100 --nostream
+curl -sS http://127.0.0.1:3001/api/health
+# якщо API впало:
+cd /usr/src/surgion_operation/Surgion_Operation_Schedule
+pm2 startOrReload ecosystem.config.cjs --update-env
+# також перевірте MySQL:
+sudo systemctl status mysql
+```
+
 ## CI/CD
 
 GitHub Actions rsync-ить код і виконує `npm install` + `pm2 startOrReload`.  
