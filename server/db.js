@@ -88,6 +88,44 @@ async function indexExists(pool, table, indexName) {
   return Number(rows[0]?.count || 0) > 0;
 }
 
+async function columnIsNullable(pool, table, column) {
+  const [rows] = await pool.query(
+    `SELECT IS_NULLABLE AS is_nullable
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = :table
+       AND COLUMN_NAME = :column
+     LIMIT 1`,
+    { table, column },
+  );
+  return String(rows[0]?.is_nullable || "").toUpperCase() === "YES";
+}
+
+export async function waitForDatabase(pool, {
+  attempts = 30,
+  delayMs = 2000,
+} = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await pool.query("SELECT 1");
+      if (attempt > 1) {
+        console.log(`MySQL ready after ${attempt} attempt(s)`);
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `MySQL not ready (attempt ${attempt}/${attempts}): ${error.message}`,
+      );
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastError || new Error("MySQL is not reachable");
+}
+
 export async function migrate(pool) {
   const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   const statements = schema
@@ -121,7 +159,8 @@ export async function migrate(pool) {
     await pool.query(
       `ALTER TABLE operations ADD COLUMN queue_no INT NULL AFTER time`,
     );
-  } else {
+  } else if (!(await columnIsNullable(pool, "operations", "queue_no"))) {
+    // Only alter when still NOT NULL — avoid locking ALTER on every boot.
     await pool.query(`ALTER TABLE operations MODIFY COLUMN queue_no INT NULL`);
   }
   if (!(await columnExists(pool, "operations", "patient_age"))) {

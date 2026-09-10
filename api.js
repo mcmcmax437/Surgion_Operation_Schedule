@@ -74,12 +74,21 @@
     if (contentType.indexOf("application/json") !== -1) {
       data = await response.json();
     } else if (contentType.indexOf("text/") !== -1) {
-      data = { error: await response.text() };
+      const text = await response.text();
+      const looksLikeHtml = /<\s*html|502 Bad Gateway|503 Service|nginx/i.test(text);
+      data = {
+        error: looksLikeHtml
+          ? "API недоступне (шлюз). Перевірте pm2 і nginx /api/."
+          : text,
+      };
     } else {
       data = await response.blob();
     }
 
     if (!response.ok) {
+      if (response.status === 502 || response.status === 503 || response.status === 504) {
+        throw new Error("API недоступне (шлюз). Перевірте pm2 і nginx /api/.");
+      }
       const message = (data && data.error) || ("API error " + response.status);
       throw new Error(typeof message === "string" ? message.slice(0, 200) : "Request failed");
     }

@@ -8,6 +8,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import {
   createPool,
+  waitForDatabase,
   migrate,
   seedStaff,
   mapOperation,
@@ -336,40 +337,55 @@ app.post("/api/login", async (req, res) => {
   const ua = userAgent(req);
   const password = String(req.body?.password || "");
 
-  if (password !== ACCESS_PASSWORD) {
-    await logAccess(pool, {
-      event: "login_fail",
-      ip,
-      userAgent: ua,
+  try {
+    if (password !== ACCESS_PASSWORD) {
+      try {
+        await logAccess(pool, {
+          event: "login_fail",
+          ip,
+          userAgent: ua,
+        });
+      } catch (logError) {
+        console.error("login_fail log failed:", logError);
+      }
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    const token = newToken();
+    const now = new Date();
+    const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+
+    await pool.query(
+      `INSERT INTO sessions (token, ip, user_agent, created_at, last_seen_at, expires_at)
+       VALUES (:token, :ip, :user_agent, :created_at, :last_seen_at, :expires_at)`,
+      {
+        token,
+        ip,
+        user_agent: ua,
+        created_at: now,
+        last_seen_at: now,
+        expires_at: expires,
+      },
+    );
+
+    try {
+      await logAccess(pool, {
+        event: "login_success",
+        ip,
+        userAgent: ua,
+        details: { expiresAt: expires.toISOString() },
+      });
+    } catch (logError) {
+      console.error("login_success log failed:", logError);
+    }
+
+    res.json({ token, expiresAt: expires.toISOString() });
+  } catch (error) {
+    console.error("login failed:", error);
+    res.status(503).json({
+      error: "Сервер тимчасово недоступний. Спробуйте ще раз за хвилину.",
     });
-    return res.status(401).json({ error: "Invalid password" });
   }
-
-  const token = newToken();
-  const now = new Date();
-  const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-
-  await pool.query(
-    `INSERT INTO sessions (token, ip, user_agent, created_at, last_seen_at, expires_at)
-     VALUES (:token, :ip, :user_agent, :created_at, :last_seen_at, :expires_at)`,
-    {
-      token,
-      ip,
-      user_agent: ua,
-      created_at: now,
-      last_seen_at: now,
-      expires_at: expires,
-    },
-  );
-
-  await logAccess(pool, {
-    event: "login_success",
-    ip,
-    userAgent: ua,
-    details: { expiresAt: expires.toISOString() },
-  });
-
-  res.json({ token, expiresAt: expires.toISOString() });
 });
 
 app.post("/api/logout", auth, async (req, res) => {
@@ -798,9 +814,22 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ error: error.message || "Server error" });
 });
 
-await migrate(pool);
-await seedStaff(pool);
-await runArchiveMaintenance(true);
+try {
+  await waitForDatabase(pool);
+  await migrate(pool);
+  await seedStaff(pool);
+} catch (error) {
+  console.error("Fatal: database bootstrap failed:", error);
+  process.exit(1);
+}
+
+try {
+  await runArchiveMaintenance(true);
+} catch (error) {
+  // Do not block API startup / login if archive job fails.
+  console.error("Archive maintenance at boot failed:", error);
+}
+
 setInterval(() => {
   runArchiveMaintenance(true).catch((error) => {
     console.error("Archive maintenance failed:", error);
