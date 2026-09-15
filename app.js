@@ -485,11 +485,11 @@ function operationRowHtml(item) {
     <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}${patientFlagsHtml(item)}</span>
+        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
         <span class="patient-age">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
-      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}</td>
+      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
       <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
@@ -524,10 +524,9 @@ function mobileCardHtml(item) {
       <div class="week-card-top">
         ${dangerMarkHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
-        ${patientFlagsHtml(item)}
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="patient-age">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
         ${bloodBadgeHtml(item)}
-        ${statusBadgeHtml(item)}
+        ${patientFlagsHtml(item)}
       </div>
       <div class="week-clinical">
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
@@ -535,6 +534,7 @@ function mobileCardHtml(item) {
       </div>
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
+      <p class="week-status">${statusBadgeHtml(item)}</p>
       <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
       <div class="row-actions">
         <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
@@ -1438,10 +1438,40 @@ async function loadLogs() {
   }
 }
 
-function setTheme(theme) {
-  document.documentElement.classList.toggle("theme-dark", theme === "dark");
-  localStorage.setItem("surgery-theme", theme);
-  if ($("#themeToggle")) $("#themeToggle").checked = theme === "dark";
+function setTheme(theme, { animate = true } = {}) {
+  const apply = () => {
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    localStorage.setItem("surgery-theme", theme);
+    if ($("#themeToggle")) $("#themeToggle").checked = theme === "dark";
+  };
+
+  const root = document.documentElement;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const nextIsDark = theme === "dark";
+  const currentIsDark = root.classList.contains("theme-dark");
+  if (nextIsDark === currentIsDark) {
+    apply();
+    return;
+  }
+
+  if (!animate || reduceMotion) {
+    apply();
+    return;
+  }
+
+  if (typeof document.startViewTransition === "function") {
+    document.startViewTransition(apply);
+    return;
+  }
+
+  root.classList.remove("theme-fade-in");
+  root.classList.add("theme-fade-out");
+  window.setTimeout(() => {
+    apply();
+    root.classList.remove("theme-fade-out");
+    root.classList.add("theme-fade-in");
+    window.setTimeout(() => root.classList.remove("theme-fade-in"), 280);
+  }, 160);
 }
 
 async function refresh() {
@@ -1626,7 +1656,7 @@ on("#dept2Days", "click", handleOperationRowClick);
 on("#archiveBody", "click", handleOperationRowClick);
 on("#refreshLogs", "click", () => loadLogs());
 
-setTheme(localStorage.getItem("surgery-theme") || "light");
+setTheme(localStorage.getItem("surgery-theme") || "light", { animate: false });
 showView("day");
 
 (async function boot() {
