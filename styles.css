@@ -523,11 +523,12 @@
   position:relative;
   width:100%;
   height:100%;
-  overflow:auto;
+  overflow:hidden;
   display:flex;
   align-items:center;
   justify-content:center;
   overscroll-behavior:contain;
+  touch-action:none;
 }
 .media-fs-stage.is-loading::before{
   content:"Завантаження…";
@@ -565,6 +566,19 @@
   object-fit:contain;
   transform-origin:center center;
   transition:transform .15s ease;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+.media-fs-overlay img.is-pinching,
+.media-fs-overlay img.is-zoomed{
+  transition:none;
+}
+.media-viewport{
+  touch-action:none;
+}
+.media-dialog .media-card.is-image .media-zoomable.is-pinching{
+  transition:none;
 }
 .media-fs-close{
   position:fixed;

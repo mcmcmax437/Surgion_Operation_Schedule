@@ -597,6 +597,10 @@ let mediaObjectUrls = [];
 let mediaFiles = [];
 let mediaIndex = 0;
 let mediaZoom = 1;
+let mediaPanX = 0;
+let mediaPanY = 0;
+let mediaPinch = null;
+let mediaPanDrag = null;
 let mediaOperationId = null;
 const MEDIA_ZOOM_MIN = 1;
 const MEDIA_ZOOM_MAX = 4;
@@ -1116,6 +1120,28 @@ function currentMediaIsVideo() {
   return isVideoFile(current.metadata);
 }
 
+function mediaTransformValue() {
+  return `translate(${mediaPanX}px, ${mediaPanY}px) scale(${mediaZoom})`;
+}
+
+function resetMediaPan() {
+  mediaPanX = 0;
+  mediaPanY = 0;
+  mediaPinch = null;
+  mediaPanDrag = null;
+}
+
+function touchPairDistance(a, b) {
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+function touchPairCenter(a, b) {
+  return {
+    x: (a.clientX + b.clientX) / 2,
+    y: (a.clientY + b.clientY) / 2,
+  };
+}
+
 function updateMediaZoomUi() {
   const isImage = Boolean($("#mediaDialogBody")?.querySelector("img.media-zoomable")) && !currentMediaIsVideo();
   const imageTools = $("#mediaImageTools");
@@ -1126,19 +1152,103 @@ function updateMediaZoomUi() {
   if ($("#mediaZoomLabel")) $("#mediaZoomLabel").textContent = `${Math.round(mediaZoom * 100)}%`;
   if ($("#mediaZoomOut")) $("#mediaZoomOut").disabled = mediaZoom <= MEDIA_ZOOM_MIN;
   if ($("#mediaZoomIn")) $("#mediaZoomIn").disabled = mediaZoom >= MEDIA_ZOOM_MAX;
+  const transform = mediaTransformValue();
   if (img) {
-    img.style.transform = `scale(${mediaZoom})`;
+    img.style.transform = transform;
     img.classList.toggle("is-zoomed", mediaZoom > 1);
+    img.classList.toggle("is-pinching", Boolean(mediaPinch));
   }
-  if (fsImg && !fsImg.hidden) {
-    fsImg.style.transform = `scale(${mediaZoom})`;
+  if (fsImg && fsImg.getAttribute("src")) {
+    fsImg.style.transform = transform;
+    fsImg.classList.toggle("is-zoomed", mediaZoom > 1);
+    fsImg.classList.toggle("is-pinching", Boolean(mediaPinch));
   }
 }
 
 function setMediaZoom(nextZoom) {
   if (currentMediaIsVideo()) return;
   mediaZoom = Math.min(MEDIA_ZOOM_MAX, Math.max(MEDIA_ZOOM_MIN, Number(nextZoom.toFixed(2))));
+  if (mediaZoom <= 1) resetMediaPan();
   updateMediaZoomUi();
+}
+
+function isMediaFullscreenView() {
+  return isPseudoFullscreenActive() || Boolean(document.fullscreenElement);
+}
+
+function bindMediaPinchTarget(target) {
+  if (!target || target.dataset.pinchBound === "1") return;
+  target.dataset.pinchBound = "1";
+
+  target.addEventListener("touchstart", (event) => {
+    if (currentMediaIsVideo()) return;
+    const onOverlay = Boolean(
+      target.id === "mediaFsOverlay"
+      || target.classList?.contains("media-fs-stage")
+      || target.closest?.(".media-fs-overlay"),
+    );
+    if (!onOverlay && !isMediaFullscreenView()) return;
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      mediaPanDrag = null;
+      const [a, b] = event.touches;
+      const center = touchPairCenter(a, b);
+      mediaPinch = {
+        startDist: Math.max(touchPairDistance(a, b), 1),
+        startZoom: mediaZoom,
+        startPanX: mediaPanX,
+        startPanY: mediaPanY,
+        startCenterX: center.x,
+        startCenterY: center.y,
+      };
+      updateMediaZoomUi();
+      return;
+    }
+    if (event.touches.length === 1 && mediaZoom > 1) {
+      const touch = event.touches[0];
+      mediaPanDrag = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startPanX: mediaPanX,
+        startPanY: mediaPanY,
+      };
+    }
+  }, { passive: false });
+
+  target.addEventListener("touchmove", (event) => {
+    if (mediaPinch && event.touches.length >= 2) {
+      event.preventDefault();
+      const [a, b] = event.touches;
+      const dist = Math.max(touchPairDistance(a, b), 1);
+      const center = touchPairCenter(a, b);
+      const nextZoom = mediaPinch.startZoom * (dist / mediaPinch.startDist);
+      mediaZoom = Math.min(MEDIA_ZOOM_MAX, Math.max(MEDIA_ZOOM_MIN, nextZoom));
+      mediaPanX = mediaPinch.startPanX + (center.x - mediaPinch.startCenterX);
+      mediaPanY = mediaPinch.startPanY + (center.y - mediaPinch.startCenterY);
+      if (mediaZoom <= 1) {
+        mediaPanX = 0;
+        mediaPanY = 0;
+      }
+      updateMediaZoomUi();
+      return;
+    }
+    if (mediaPanDrag && event.touches.length === 1 && mediaZoom > 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      mediaPanX = mediaPanDrag.startPanX + (touch.clientX - mediaPanDrag.startX);
+      mediaPanY = mediaPanDrag.startPanY + (touch.clientY - mediaPanDrag.startY);
+      updateMediaZoomUi();
+    }
+  }, { passive: false });
+
+  const endPinch = () => {
+    mediaPinch = null;
+    mediaPanDrag = null;
+    if (mediaZoom <= 1) resetMediaPan();
+    updateMediaZoomUi();
+  };
+  target.addEventListener("touchend", endPinch);
+  target.addEventListener("touchcancel", endPinch);
 }
 
 function downloadCurrentMedia() {
@@ -1204,13 +1314,16 @@ function enterPseudoFullscreen() {
   stage?.classList.add("is-loading");
   fsImg.src = current.url;
   fsImg.alt = decodeFileName(current.metadata.name) || "Зображення";
-  fsImg.style.transform = `scale(${mediaZoom})`;
+  fsImg.style.transform = mediaTransformValue();
   const markLoaded = () => stage?.classList.remove("is-loading");
   if (fsImg.complete && fsImg.naturalWidth > 0) markLoaded();
   else {
     fsImg.addEventListener("load", markLoaded, { once: true });
     fsImg.addEventListener("error", markLoaded, { once: true });
   }
+  bindMediaPinchTarget(overlay);
+  bindMediaPinchTarget(stage);
+  bindMediaPinchTarget(fsImg);
   document.body.classList.add("media-fs-open");
   if (!overlay.open) overlay.showModal();
   syncMediaFullscreenUi();
@@ -1223,13 +1336,16 @@ function exitMediaFullscreen(silent = false) {
   if (fsImg) {
     fsImg.removeAttribute("src");
     fsImg.style.transform = "";
+    fsImg.classList.remove("is-zoomed", "is-pinching");
   }
+  resetMediaPan();
   document.body.classList.remove("media-fs-open");
   if (document.fullscreenElement) {
     document.exitFullscreen?.().catch(() => {});
     document.webkitExitFullscreen?.();
   }
   if (!silent) syncMediaFullscreenUi();
+  updateMediaZoomUi();
 }
 
 async function toggleMediaFullscreen() {
@@ -1290,6 +1406,7 @@ function renderMediaSlide() {
   const isVideo = currentMediaIsVideo();
   const fileName = decodeFileName(current.metadata.name);
   mediaZoom = 1;
+  resetMediaPan();
   exitMediaFullscreen(true);
 
   body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">
@@ -1337,6 +1454,8 @@ function renderMediaSlide() {
       img.addEventListener("load", markLoaded, { once: true });
       img.addEventListener("error", markLoaded, { once: true });
     }
+    bindMediaPinchTarget(viewport);
+    bindMediaPinchTarget(img);
     img.addEventListener("dblclick", () => {
       setMediaZoom(mediaZoom > 1 ? 1 : 2);
     });
@@ -1606,10 +1725,14 @@ on("#mediaZoomReset", "click", () => setMediaZoom(1));
 on("#mediaFullscreen", "click", toggleMediaFullscreen);
 on("#mediaFsClose", "click", () => exitMediaFullscreen());
 on("#mediaFsOverlay", "click", (event) => {
+  if (mediaPinch || mediaPanDrag) return;
   if (event.target === $("#mediaFsOverlay") || event.target?.classList?.contains("media-fs-stage")) {
     exitMediaFullscreen();
   }
 });
+bindMediaPinchTarget($("#mediaFsOverlay"));
+bindMediaPinchTarget($("#mediaFsOverlay")?.querySelector(".media-fs-stage"));
+bindMediaPinchTarget($("#mediaFsImage"));
 on("#mediaFsOverlay", "cancel", (event) => {
   event.preventDefault();
   exitMediaFullscreen();
