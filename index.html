@@ -11,11 +11,11 @@
       })();
     </script>
     <style>
-      html,body{background:#f4f7fb}
+      html,body{background:#e6ebf0}
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260915j" />
+    <link rel="stylesheet" href="styles.css?v=20260915m" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -124,7 +124,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Статус</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept1Body"></tbody>
             </table>
@@ -142,7 +142,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Статус</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept2Body"></tbody>
             </table>
@@ -232,7 +232,6 @@
             <option value="dept2">Хірургічне відділення №2</option>
           </select></label>
           <label>Дата операції<input id="operationDate" type="date" /></label>
-          <label hidden aria-hidden="true">Номер у черзі<input id="queueNo" type="number" min="1" step="1" tabindex="-1" /></label>
           <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Іванов І.Б." /></label>
           <label>Вік пацієнта<input id="patientAge" type="number" min="0" max="120" step="1" placeholder="років" /></label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
@@ -260,6 +259,15 @@
             <div id="anesthesiologistPicker" class="picker picker-scroll"></div>
             <small class="picker-help">Оберіть одного анестезіолога.</small>
           </fieldset>
+          <label class="wide">Статус перевірки
+            <select id="operationStatus">
+              <option value="">Очікує перевірки</option>
+              <option value="ОК">ОК</option>
+              <option value="Потребує дообстеження">Потребує дообстеження</option>
+              <option value="Відміна">Відміна</option>
+            </select>
+            <small class="picker-help">Не обовʼязково при створенні. Після створення будь-який лікар може виставити статус (зазвичай анестезіолог).</small>
+          </label>
           <fieldset class="wide picker-field">
             <legend>Тип пацієнта</legend>
             <div class="infection-picks" id="patientFlagPicks">
@@ -337,6 +345,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260915j"></script>
+    <script src="app.js?v=20260915m"></script>
   </body>
 </html>

@@ -101,6 +101,9 @@ function bodyToOperation(body) {
   const patientAge = ageRaw === "" || ageRaw == null ? null : Number(ageRaw);
   const queueRaw = body.queueNo;
   const queueNo = queueRaw === "" || queueRaw == null ? null : Number(queueRaw);
+  const allowedStatuses = ["ОК", "Потребує дообстеження", "Відміна"];
+  const statusRaw = String(body.status || "").trim();
+  const status = allowedStatuses.includes(statusRaw) ? statusRaw : "";
 
   return {
     date: body.date || null,
@@ -117,7 +120,7 @@ function bodyToOperation(body) {
     anesthesiologists: Array.isArray(anesthesiologists) ? anesthesiologists.slice(0, 1) : [],
     infections,
     patientFlags,
-    status: body.status || "Заплановано",
+    status,
     notes: String(body.notes || "").trim(),
   };
 }

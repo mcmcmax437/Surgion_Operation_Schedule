@@ -101,6 +101,19 @@ async function columnIsNullable(pool, table, column) {
   return String(rows[0]?.is_nullable || "").toUpperCase() === "YES";
 }
 
+async function columnDefault(pool, table, column) {
+  const [rows] = await pool.query(
+    `SELECT COLUMN_DEFAULT AS column_default
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = :table
+       AND COLUMN_NAME = :column
+     LIMIT 1`,
+    { table, column },
+  );
+  return rows[0]?.column_default;
+}
+
 export async function waitForDatabase(pool, {
   attempts = 30,
   delayMs = 2000,
@@ -183,6 +196,16 @@ export async function migrate(pool) {
       `ALTER TABLE operations ADD INDEX idx_operations_dept_date (department, date, queue_no)`,
     );
   }
+  // Clearance status: empty until a doctor sets ОК / Потребує дообстеження / Відміна.
+  const statusDefault = await columnDefault(pool, "operations", "status");
+  if (String(statusDefault ?? "") === "Заплановано") {
+    await pool.query(`ALTER TABLE operations MODIFY COLUMN status VARCHAR(64) NOT NULL DEFAULT ''`);
+    await pool.query(
+      `UPDATE operations
+       SET status = ''
+       WHERE status NOT IN ('ОК', 'Потребує дообстеження', 'Відміна')`,
+    );
+  }
   if (!(await columnExists(pool, "access_logs", "geo"))) {
     await pool.query(`ALTER TABLE access_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
   }
@@ -254,7 +277,9 @@ export function mapOperation(row, attachments = []) {
     anesthesiologists: parseJson(row.anesthesiologists, []),
     infections: Array.isArray(infections) ? infections : [],
     patientFlags: Array.isArray(flags) ? flags : [],
-    status: row.status,
+    status: ["ОК", "Потребує дообстеження", "Відміна"].includes(String(row.status || "").trim())
+      ? String(row.status).trim()
+      : "",
     notes: row.notes || "",
     isExample: Boolean(row.is_example),
     archivedAt: row.archived_at || null,
