@@ -524,10 +524,8 @@ function renderDepartment(deptId, rows) {
   if (scheduleMode === "day") {
     const date = selectedDay;
     const dayRows = rows.filter((item) => item.date === date);
-    const label = WEEKDAY_SHORT[weekdayIndex(date)] || "";
     days.innerHTML = dayRows.length
       ? `<section class="week-day">
-          <h3>${label} ${formatDayMonth(date)}</h3>
           ${dayRows.map(mobileCardHtml).join("")}
         </section>`
       : `<p class="week-empty">Немає операцій на цей день.</p>`;
@@ -537,17 +535,15 @@ function renderDepartment(deptId, rows) {
   const undated = rows.filter((item) => !item.date);
   const undatedBlock = undated.length
     ? `<section class="week-day week-undated">
-        <h3>Без дати</h3>
         ${undated.map(mobileCardHtml).join("")}
       </section>`
     : "";
-  const dayBlocks = WEEKDAY_SHORT.map((label, index) => {
+  const dayBlocks = WEEKDAY_SHORT.map((_label, index) => {
     const date = addDaysYmd(weekMonday, index);
     const dayRows = rows.filter((item) => item.date === date);
     if (!dayRows.length) return "";
     return `
       <section class="week-day">
-        <h3>${label} ${formatDayMonth(date)}</h3>
         ${dayRows.map(mobileCardHtml).join("")}
       </section>`;
   }).join("");
