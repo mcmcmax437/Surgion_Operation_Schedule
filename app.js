@@ -1438,7 +1438,7 @@ async function loadLogs() {
   }
 }
 
-function setTheme(theme) {
+function setTheme(theme, { animate = true } = {}) {
   const apply = () => {
     document.documentElement.classList.toggle("theme-dark", theme === "dark");
     localStorage.setItem("surgery-theme", theme);
@@ -1454,7 +1454,7 @@ function setTheme(theme) {
     return;
   }
 
-  if (reduceMotion) {
+  if (!animate || reduceMotion) {
     apply();
     return;
   }
