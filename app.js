@@ -146,12 +146,6 @@ function setActiveDepartment(id) {
   updateViewTabCounts();
 }
 
-function cycleDepartment(step) {
-  const index = DEPARTMENTS.findIndex((item) => item.id === defaultDepartment);
-  const next = DEPARTMENTS[(index + step + DEPARTMENTS.length) % DEPARTMENTS.length];
-  setActiveDepartment(next.id);
-}
-
 let weekMonday = currentWorkWeekMonday();
 let selectedDay = todayYmd();
 let scheduleMode = "day";
