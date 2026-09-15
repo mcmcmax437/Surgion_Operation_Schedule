@@ -486,7 +486,7 @@ function operationRowHtml(item) {
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}${patientFlagsHtml(item)}</span>
-        <span class="sub">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
+        <span class="patient-age">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
       <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}</td>
@@ -525,7 +525,7 @@ function mobileCardHtml(item) {
         ${dangerMarkHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
         ${patientFlagsHtml(item)}
-        ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
+        ${item.patientAge !== "" && item.patientAge != null ? `<span class="patient-age">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
         ${bloodBadgeHtml(item)}
         ${statusBadgeHtml(item)}
       </div>
@@ -1198,11 +1198,19 @@ function enterPseudoFullscreen() {
   const current = mediaFiles[mediaIndex];
   const overlay = $("#mediaFsOverlay");
   const fsImg = $("#mediaFsImage");
+  const stage = overlay?.querySelector(".media-fs-stage");
   if (!current || !overlay || !fsImg) return;
 
+  stage?.classList.add("is-loading");
   fsImg.src = current.url;
   fsImg.alt = decodeFileName(current.metadata.name) || "Зображення";
   fsImg.style.transform = `scale(${mediaZoom})`;
+  const markLoaded = () => stage?.classList.remove("is-loading");
+  if (fsImg.complete && fsImg.naturalWidth > 0) markLoaded();
+  else {
+    fsImg.addEventListener("load", markLoaded, { once: true });
+    fsImg.addEventListener("error", markLoaded, { once: true });
+  }
   document.body.classList.add("media-fs-open");
   if (!overlay.open) overlay.showModal();
   syncMediaFullscreenUi();
@@ -1285,7 +1293,11 @@ function renderMediaSlide() {
   exitMediaFullscreen(true);
 
   body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">
-    <div class="media-viewport">
+    <div class="media-viewport is-loading">
+      <div class="media-loading" aria-live="polite">
+        <span class="media-loading-spinner" aria-hidden="true"></span>
+        <span>Завантаження…</span>
+      </div>
       ${isVideo
         ? `<video controls playsinline webkit-playsinline preload="metadata" src="${current.url}"></video>`
         : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(fileName)}">`}
@@ -1299,8 +1311,16 @@ function renderMediaSlide() {
   updateMediaZoomUi();
   syncMediaFullscreenUi();
 
+  const viewport = body.querySelector(".media-viewport");
+  const markLoaded = () => viewport?.classList.remove("is-loading");
+
   const video = body.querySelector("video");
   if (video) {
+    if (video.readyState >= 2) markLoaded();
+    else {
+      video.addEventListener("loadeddata", markLoaded, { once: true });
+      video.addEventListener("error", markLoaded, { once: true });
+    }
     video.addEventListener("error", () => {
       if (body.querySelector(".empty-media")) return;
       const note = document.createElement("p");
@@ -1312,6 +1332,11 @@ function renderMediaSlide() {
 
   const img = body.querySelector("img.media-zoomable");
   if (img) {
+    if (img.complete && img.naturalWidth > 0) markLoaded();
+    else {
+      img.addEventListener("load", markLoaded, { once: true });
+      img.addEventListener("error", markLoaded, { once: true });
+    }
     img.addEventListener("dblclick", () => {
       setMediaZoom(mediaZoom > 1 ? 1 : 2);
     });
