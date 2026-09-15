@@ -825,8 +825,8 @@ dialog.media-fs-overlay::backdrop{
 .week-procedure .week-field-value{font-size:17px}
 .week-diagnosis{margin:0;color:#1f2937;font-weight:700}
 .week-diagnosis .week-field-value{font-size:15px}
-.week-people{margin:0 0 4px;font-size:13px;color:#334155}
-.week-people span{color:#718096;font-weight:700}
+.week-people{margin:0 0 6px;font-size:16px;line-height:1.35;color:#334155}
+.week-people span{color:#718096;font-weight:700;font-size:14px}
 .col-diagnosis,.col-procedure{font-weight:700;color:#17365d}
 .col-procedure{font-weight:800}
 .theme-dark .week-clinical{background:#182b3b;border-color:#4b5563}
@@ -1038,8 +1038,8 @@ button:active:not(:disabled),
 }
 
 .flag-chip{
-  display:inline-flex;align-items:center;margin-left:6px;padding:2px 7px;
-  border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;line-height:1.4
+  display:inline-flex;align-items:center;margin-left:6px;padding:4px 10px;
+  border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.04em;line-height:1.35
 }
 .flag-zsu{background:#3f6212;color:#ecfccb}
 .flag-vip{background:#a16207;color:#fef9c3}
