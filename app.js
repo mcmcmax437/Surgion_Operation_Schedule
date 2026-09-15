@@ -138,6 +138,7 @@ function setActiveDepartment(id) {
   if ($("#department") && !$("#operationDialog")?.open) {
     $("#department").value = defaultDepartment;
   }
+  updateAddOperationLabels();
 }
 
 function cycleDepartment(step) {
@@ -210,7 +211,8 @@ function bloodBadgeHtml(item) {
   const parsed = parseBloodGroup(item.bloodGroup);
   if (!parsed) return `<span class="blood-badge is-empty" title="Група крові не вказана">—</span>`;
   const rhClass = parsed.rh === "-" ? "rh-neg" : (parsed.rh === "+" ? "rh-pos" : "");
-  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(parsed.full)}">${escapeHtml(parsed.short)}</span>`;
+  const label = parsed.full || item.bloodGroup || "";
+  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
 }
 
 function patientFlagsHtml(item) {
@@ -442,7 +444,6 @@ function operationRowHtml(item) {
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
   return `
     <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
-      <td class="col-queue" data-label="Черга">${queueBadgeHtml(item)}</td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}${patientFlagsHtml(item)}</span>
@@ -475,19 +476,22 @@ function operationRowHtml(item) {
 function mobileCardHtml(item) {
   const danger = infectionLabel(item);
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
-  const diagnosis = item.diagnosis ? `<p class="week-diagnosis">${escapeHtml(item.diagnosis)}</p>` : "";
+  const dateLabel = item.date ? formatDayHeading(item.date) : "Без дати";
+  const diagnosisText = item.diagnosis || "—";
   return `
     <article class="week-card ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
+      <p class="week-card-date">${escapeHtml(dateLabel)}</p>
       <div class="week-card-top">
         ${dangerMarkHtml(item)}
-        ${queueBadgeHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
         ${patientFlagsHtml(item)}
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
         ${bloodBadgeHtml(item)}
       </div>
-      <p class="week-procedure">${escapeHtml(item.procedure || "—")}</p>
-      ${diagnosis}
+      <div class="week-clinical">
+        <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
+        <p class="week-diagnosis"><span class="week-field-label">Діагноз</span><span class="week-field-value">${escapeHtml(diagnosisText)}</span></p>
+      </div>
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
       <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
@@ -564,7 +568,17 @@ function render() {
   const rows = filteredOperations();
   renderDepartment("dept1", rows.filter((item) => item.department !== "dept2"));
   renderDepartment("dept2", rows.filter((item) => item.department === "dept2"));
+  updateAddOperationLabels(rows);
   renderArchive();
+}
+
+function updateAddOperationLabels(rows = filteredOperations()) {
+  const dept1Count = rows.filter((item) => item.department !== "dept2").length;
+  const dept2Count = rows.filter((item) => item.department === "dept2").length;
+  document.querySelectorAll("[data-add-dept]").forEach((button) => {
+    const count = button.dataset.addDept === "dept2" ? dept2Count : dept1Count;
+    button.textContent = `+ Додати операцію (${count})`;
+  });
 }
 
 function renderArchive() {
@@ -587,7 +601,6 @@ function renderArchive() {
     const danger = infectionLabel(item);
     return `
     <tr class="op-row is-expanded" data-id="${item.id}">
-      <td class="col-queue" data-label="Черга">${queueBadgeHtml(item)}</td>
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
@@ -1356,7 +1369,6 @@ on("#logout", "click", async () => {
   clearAuth();
   window.location.replace("login.html");
 });
-on("#addOperation", "click", () => openForm());
 on("#prevWeek", "click", () => {
   weekMonday = addDaysYmd(weekMonday, -7);
   render();
