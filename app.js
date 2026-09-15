@@ -485,11 +485,11 @@ function operationRowHtml(item) {
     <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
       <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}${patientFlagsHtml(item)}</span>
+        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
         <span class="patient-age">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
-      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}</td>
+      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
       <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
@@ -524,9 +524,9 @@ function mobileCardHtml(item) {
       <div class="week-card-top">
         ${dangerMarkHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>
-        ${patientFlagsHtml(item)}
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="patient-age">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
         ${bloodBadgeHtml(item)}
+        ${patientFlagsHtml(item)}
         ${statusBadgeHtml(item)}
       </div>
       <div class="week-clinical">
@@ -1656,7 +1656,7 @@ on("#dept2Days", "click", handleOperationRowClick);
 on("#archiveBody", "click", handleOperationRowClick);
 on("#refreshLogs", "click", () => loadLogs());
 
-setTheme(localStorage.getItem("surgery-theme") || "light");
+setTheme(localStorage.getItem("surgery-theme") || "light", { animate: false });
 showView("day");
 
 (async function boot() {
