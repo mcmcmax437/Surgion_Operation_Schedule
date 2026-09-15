@@ -676,8 +676,9 @@ dialog.media-fs-overlay::backdrop{
 .week-day{padding:12px;border:1px solid #dbe5ee;border-radius:14px;background:#fff}
 .week-day h3{margin:0 0 10px;font-size:14px;color:#17365d}
 .week-empty{margin:0;color:#718096;font-size:13px}
-.week-card{padding:14px 0 0;border-top:1px solid #e8eef3}
+.week-card{padding:14px 0 16px;border-top:1px solid #e8eef3}
 .week-card:first-of-type{border-top:0;padding-top:0}
+.week-card .row-actions{margin-top:12px}
 .week-card-date{
   margin:0 0 8px;
   color:#17365d;
