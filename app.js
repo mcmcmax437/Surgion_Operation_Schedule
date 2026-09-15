@@ -538,7 +538,7 @@ function renderDepartment(deptId, rows) {
       ? `<section class="week-day">
           ${dayRows.map(mobileCardHtml).join("")}
         </section>`
-      : `<p class="week-empty">Немає операцій на цей день.</p>`;
+      : `<p class="week-empty">Немає операцій на ${escapeHtml(formatDayHeading(date))}.</p>`;
     return;
   }
 
@@ -572,6 +572,8 @@ const MEDIA_ZOOM_MAX = 4;
 const MEDIA_ZOOM_STEP = 0.25;
 
 function render() {
+  const dayBar = $("#dayBar");
+  const anchorTop = dayBar ? dayBar.getBoundingClientRect().top : null;
   if ($("#weekLabel")) $("#weekLabel").textContent = formatWeekRange(weekMonday);
   if ($("#dayLabel")) $("#dayLabel").textContent = formatDayHeading(selectedDay);
   applyScheduleMode();
@@ -580,6 +582,31 @@ function render() {
   renderDepartment("dept2", rows.filter((item) => item.department === "dept2"));
   updateViewTabCounts();
   renderArchive();
+  stabilizeScheduleScroll(anchorTop);
+}
+
+function stabilizeScheduleScroll(anchorTop) {
+  const dayBar = $("#dayBar");
+  if (dayBar && anchorTop != null && scheduleMode === "day") {
+    const after = dayBar.getBoundingClientRect().top;
+    const delta = after - anchorTop;
+    if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+  }
+  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  if (window.scrollY > maxScroll) window.scrollTo(0, maxScroll);
+}
+
+function shiftSelectedDay(delta) {
+  goToSelectedDay(addDaysYmd(selectedDay, delta));
+}
+
+function goToSelectedDay(ymd) {
+  selectedDay = ymd;
+  render();
+  // Avoid iOS focus/zoom quirks after the list height collapses.
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
 }
 
 function countOperationsForMode(mode) {
@@ -1409,16 +1436,13 @@ on("#thisWeek", "click", () => {
   render();
 });
 on("#prevDay", "click", () => {
-  selectedDay = addDaysYmd(selectedDay, -1);
-  render();
+  shiftSelectedDay(-1);
 });
 on("#nextDay", "click", () => {
-  selectedDay = addDaysYmd(selectedDay, 1);
-  render();
+  shiftSelectedDay(1);
 });
 on("#thisDay", "click", () => {
-  selectedDay = todayYmd();
-  render();
+  goToSelectedDay(todayYmd());
 });
 on("#prevDept", "click", () => cycleDepartment(-1));
 on("#nextDept", "click", () => cycleDepartment(1));
