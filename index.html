@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260915m" />
+    <link rel="stylesheet" href="styles.css?v=20260915n" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -68,7 +68,7 @@
           <h1>Розклад операцій</h1>
           <p class="subtitle">Пацієнти, операційні бригади та медичні матеріали в одному місці.</p>
         </div>
-        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="logout-btn" id="logout" type="button">⏻ Вийти</button></div>
+        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="logout-btn" id="logout" type="button">Вийти</button></div>
       </header>
 
       <nav class="view-tabs" aria-label="Розділи сайту">
@@ -261,7 +261,7 @@
           </fieldset>
           <label class="wide">Статус перевірки
             <select id="operationStatus">
-              <option value="">Очікує перевірки</option>
+              <option value="">Очікує огляду анестезіолога</option>
               <option value="ОК">ОК</option>
               <option value="Потребує дообстеження">Потребує дообстеження</option>
               <option value="Відміна">Відміна</option>
@@ -345,6 +345,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260915m"></script>
+    <script src="app.js?v=20260915n"></script>
   </body>
 </html>

@@ -228,7 +228,7 @@ function statusMeta(value) {
   const normalized = normalizeOperationStatus(value);
   const match = OPERATION_STATUSES.find((item) => item.value === normalized);
   if (match) return match;
-  return { value: "", label: "Очікує перевірки", css: "status-pending" };
+  return { value: "", label: "Очікує огляду анестезіолога", css: "status-pending" };
 }
 
 function statusBadgeHtml(item) {

@@ -3,12 +3,15 @@
   color:#fecaca;
   border:1px solid #b42318;
   font:inherit;
-  font-weight:800;
+  font-size:13px;
+  font-weight:700;
   cursor:pointer;
-  padding:10px 14px;
-  min-height:44px;
-  border-radius:10px;
-  box-shadow:0 2px 8px #b4231822;
+  padding:6px 12px;
+  min-height:34px;
+  border-radius:8px;
+  box-shadow:none;
+  width:auto;
+  flex:0 0 auto;
 }
 .logout-btn:hover{
   background:#b42318;
@@ -959,9 +962,9 @@ button:active:not(:disabled),
   line-height:1;
   letter-spacing:0;
   font-variant-numeric:tabular-nums;
-  background:#fee2e2;
-  color:#9f1239;
-  border:1px solid #fca5a5;
+  background:#e0f2fe;
+  color:#075985;
+  border:1px solid #7dd3fc;
   white-space:nowrap;
   vertical-align:middle;
 }
@@ -974,9 +977,9 @@ button:active:not(:disabled),
   border-color:#cbd5e1;
 }
 .theme-dark .blood-badge{
-  background:#7f1d1d;
-  color:#fecaca;
-  border-color:#b91c1c;
+  background:#0c4a6e;
+  color:#bae6fd;
+  border-color:#0369a1;
 }
 .theme-dark .blood-badge.is-empty{
   background:#334155;
@@ -989,12 +992,12 @@ button:active:not(:disabled),
   justify-content:center;
   max-width:100%;
   min-height:24px;
-  padding:4px 10px;
+  padding:5px 10px;
   box-sizing:border-box;
   border-radius:999px;
   font-weight:800;
   font-size:11px;
-  line-height:1.2;
+  line-height:1.25;
   border:1px solid transparent;
   white-space:normal;
   text-align:center;
@@ -1057,7 +1060,6 @@ button:active:not(:disabled),
 }
 
 /* Light theme: slightly greyer surfaces (keep dark theme unchanged). */
-html:not(.theme-dark) .secondary,
 html:not(.theme-dark) .stats article,
 html:not(.theme-dark) .search,
 html:not(.theme-dark) .toolbar select,
@@ -1074,9 +1076,36 @@ html:not(.theme-dark) .collapse-toggle,
 html:not(.theme-dark) .media-tool-btn,
 html:not(.theme-dark) .media-delete-btn,
 html:not(.theme-dark) .week-day,
-html:not(.theme-dark) .dept-switcher,
-html:not(.theme-dark) .dept-pill{
+html:not(.theme-dark) .dept-switcher{
   background:#f1f4f7;
+}
+html:not(.theme-dark) .secondary{
+  background:#fff;
+  border:1px solid #94a3b8;
+  color:#1e293b;
+  box-shadow:0 1px 2px #0f172a12;
+}
+html:not(.theme-dark) .dept-pill:not(.active){
+  background:#fff;
+  border-color:#64748b;
+  color:#17365d;
+}
+html:not(.theme-dark) .dept-pill.active{
+  background:#17365d;
+  border-color:#17365d;
+  color:#fff;
+  box-shadow:0 6px 14px #17365d33;
+}
+html:not(.theme-dark) .icon-action{
+  background:#17365d;
+  border-color:#17365d;
+  color:#fff;
+  box-shadow:0 2px 8px #17365d33;
+}
+html:not(.theme-dark) .icon-action.danger-action{
+  background:#b42318;
+  border-color:#912018;
+  color:#fff;
 }
 html:not(.theme-dark) .media-dialog-head,
 html:not(.theme-dark) .media-dialog .media-card,
@@ -1100,6 +1129,15 @@ html:not(.theme-dark) .toolbar{
   }
   html:not(.theme-dark) .toolbar{
     background:#f1f4f7;
+  }
+  .top-actions{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .top-actions .logout-btn{
+    margin-left:auto;
   }
 }
 
