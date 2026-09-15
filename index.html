@@ -11,7 +11,7 @@
       })();
     </script>
     <style>html:not(.app-ready) body{visibility:hidden}</style>
-    <link rel="stylesheet" href="styles.css?v=20260915a" />
+    <link rel="stylesheet" href="styles.css?v=20260915b" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -22,7 +22,7 @@
       .picker{display:grid;grid-template-columns:1fr;gap:6px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fbfe;max-height:220px;overflow:auto;align-content:start}
       .picker-field{border:0;padding:0;margin:0;min-width:0}
       .picker-field legend{padding:0 0 6px;color:#52606d;font-size:12px;font-weight:700}
-      .picker-search{width:100%;margin:0 0 8px;font:inherit;color:#1f2937;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;min-height:42px;outline:0}
+      .picker-search{width:100%;margin:0 0 8px;font:inherit;font-size:16px;color:#1f2937;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;min-height:42px;outline:0}
       .picker label,.picker-option{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:10px 12px;border:1px solid #dbe5ee;border-radius:8px;background:#fff;font-size:13px!important;font-weight:600!important;cursor:pointer}
       .picker input{min-height:18px!important;width:18px}
       .picker label:has(input:checked),.picker-option:has(input:checked){background:#d9eaf7;border-color:#47759b;color:#17365d}
@@ -59,7 +59,7 @@
           <h1>Розклад операцій</h1>
           <p class="subtitle">Пацієнти, операційні бригади та медичні матеріали в одному місці.</p>
         </div>
-        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="secondary" id="logout" type="button">Вийти</button><button class="primary" id="addOperation" type="button">+ Додати операцію</button></div>
+        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="secondary" id="logout" type="button">Вийти</button><button class="primary" id="addOperation" type="button">+ Додати операцію (0)</button></div>
       </header>
 
       <nav class="view-tabs" aria-label="Розділи сайту">
@@ -108,14 +108,14 @@
 
       <section class="dept-board" data-dept="dept1">
         <div class="dept-head">
-          <button class="secondary" type="button" data-add-dept="dept1">+ Додати операцію</button>
+          <button class="secondary" type="button" data-add-dept="dept1">+ Додати операцію (0)</button>
         </div>
         <div class="week-days mobile-week" id="dept1Days"></div>
         <section class="table-card desktop-week">
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th class="col-queue">Черга</th><th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept1Body"></tbody>
             </table>
@@ -126,14 +126,14 @@
 
       <section class="dept-board" data-dept="dept2" hidden>
         <div class="dept-head">
-          <button class="secondary" type="button" data-add-dept="dept2">+ Додати операцію</button>
+          <button class="secondary" type="button" data-add-dept="dept2">+ Додати операцію (0)</button>
         </div>
         <div class="week-days mobile-week" id="dept2Days"></div>
         <section class="table-card desktop-week">
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th class="col-queue">Черга</th><th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th class="col-blood">Кров</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept2Body"></tbody>
             </table>
@@ -156,7 +156,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Черга</th><th>Дата</th><th>Пацієнт</th><th>Відділення</th><th>Небезпека</th><th>Втручання</th><th>Файли</th><th>Автовидалення</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th>Відділення</th><th>Небезпека</th><th>Втручання</th><th>Файли</th><th>Автовидалення</th><th></th>
               </tr></thead>
               <tbody id="archiveBody"></tbody>
             </table>
@@ -223,7 +223,7 @@
             <option value="dept2">Хірургічне відділення №2</option>
           </select></label>
           <label>Дата операції<input id="operationDate" type="date" /></label>
-          <label>Номер у черзі<input id="queueNo" type="number" min="1" step="1" placeholder="?" /></label>
+          <label hidden aria-hidden="true">Номер у черзі<input id="queueNo" type="number" min="1" step="1" tabindex="-1" /></label>
           <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Іванов І.Б." /></label>
           <label>Вік пацієнта<input id="patientAge" type="number" min="0" max="120" step="1" placeholder="років" /></label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
@@ -328,6 +328,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260915a"></script>
+    <script src="app.js?v=20260915b"></script>
   </body>
 </html>
