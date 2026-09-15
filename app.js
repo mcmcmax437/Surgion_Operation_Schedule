@@ -527,7 +527,6 @@ function mobileCardHtml(item) {
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="patient-age">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
         ${bloodBadgeHtml(item)}
         ${patientFlagsHtml(item)}
-        ${statusBadgeHtml(item)}
       </div>
       <div class="week-clinical">
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
@@ -535,6 +534,7 @@ function mobileCardHtml(item) {
       </div>
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
+      <p class="week-status">${statusBadgeHtml(item)}</p>
       <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
       <div class="row-actions">
         <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
