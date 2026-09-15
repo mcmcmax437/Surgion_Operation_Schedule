@@ -1439,9 +1439,39 @@ async function loadLogs() {
 }
 
 function setTheme(theme) {
-  document.documentElement.classList.toggle("theme-dark", theme === "dark");
-  localStorage.setItem("surgery-theme", theme);
-  if ($("#themeToggle")) $("#themeToggle").checked = theme === "dark";
+  const apply = () => {
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    localStorage.setItem("surgery-theme", theme);
+    if ($("#themeToggle")) $("#themeToggle").checked = theme === "dark";
+  };
+
+  const root = document.documentElement;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const nextIsDark = theme === "dark";
+  const currentIsDark = root.classList.contains("theme-dark");
+  if (nextIsDark === currentIsDark) {
+    apply();
+    return;
+  }
+
+  if (reduceMotion) {
+    apply();
+    return;
+  }
+
+  if (typeof document.startViewTransition === "function") {
+    document.startViewTransition(apply);
+    return;
+  }
+
+  root.classList.remove("theme-fade-in");
+  root.classList.add("theme-fade-out");
+  window.setTimeout(() => {
+    apply();
+    root.classList.remove("theme-fade-out");
+    root.classList.add("theme-fade-in");
+    window.setTimeout(() => root.classList.remove("theme-fade-in"), 280);
+  }, 160);
 }
 
 async function refresh() {
