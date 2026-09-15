@@ -575,9 +575,6 @@ function render() {
 function updateAddOperationLabels(rows = filteredOperations()) {
   const dept1Count = rows.filter((item) => item.department !== "dept2").length;
   const dept2Count = rows.filter((item) => item.department === "dept2").length;
-  const activeCount = defaultDepartment === "dept2" ? dept2Count : dept1Count;
-  const top = $("#addOperation");
-  if (top) top.textContent = `+ Додати операцію (${activeCount})`;
   document.querySelectorAll("[data-add-dept]").forEach((button) => {
     const count = button.dataset.addDept === "dept2" ? dept2Count : dept1Count;
     button.textContent = `+ Додати операцію (${count})`;
@@ -1372,7 +1369,6 @@ on("#logout", "click", async () => {
   clearAuth();
   window.location.replace("login.html");
 });
-on("#addOperation", "click", () => openForm());
 on("#prevWeek", "click", () => {
   weekMonday = addDaysYmd(weekMonday, -7);
   render();

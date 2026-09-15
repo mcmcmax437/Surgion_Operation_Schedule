@@ -11,7 +11,7 @@
       })();
     </script>
     <style>html:not(.app-ready) body{visibility:hidden}</style>
-    <link rel="stylesheet" href="styles.css?v=20260915b" />
+    <link rel="stylesheet" href="styles.css?v=20260915c" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -59,7 +59,7 @@
           <h1>Розклад операцій</h1>
           <p class="subtitle">Пацієнти, операційні бригади та медичні матеріали в одному місці.</p>
         </div>
-        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="secondary" id="logout" type="button">Вийти</button><button class="primary" id="addOperation" type="button">+ Додати операцію (0)</button></div>
+        <div class="top-actions"><label class="theme-switch" title="Перемкнути тему"><input id="themeToggle" type="checkbox" /><span class="theme-slider"></span><span>Тема</span></label><button class="secondary" id="logout" type="button">Вийти</button></div>
       </header>
 
       <nav class="view-tabs" aria-label="Розділи сайту">
@@ -108,7 +108,7 @@
 
       <section class="dept-board" data-dept="dept1">
         <div class="dept-head">
-          <button class="secondary" type="button" data-add-dept="dept1">+ Додати операцію (0)</button>
+          <button class="primary add-operation-btn" type="button" data-add-dept="dept1">+ Додати операцію (0)</button>
         </div>
         <div class="week-days mobile-week" id="dept1Days"></div>
         <section class="table-card desktop-week">
@@ -126,7 +126,7 @@
 
       <section class="dept-board" data-dept="dept2" hidden>
         <div class="dept-head">
-          <button class="secondary" type="button" data-add-dept="dept2">+ Додати операцію (0)</button>
+          <button class="primary add-operation-btn" type="button" data-add-dept="dept2">+ Додати операцію (0)</button>
         </div>
         <div class="week-days mobile-week" id="dept2Days"></div>
         <section class="table-card desktop-week">
@@ -328,6 +328,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260915b"></script>
+    <script src="app.js?v=20260915c"></script>
   </body>
 </html>
