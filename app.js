@@ -146,12 +146,6 @@ function setActiveDepartment(id) {
   updateViewTabCounts();
 }
 
-function cycleDepartment(step) {
-  const index = DEPARTMENTS.findIndex((item) => item.id === defaultDepartment);
-  const next = DEPARTMENTS[(index + step + DEPARTMENTS.length) % DEPARTMENTS.length];
-  setActiveDepartment(next.id);
-}
-
 let weekMonday = currentWorkWeekMonday();
 let selectedDay = todayYmd();
 let scheduleMode = "day";
@@ -1657,8 +1651,6 @@ on("#nextDay", "click", () => {
 on("#thisDay", "click", () => {
   goToSelectedDay(todayYmd());
 });
-on("#prevDept", "click", () => cycleDepartment(-1));
-on("#nextDept", "click", () => cycleDepartment(1));
 document.addEventListener("click", (event) => {
   const pill = event.target.closest(".dept-pill");
   if (pill?.dataset.dept) setActiveDepartment(pill.dataset.dept);
