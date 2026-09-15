@@ -85,18 +85,19 @@
   .view-tab{
     width:100%;
     min-width:0;
-    min-height:58px;
     height:58px;
+    min-height:58px;
     padding:6px 4px;
     font-size:13px;
-    line-height:1.15;
+    line-height:1;
     white-space:nowrap;
     text-align:center;
     overflow:hidden;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:4px;
+    display:grid;
+    grid-template-rows:18px 20px;
+    align-content:center;
+    justify-items:center;
+    row-gap:4px;
   }
   .toolbar{
     display:grid;
@@ -644,22 +645,25 @@ dialog.media-fs-overlay::backdrop{
 .admin-tab[hidden]{
   display:none!important;
 }
-.view-tab{
-  flex-direction:column;
+.view-tab .tab-label{
+  display:flex;
   align-items:center;
   justify-content:center;
-  gap:4px;
+  width:100%;
+  height:18px;
+  min-height:18px;
+  line-height:18px;
+  overflow:hidden;
 }
 .tab-count{
   display:inline-flex;
   align-items:center;
   justify-content:center;
+  width:28px;
   min-width:28px;
-  width:auto;
-  max-width:100%;
   height:20px;
   margin:0;
-  padding:0 6px;
+  padding:0;
   border-radius:999px;
   background:#dbe7f2;
   color:#17365d;
@@ -685,7 +689,7 @@ dialog.media-fs-overlay::backdrop{
 @media(max-width:760px){
   .tab-label-full{display:none}
   .tab-label-short{display:inline}
-  .tab-count{min-width:28px;height:20px;margin:0;padding:0 6px;font-size:12px}
+  .tab-count{width:28px;min-width:28px;height:20px;margin:0;padding:0;font-size:12px}
 }
 
 .week-bar{
