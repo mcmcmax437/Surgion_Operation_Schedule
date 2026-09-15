@@ -2,7 +2,9 @@
   background:#3f1d1d;
   color:#fecaca;
   border:1px solid #b42318;
+  font:inherit;
   font-weight:800;
+  cursor:pointer;
   padding:10px 14px;
   min-height:44px;
   border-radius:10px;
