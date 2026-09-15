@@ -1372,7 +1372,12 @@ async function viewOperation(id) {
   if ($("#mediaDialogMeta")) {
     $("#mediaDialogMeta").textContent = `${item.id || ""} · ${(item.attachments || []).length} файл(ів) · завантаження…`;
   }
-  body.innerHTML = `<p class="empty-media">Завантаження медіа…</p>`;
+  body.innerHTML = `<div class="media-viewport is-loading" style="min-height:240px;width:100%;border-radius:10px">
+    <div class="media-loading" aria-live="polite">
+      <span class="media-loading-spinner" aria-hidden="true"></span>
+      <span>Завантаження медіа…</span>
+    </div>
+  </div>`;
   if ($("#mediaPrev")) $("#mediaPrev").hidden = true;
   if ($("#mediaNext")) $("#mediaNext").hidden = true;
   if ($("#mediaDelete")) $("#mediaDelete").hidden = true;
