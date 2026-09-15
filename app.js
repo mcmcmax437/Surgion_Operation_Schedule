@@ -1657,8 +1657,6 @@ on("#nextDay", "click", () => {
 on("#thisDay", "click", () => {
   goToSelectedDay(todayYmd());
 });
-on("#prevDept", "click", () => cycleDepartment(-1));
-on("#nextDept", "click", () => cycleDepartment(1));
 document.addEventListener("click", (event) => {
   const pill = event.target.closest(".dept-pill");
   if (pill?.dataset.dept) setActiveDepartment(pill.dataset.dept);

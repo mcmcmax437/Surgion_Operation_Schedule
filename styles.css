@@ -85,10 +85,10 @@
   .view-tab{
     width:100%;
     min-width:0;
-    min-height:44px;
-    padding:8px 4px;
-    font-size:11px;
-    line-height:1.2;
+    min-height:48px;
+    padding:10px 4px;
+    font-size:14px;
+    line-height:1.25;
     white-space:normal;
     text-align:center;
     overflow:hidden;
@@ -682,10 +682,7 @@ dialog.media-fs-overlay::backdrop{
 }
 .week-bar[hidden]{display:none!important}
 .dept-switcher{
-  display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto;
-  gap:10px;
-  align-items:center;
+  display:block;
   margin:0 0 18px;
   padding:16px 12px;
   border:1px solid #dbe5ee;
@@ -1025,11 +1022,11 @@ button:active:not(:disabled),
 .status-badge.status-ok{background:#dcfce7;color:#166534;border-color:#86efac}
 .status-badge.status-check{background:#ffedd5;color:#9a3412;border-color:#fdba74}
 .status-badge.status-cancel{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
-.status-badge.status-pending{background:#e2e8f0;color:#475569;border-color:#cbd5e1}
+.status-badge.status-pending{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}
 .theme-dark .status-badge.status-ok{background:#14532d;color:#bbf7d0;border-color:#166534}
 .theme-dark .status-badge.status-check{background:#7c2d12;color:#fed7aa;border-color:#c2410c}
 .theme-dark .status-badge.status-cancel{background:#7f1d1d;color:#fecaca;border-color:#b91c1c}
-.theme-dark .status-badge.status-pending{background:#334155;color:#cbd5e1;border-color:#475569}
+.theme-dark .status-badge.status-pending{background:#1e3a8a;color:#bfdbfe;border-color:#3b82f6}
 .week-status{margin:8px 0 4px}
 
 @media (min-width:761px){
