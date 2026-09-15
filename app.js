@@ -289,8 +289,18 @@ function applyScheduleMode() {
     view.classList.toggle("mode-week", scheduleMode === "week");
     view.classList.toggle("mode-plan", scheduleMode === "plan");
   }
-  if ($("#dayBar")) $("#dayBar").hidden = scheduleMode !== "day";
-  if ($("#weekBar")) $("#weekBar").hidden = scheduleMode === "day";
+  const showDayBar = scheduleMode === "day";
+  const showWeekBar = scheduleMode === "week" || scheduleMode === "plan";
+  const dayBar = $("#dayBar");
+  const weekBar = $("#weekBar");
+  if (dayBar) {
+    dayBar.hidden = !showDayBar;
+    dayBar.style.display = showDayBar ? "" : "none";
+  }
+  if (weekBar) {
+    weekBar.hidden = !showWeekBar;
+    weekBar.style.display = showWeekBar ? "" : "none";
+  }
   const weekEyebrow = $("#weekBar .eyebrow");
   if (weekEyebrow) weekEyebrow.textContent = scheduleMode === "plan" ? "План операцій" : "Розклад на тиждень";
 }
