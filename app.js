@@ -436,11 +436,15 @@ function filteredOperations() {
   return [...operations]
     .filter((item) => {
       if (scheduleMode === "day") {
-        if (item.date !== selectedDay) return false;
-      } else if (item.date && (item.date < weekMonday || item.date > sunday)) {
-        return false;
+        return item.date === selectedDay;
       }
-      return true;
+      // План = only operations that still have no date assigned.
+      if (scheduleMode === "plan") {
+        return !item.date;
+      }
+      // Тиждень = dated operations in the selected week (undated belong in План).
+      if (!item.date) return false;
+      return item.date >= weekMonday && item.date <= sunday;
     })
     .sort((a, b) => {
       if (!a.date && b.date) return -1;
@@ -542,12 +546,16 @@ function renderDepartment(deptId, rows) {
     return;
   }
 
-  const undated = rows.filter((item) => !item.date);
-  const undatedBlock = undated.length
-    ? `<section class="week-day week-undated">
-        ${undated.map(mobileCardHtml).join("")}
-      </section>`
-    : "";
+  if (scheduleMode === "plan") {
+    const undated = rows.filter((item) => !item.date);
+    days.innerHTML = undated.length
+      ? `<section class="week-day week-undated">
+          ${undated.map(mobileCardHtml).join("")}
+        </section>`
+      : `<p class="week-empty">Немає операцій без дати.</p>`;
+    return;
+  }
+
   const dayBlocks = WEEKDAY_SHORT.map((_label, index) => {
     const date = addDaysYmd(weekMonday, index);
     const dayRows = rows.filter((item) => item.date === date);
@@ -557,7 +565,7 @@ function renderDepartment(deptId, rows) {
         ${dayRows.map(mobileCardHtml).join("")}
       </section>`;
   }).join("");
-  days.innerHTML = undatedBlock + dayBlocks
+  days.innerHTML = dayBlocks
     || `<p class="week-empty">Немає операцій цього тижня.</p>`;
 }
 
@@ -618,8 +626,9 @@ function countOperationsForMode(mode) {
         : item.department !== "dept2";
     if (!inDept) return false;
     if (mode === "day") return item.date === selectedDay;
-    if (item.date && (item.date < weekMonday || item.date > sunday)) return false;
-    return true;
+    if (mode === "plan") return !item.date;
+    if (!item.date) return false;
+    return item.date >= weekMonday && item.date <= sunday;
   }).length;
 }
 

@@ -869,12 +869,23 @@ button:active:not(:disabled),
 .theme-dark .attachment-remove{color:#fca5a5}
 .theme-dark .attachment-remove:hover{background:#3f1d1d}
 
+/* Day always uses the compact mobile cards (same markup on phone + desktop). */
 #scheduleView.mode-day .desktop-week{display:none!important}
 #scheduleView.mode-day .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
-#scheduleView.mode-week .mobile-week,
-#scheduleView.mode-plan .mobile-week{display:none!important}
-#scheduleView.mode-week .desktop-week,
-#scheduleView.mode-plan .desktop-week{display:block!important}
+
+/* Week / Plan: table on desktop, same day-style cards on mobile. */
+@media (min-width:761px){
+  #scheduleView.mode-week .mobile-week,
+  #scheduleView.mode-plan .mobile-week{display:none!important}
+  #scheduleView.mode-week .desktop-week,
+  #scheduleView.mode-plan .desktop-week{display:block!important}
+}
+@media (max-width:760px){
+  #scheduleView.mode-week .desktop-week,
+  #scheduleView.mode-plan .desktop-week{display:none!important}
+  #scheduleView.mode-week .mobile-week,
+  #scheduleView.mode-plan .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
+}
 
 .blood-badge{
   display:inline-flex;
