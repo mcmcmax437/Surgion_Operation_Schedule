@@ -533,9 +533,38 @@ dialog.media-fs-overlay::backdrop{
   border-color:#9a3412;
 }
 .tab-label-short{display:none}
+.tab-count{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:18px;
+  height:18px;
+  margin-left:6px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#dbe7f2;
+  color:#17365d;
+  font-size:11px;
+  font-weight:800;
+  line-height:1;
+  vertical-align:middle;
+}
+.view-tab.active .tab-count{
+  background:#ffffff33;
+  color:#fff;
+}
+.theme-dark .tab-count{
+  background:#334155;
+  color:#e2e8f0;
+}
+.theme-dark .view-tab.active .tab-count{
+  background:#ffffff2e;
+  color:#fff;
+}
 @media(max-width:760px){
   .tab-label-full{display:none}
   .tab-label-short{display:inline}
+  .tab-count{min-width:16px;height:16px;margin-left:4px;padding:0 4px;font-size:10px}
 }
 
 .week-bar{

@@ -63,9 +63,9 @@
       </header>
 
       <nav class="view-tabs" aria-label="Розділи сайту">
-        <button class="view-tab active" id="dayTab" type="button"><span class="tab-label-full">Розклад на день</span><span class="tab-label-short">День</span></button>
-        <button class="view-tab" id="weekTab" type="button"><span class="tab-label-full">Розклад на тиждень</span><span class="tab-label-short">Тиждень</span></button>
-        <button class="view-tab" id="planTab" type="button">План</button>
+        <button class="view-tab active" id="dayTab" type="button"><span class="tab-label-full">Розклад на день</span><span class="tab-label-short">День</span><span class="tab-count" id="dayTabCount">0</span></button>
+        <button class="view-tab" id="weekTab" type="button"><span class="tab-label-full">Розклад на тиждень</span><span class="tab-label-short">Тиждень</span><span class="tab-count" id="weekTabCount">0</span></button>
+        <button class="view-tab" id="planTab" type="button"><span>План</span><span class="tab-count" id="planTabCount">0</span></button>
         <button class="view-tab admin-tab" id="archiveTab" type="button" hidden>Архів</button>
         <button class="view-tab admin-tab" id="staffTab" type="button" hidden>Лікарі</button>
         <button class="view-tab admin-tab" id="logsTab" type="button" hidden>Журнали</button>
@@ -108,7 +108,7 @@
 
       <section class="dept-board" data-dept="dept1">
         <div class="dept-head">
-          <button class="primary add-operation-btn" type="button" data-add-dept="dept1">+ Додати операцію (0)</button>
+          <button class="primary add-operation-btn" type="button" data-add-dept="dept1">+ Додати операцію</button>
         </div>
         <div class="week-days mobile-week" id="dept1Days"></div>
         <section class="table-card desktop-week">
@@ -126,7 +126,7 @@
 
       <section class="dept-board" data-dept="dept2" hidden>
         <div class="dept-head">
-          <button class="primary add-operation-btn" type="button" data-add-dept="dept2">+ Додати операцію (0)</button>
+          <button class="primary add-operation-btn" type="button" data-add-dept="dept2">+ Додати операцію</button>
         </div>
         <div class="week-days mobile-week" id="dept2Days"></div>
         <section class="table-card desktop-week">

@@ -138,7 +138,7 @@ function setActiveDepartment(id) {
   if ($("#department") && !$("#operationDialog")?.open) {
     $("#department").value = defaultDepartment;
   }
-  updateAddOperationLabels();
+  updateViewTabCounts();
 }
 
 function cycleDepartment(step) {
@@ -568,16 +568,33 @@ function render() {
   const rows = filteredOperations();
   renderDepartment("dept1", rows.filter((item) => item.department !== "dept2"));
   renderDepartment("dept2", rows.filter((item) => item.department === "dept2"));
-  updateAddOperationLabels(rows);
+  updateViewTabCounts();
   renderArchive();
 }
 
-function updateAddOperationLabels(rows = filteredOperations()) {
-  const dept1Count = rows.filter((item) => item.department !== "dept2").length;
-  const dept2Count = rows.filter((item) => item.department === "dept2").length;
+function countOperationsForMode(mode) {
+  const sunday = addDaysYmd(weekMonday, 6);
+  return operations.filter((item) => {
+    const inDept =
+      defaultDepartment === "dept2"
+        ? item.department === "dept2"
+        : item.department !== "dept2";
+    if (!inDept) return false;
+    if (mode === "day") return item.date === selectedDay;
+    if (item.date && (item.date < weekMonday || item.date > sunday)) return false;
+    return true;
+  }).length;
+}
+
+function updateViewTabCounts() {
+  const dayCount = countOperationsForMode("day");
+  const weekCount = countOperationsForMode("week");
+  const planCount = countOperationsForMode("plan");
+  if ($("#dayTabCount")) $("#dayTabCount").textContent = String(dayCount);
+  if ($("#weekTabCount")) $("#weekTabCount").textContent = String(weekCount);
+  if ($("#planTabCount")) $("#planTabCount").textContent = String(planCount);
   document.querySelectorAll("[data-add-dept]").forEach((button) => {
-    const count = button.dataset.addDept === "dept2" ? dept2Count : dept1Count;
-    button.textContent = `+ Додати операцію (${count})`;
+    button.textContent = "+ Додати операцію";
   });
 }
 
