@@ -1,9 +1,20 @@
 import crypto from "crypto";
 
 export function clientIp(req) {
+  // Prefer nginx X-Real-IP ($remote_addr). Do not trust the first
+  // X-Forwarded-For value — clients can spoof it to fake the admin IP.
+  const realIp = req.headers["x-real-ip"];
+  if (typeof realIp === "string" && realIp.trim()) {
+    return realIp.trim();
+  }
   const forwarded = req.headers["x-forwarded-for"];
   if (typeof forwarded === "string" && forwarded.length) {
-    return forwarded.split(",")[0].trim();
+    const parts = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    // With one trusted proxy, the last hop is the address nginx saw.
+    if (parts.length) return parts[parts.length - 1];
   }
   return req.socket?.remoteAddress || req.ip || "";
 }

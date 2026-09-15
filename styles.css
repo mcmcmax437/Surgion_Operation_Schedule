@@ -533,6 +533,10 @@ dialog.media-fs-overlay::backdrop{
   border-color:#9a3412;
 }
 .tab-label-short{display:none}
+.view-tab[hidden],
+.admin-tab[hidden]{
+  display:none!important;
+}
 .tab-count{
   display:inline-flex;
   align-items:center;
