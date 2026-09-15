@@ -1045,7 +1045,17 @@ button:active:not(:disabled),
 .flag-vip{background:#a16207;color:#fef9c3}
 .theme-dark .flag-zsu{background:#365314;color:#d9f99d}
 .theme-dark .flag-vip{background:#854d0e;color:#fde68a}
-.patient .flag-chip{vertical-align:middle}
+.patient .flag-chip,
+.week-card-top .flag-chip,
+.col-blood .flag-chip{vertical-align:middle;margin-left:0}
+.week-card-top .flag-chip,
+.col-blood .flag-chip{margin-left:4px}
+.col-blood{
+  display:inline-flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:4px;
+}
 
 .patient-age{
   display:inline-block;
