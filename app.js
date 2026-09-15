@@ -210,7 +210,8 @@ function bloodBadgeHtml(item) {
   const parsed = parseBloodGroup(item.bloodGroup);
   if (!parsed) return `<span class="blood-badge is-empty" title="Група крові не вказана">—</span>`;
   const rhClass = parsed.rh === "-" ? "rh-neg" : (parsed.rh === "+" ? "rh-pos" : "");
-  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(parsed.full)}">${escapeHtml(parsed.short)}</span>`;
+  const label = parsed.full || item.bloodGroup || "";
+  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
 }
 
 function patientFlagsHtml(item) {
