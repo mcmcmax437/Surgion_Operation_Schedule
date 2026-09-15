@@ -323,7 +323,11 @@ function showView(view) {
 function applyAdminVisibility(allowed) {
   canViewLogs = Boolean(allowed);
   ["logsTab", "staffTab", "archiveTab"].forEach((id) => {
-    if ($(`#${id}`)) $(`#${id}`).hidden = !canViewLogs;
+    const tab = $(`#${id}`);
+    if (!tab) return;
+    tab.hidden = !canViewLogs;
+    // Belt-and-suspenders: some CSS display rules can override [hidden].
+    tab.style.display = canViewLogs ? "" : "none";
   });
   document.querySelector(".view-tabs")?.classList.toggle("is-admin", canViewLogs);
   if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "archive")) {

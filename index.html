@@ -11,7 +11,7 @@
       })();
     </script>
     <style>html:not(.app-ready) body{visibility:hidden}</style>
-    <link rel="stylesheet" href="styles.css?v=20260915d" />
+    <link rel="stylesheet" href="styles.css?v=20260915e" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -34,6 +34,7 @@
       .theme-dark .picker-field legend{color:#cbd5e1}
       .view-tabs{display:flex;width:100%;gap:8px;margin:0 0 18px;padding:5px;border:1px solid #dbe5ee;border-radius:12px;background:#f4f7fb;box-sizing:border-box}
       .view-tab{border:0;border-radius:9px;background:transparent;color:#52606d;padding:11px 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-sizing:border-box;flex:1 1 0;min-width:0;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px 4px}
+      .view-tab[hidden],.admin-tab[hidden]{display:none!important}
       .view-tab.active{background:#17365d;color:#fff;box-shadow:0 4px 10px #17365d22}
       .view-tab .tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#dbe7f2;color:#17365d;font-size:11px;font-weight:800;line-height:1}
       .view-tab.active .tab-count{background:#ffffff33;color:#fff}
@@ -332,6 +333,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260915d"></script>
+    <script src="app.js?v=20260915e"></script>
   </body>
 </html>
