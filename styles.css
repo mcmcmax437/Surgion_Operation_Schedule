@@ -1019,7 +1019,7 @@ button:active:not(:disabled),
 .theme-dark .status-badge.status-check{background:#7c2d12;color:#fed7aa;border-color:#c2410c}
 .theme-dark .status-badge.status-cancel{background:#7f1d1d;color:#fecaca;border-color:#b91c1c}
 .theme-dark .status-badge.status-pending{background:#334155;color:#cbd5e1;border-color:#475569}
-.week-status{margin:6px 0 0}
+.week-status{margin:8px 0 4px}
 
 @media (min-width:761px){
   .desktop-week td,
