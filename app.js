@@ -28,6 +28,11 @@ const PATIENT_FLAG_OPTIONS = [
   { id: "zsu", label: "ЗСУ", title: "ЗСУ" },
   { id: "vip", label: "VIP", title: "VIP персона" },
 ];
+const OPERATION_STATUSES = [
+  { value: "ОК", label: "ОК", css: "status-ok" },
+  { value: "Потребує дообстеження", label: "Потребує дообстеження", css: "status-check" },
+  { value: "Відміна", label: "Відміна", css: "status-cancel" },
+];
 const MAX_SURGEONS = 3;
 const MAX_ANESTHESIOLOGISTS = 1;
 const PICKER_LIMITS = { teamPicker: MAX_SURGEONS, anesthesiologistPicker: MAX_ANESTHESIOLOGISTS };
@@ -210,9 +215,25 @@ function parseBloodGroup(value) {
 function bloodBadgeHtml(item) {
   const parsed = parseBloodGroup(item.bloodGroup);
   if (!parsed) return `<span class="blood-badge is-empty" title="Група крові не вказана">—</span>`;
-  const rhClass = parsed.rh === "-" ? "rh-neg" : (parsed.rh === "+" ? "rh-pos" : "");
   const label = parsed.full || item.bloodGroup || "";
-  return `<span class="blood-badge ${rhClass}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+  return `<span class="blood-badge" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+}
+
+function normalizeOperationStatus(value) {
+  const raw = String(value || "").trim();
+  return OPERATION_STATUSES.some((item) => item.value === raw) ? raw : "";
+}
+
+function statusMeta(value) {
+  const normalized = normalizeOperationStatus(value);
+  const match = OPERATION_STATUSES.find((item) => item.value === normalized);
+  if (match) return match;
+  return { value: "", label: "Очікує перевірки", css: "status-pending" };
+}
+
+function statusBadgeHtml(item) {
+  const meta = statusMeta(item.status);
+  return `<span class="status-badge ${meta.css}" title="Статус перевірки">${escapeHtml(meta.label)}</span>`;
 }
 
 function patientFlagsHtml(item) {
@@ -469,6 +490,7 @@ function operationRowHtml(item) {
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
       <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}</td>
+      <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
@@ -505,6 +527,7 @@ function mobileCardHtml(item) {
         ${patientFlagsHtml(item)}
         ${item.patientAge !== "" && item.patientAge != null ? `<span class="sub">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
         ${bloodBadgeHtml(item)}
+        ${statusBadgeHtml(item)}
       </div>
       <div class="week-clinical">
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
@@ -830,6 +853,7 @@ function resetForm() {
   setSelectedInfections([]);
   setSelectedPatientFlags([]);
   if ($("#department")) $("#department").value = defaultDepartment;
+  if ($("#operationStatus")) $("#operationStatus").value = "";
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
@@ -850,13 +874,13 @@ function openForm(id = null) {
     const fields = {
       department: item.department || "dept1",
       operationDate: item.date,
-      queueNo: item.queueNo || "",
       patientName: formatShortName(item.patient),
       patientAge: item.patientAge,
       bloodGroup: item.bloodGroup,
       diagnosis: item.diagnosis,
       procedure: item.procedure,
       notes: item.notes,
+      operationStatus: normalizeOperationStatus(item.status),
     };
 
     Object.entries(fields).forEach(([field, value]) => {
@@ -880,7 +904,7 @@ async function saveOperation(event) {
 
   const data = {
     date: $("#operationDate").value,
-    queueNo: $("#queueNo")?.value || "",
+    queueNo: "",
     department: $("#department")?.value || "dept1",
     patient: formatShortName($("#patientName").value),
     patientAge: $("#patientAge")?.value || "",
@@ -891,6 +915,7 @@ async function saveOperation(event) {
     anesthesiologists: selectedPickerValues("anesthesiologistPicker").slice(0, MAX_ANESTHESIOLOGISTS),
     infections: selectedInfections(),
     patientFlags: selectedPatientFlags(),
+    status: normalizeOperationStatus($("#operationStatus")?.value),
     notes: $("#notes").value.trim(),
   };
 

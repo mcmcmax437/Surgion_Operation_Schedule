@@ -663,6 +663,9 @@ dialog.media-fs-overlay::backdrop{
   border-radius:14px;
   background:#1d4f86;
   box-shadow:0 8px 22px #17365d44;
+  transform-origin:center center;
+  transform-box:border-box;
+  transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
   animation:addBtnIdle 2.2s ease-in-out infinite;
 }
 .theme-dark .add-operation-btn{
@@ -671,8 +674,8 @@ dialog.media-fs-overlay::backdrop{
   box-shadow:0 8px 22px #0b122066;
 }
 @keyframes addBtnIdle{
-  0%,100%{transform:translateY(0) scale(1);box-shadow:0 8px 22px #17365d44}
-  50%{transform:translateY(2px) scale(.985);box-shadow:0 3px 10px #17365d2e}
+  0%,100%{transform:scale(1);box-shadow:0 8px 22px #17365d44}
+  50%{transform:scale(.985);box-shadow:0 3px 10px #17365d2e}
 }
 @media (prefers-reduced-motion:reduce){
   .add-operation-btn{animation:none}
@@ -830,6 +833,7 @@ button:active:not(:disabled),
 .week-nav-btn:active,
 .add-operation-btn:active{
   transform:scale(.95);
+  transform-origin:center center;
   filter:brightness(.96);
   animation:none;
 }
@@ -901,18 +905,55 @@ button:active:not(:disabled),
   line-height:1;
   letter-spacing:0;
   font-variant-numeric:tabular-nums;
-  background:#e2e8f0;
-  color:#334155;
-  border:1px solid #cbd5e1;
+  background:#fee2e2;
+  color:#9f1239;
+  border:1px solid #fca5a5;
   white-space:nowrap;
   vertical-align:middle;
 }
-.blood-badge.rh-pos{background:#fee2e2;color:#9f1239;border-color:#fca5a5}
-.blood-badge.rh-neg{background:#e0f2fe;color:#075985;border-color:#7dd3fc}
-.blood-badge.is-empty{opacity:.55;font-weight:700;min-width:28px}
-.theme-dark .blood-badge{background:#334155;color:#e2e8f0;border-color:#475569}
-.theme-dark .blood-badge.rh-pos{background:#7f1d1d;color:#fecaca;border-color:#b91c1c}
-.theme-dark .blood-badge.rh-neg{background:#0c4a6e;color:#bae6fd;border-color:#0369a1}
+.blood-badge.is-empty{
+  opacity:.55;
+  font-weight:700;
+  min-width:28px;
+  background:#e2e8f0;
+  color:#64748b;
+  border-color:#cbd5e1;
+}
+.theme-dark .blood-badge{
+  background:#7f1d1d;
+  color:#fecaca;
+  border-color:#b91c1c;
+}
+.theme-dark .blood-badge.is-empty{
+  background:#334155;
+  color:#94a3b8;
+  border-color:#475569;
+}
+.status-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  max-width:100%;
+  min-height:24px;
+  padding:4px 10px;
+  box-sizing:border-box;
+  border-radius:999px;
+  font-weight:800;
+  font-size:11px;
+  line-height:1.2;
+  border:1px solid transparent;
+  white-space:normal;
+  text-align:center;
+}
+.status-badge.status-ok{background:#dcfce7;color:#166534;border-color:#86efac}
+.status-badge.status-check{background:#ffedd5;color:#9a3412;border-color:#fdba74}
+.status-badge.status-cancel{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.status-badge.status-pending{background:#e2e8f0;color:#475569;border-color:#cbd5e1}
+.theme-dark .status-badge.status-ok{background:#14532d;color:#bbf7d0;border-color:#166534}
+.theme-dark .status-badge.status-check{background:#7c2d12;color:#fed7aa;border-color:#c2410c}
+.theme-dark .status-badge.status-cancel{background:#7f1d1d;color:#fecaca;border-color:#b91c1c}
+.theme-dark .status-badge.status-pending{background:#334155;color:#cbd5e1;border-color:#475569}
+.week-status{margin:6px 0 0}
 
 @media (min-width:761px){
   .desktop-week td,
