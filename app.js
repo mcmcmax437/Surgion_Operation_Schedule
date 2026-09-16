@@ -2082,6 +2082,23 @@ on("#dept1Days", "click", handleOperationRowClick);
 on("#dept2Days", "click", handleOperationRowClick);
 on("#refreshLogs", "click", () => loadLogs());
 
+(function watchScheduleOrientation() {
+  let lastLandscape = window.matchMedia("(orientation: landscape)").matches;
+  const sync = () => {
+    const landscape = window.matchMedia("(orientation: landscape)").matches;
+    if (landscape === lastLandscape) return;
+    lastLandscape = landscape;
+    if (currentView === "schedule" && (scheduleMode === "week" || scheduleMode === "plan")) {
+      render();
+    }
+  };
+  window.addEventListener("orientationchange", () => window.setTimeout(sync, 120));
+  window.addEventListener("resize", () => {
+    window.clearTimeout(watchScheduleOrientation._timer);
+    watchScheduleOrientation._timer = window.setTimeout(sync, 180);
+  });
+})();
+
 setTheme(localStorage.getItem("surgery-theme") || "light", { animate: false });
 showView("day");
 

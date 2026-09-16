@@ -1015,11 +1015,13 @@ dialog.media-fs-overlay::backdrop{
   #thisWeek{grid-column:1/-1}
   .dept-switcher{padding:14px 8px;margin-bottom:14px}
   .dept-switcher-main strong{font-size:22px}
-  .desktop-week{display:none!important}
-  .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
   .dept-head{align-items:stretch;flex-direction:column;margin-bottom:16px}
   .dept-head .add-operation-btn{width:100%}
   .toolbar{grid-template-columns:1fr}
+}
+@media (max-width:760px) and (orientation: portrait){
+  .desktop-week{display:none!important}
+  .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
 }
 
 button,
@@ -1090,18 +1092,191 @@ button:active:not(:disabled),
 #scheduleView.mode-day .desktop-week{display:none!important}
 #scheduleView.mode-day .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
 
-/* Week / Plan: table on desktop, same day-style cards on mobile. */
+/* Week / Plan: table on desktop; cards only in phone portrait. */
 @media (min-width:761px){
   #scheduleView.mode-week .mobile-week,
   #scheduleView.mode-plan .mobile-week{display:none!important}
   #scheduleView.mode-week .desktop-week,
   #scheduleView.mode-plan .desktop-week{display:block!important}
 }
-@media (max-width:760px){
+@media (max-width:760px) and (orientation: portrait){
   #scheduleView.mode-week .desktop-week,
   #scheduleView.mode-plan .desktop-week{display:none!important}
   #scheduleView.mode-week .mobile-week,
   #scheduleView.mode-plan .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
+}
+
+/* Phone landscape: real weekly/plan table (horizontal scroll), not card stack. */
+@media (max-width:960px) and (orientation: landscape){
+  #scheduleView.mode-week .mobile-week,
+  #scheduleView.mode-plan .mobile-week{display:none!important}
+  #scheduleView.mode-week .desktop-week,
+  #scheduleView.mode-plan .desktop-week{
+    display:block!important;
+    border:1px solid #dbe5ee;
+    background:#fff;
+    box-shadow:0 7px 24px #17365d0a;
+    border-radius:12px;
+    overflow:hidden;
+  }
+  #scheduleView.mode-week .desktop-week .table-scroll,
+  #scheduleView.mode-plan .desktop-week .table-scroll{
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  #scheduleView.mode-week .desktop-week table,
+  #scheduleView.mode-plan .desktop-week table{
+    display:table!important;
+    width:100%;
+    min-width:980px;
+    border-collapse:collapse;
+    border-spacing:0;
+  }
+  #scheduleView.mode-week .desktop-week thead,
+  #scheduleView.mode-plan .desktop-week thead{display:table-header-group!important}
+  #scheduleView.mode-week .desktop-week tbody,
+  #scheduleView.mode-plan .desktop-week tbody{display:table-row-group!important;gap:0}
+  #scheduleView.mode-week .desktop-week tr,
+  #scheduleView.mode-week .desktop-week tr.op-row,
+  #scheduleView.mode-plan .desktop-week tr,
+  #scheduleView.mode-plan .desktop-week tr.op-row{
+    display:table-row!important;
+    margin:0;
+    padding:0;
+    border:0!important;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
+    grid-template-columns:none;
+    grid-template-areas:none;
+    gap:0;
+  }
+  #scheduleView.mode-week .desktop-week th,
+  #scheduleView.mode-plan .desktop-week th{
+    display:table-cell!important;
+    background:#e5f0f8;
+    color:#17365d;
+    text-align:left;
+    font-size:11px;
+    padding:8px 10px;
+    white-space:nowrap;
+    border:0;
+  }
+  #scheduleView.mode-week .desktop-week td,
+  #scheduleView.mode-week .desktop-week tr.op-row td,
+  #scheduleView.mode-plan .desktop-week td,
+  #scheduleView.mode-plan .desktop-week tr.op-row td{
+    display:table-cell!important;
+    flex-direction:row;
+    align-items:center;
+    justify-content:flex-start;
+    gap:0;
+    width:auto;
+    padding:8px 10px!important;
+    border:0!important;
+    border-top:1px solid #e8eef3!important;
+    text-align:left!important;
+    font-size:12px;
+    background:transparent!important;
+    vertical-align:middle;
+  }
+  #scheduleView.mode-week .desktop-week td::before,
+  #scheduleView.mode-week .desktop-week tr.op-row td::before,
+  #scheduleView.mode-plan .desktop-week td::before,
+  #scheduleView.mode-plan .desktop-week tr.op-row td::before{
+    content:none!important;
+    display:none!important;
+  }
+  #scheduleView.mode-week .desktop-week .col-age,
+  #scheduleView.mode-week .desktop-week .col-blood,
+  #scheduleView.mode-week .desktop-week .col-infection,
+  #scheduleView.mode-week .desktop-week .col-status,
+  #scheduleView.mode-week .desktop-week .col-notes,
+  #scheduleView.mode-week .desktop-week .col-when,
+  #scheduleView.mode-week .desktop-week .col-patient,
+  #scheduleView.mode-week .desktop-week .col-diagnosis,
+  #scheduleView.mode-week .desktop-week .col-procedure,
+  #scheduleView.mode-week .desktop-week .col-team,
+  #scheduleView.mode-week .desktop-week .col-anes,
+  #scheduleView.mode-week .desktop-week .col-files,
+  #scheduleView.mode-week .desktop-week .col-actions,
+  #scheduleView.mode-plan .desktop-week .col-age,
+  #scheduleView.mode-plan .desktop-week .col-blood,
+  #scheduleView.mode-plan .desktop-week .col-infection,
+  #scheduleView.mode-plan .desktop-week .col-status,
+  #scheduleView.mode-plan .desktop-week .col-notes,
+  #scheduleView.mode-plan .desktop-week .col-when,
+  #scheduleView.mode-plan .desktop-week .col-patient,
+  #scheduleView.mode-plan .desktop-week .col-diagnosis,
+  #scheduleView.mode-plan .desktop-week .col-procedure,
+  #scheduleView.mode-plan .desktop-week .col-team,
+  #scheduleView.mode-plan .desktop-week .col-anes,
+  #scheduleView.mode-plan .desktop-week .col-files,
+  #scheduleView.mode-plan .desktop-week .col-actions{
+    display:table-cell!important;
+    grid-area:auto;
+    padding:8px 10px!important;
+    border-radius:0;
+    background:transparent!important;
+    border:0!important;
+    border-top:1px solid #e8eef3!important;
+  }
+  #scheduleView.mode-week .desktop-week .col-diagnosis,
+  #scheduleView.mode-week .desktop-week .col-procedure,
+  #scheduleView.mode-week .desktop-week .col-notes,
+  #scheduleView.mode-plan .desktop-week .col-diagnosis,
+  #scheduleView.mode-plan .desktop-week .col-procedure,
+  #scheduleView.mode-plan .desktop-week .col-notes{
+    padding:8px 10px!important;
+    border-radius:0;
+    background:transparent!important;
+    border:0!important;
+    border-top:1px solid #e8eef3!important;
+  }
+  #scheduleView.mode-week .desktop-week .row-actions,
+  #scheduleView.mode-plan .desktop-week .row-actions{
+    display:flex;
+    grid-template-columns:none;
+    gap:6px;
+    width:auto;
+    justify-content:flex-start;
+  }
+  #scheduleView.mode-week .desktop-week .icon-action,
+  #scheduleView.mode-plan .desktop-week .icon-action{
+    width:36px;
+    height:36px;
+    border-radius:10px;
+  }
+  #scheduleView.mode-week .desktop-week .empty,
+  #scheduleView.mode-plan .desktop-week .empty{
+    display:block;
+    padding:24px;
+    text-align:center;
+  }
+  .theme-dark #scheduleView.mode-week .desktop-week,
+  .theme-dark #scheduleView.mode-plan .desktop-week{
+    background:#1f2937;
+    border-color:#374151;
+    box-shadow:none;
+  }
+  .theme-dark #scheduleView.mode-week .desktop-week th,
+  .theme-dark #scheduleView.mode-plan .desktop-week th{
+    background:#243b53;
+    color:#dbeafe;
+  }
+  .theme-dark #scheduleView.mode-week .desktop-week td,
+  .theme-dark #scheduleView.mode-week .desktop-week tr.op-row td,
+  .theme-dark #scheduleView.mode-plan .desktop-week td,
+  .theme-dark #scheduleView.mode-plan .desktop-week tr.op-row td,
+  .theme-dark #scheduleView.mode-week .desktop-week .col-diagnosis,
+  .theme-dark #scheduleView.mode-week .desktop-week .col-procedure,
+  .theme-dark #scheduleView.mode-week .desktop-week .col-notes,
+  .theme-dark #scheduleView.mode-plan .desktop-week .col-diagnosis,
+  .theme-dark #scheduleView.mode-plan .desktop-week .col-procedure,
+  .theme-dark #scheduleView.mode-plan .desktop-week .col-notes{
+    border-top-color:#374151!important;
+    background:transparent!important;
+  }
 }
 
 .blood-badge{
