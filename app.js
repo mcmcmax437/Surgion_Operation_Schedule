@@ -2088,7 +2088,7 @@ on("#refreshLogs", "click", () => loadLogs());
     const landscape = window.matchMedia("(orientation: landscape)").matches;
     if (landscape === lastLandscape) return;
     lastLandscape = landscape;
-    if (currentView === "schedule" && (scheduleMode === "week" || scheduleMode === "plan")) {
+    if (currentView === "schedule" && (scheduleMode === "day" || scheduleMode === "week" || scheduleMode === "plan")) {
       render();
     }
   };

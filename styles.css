@@ -1088,7 +1088,7 @@ button:active:not(:disabled),
 .theme-dark .attachment-remove{color:#fca5a5}
 .theme-dark .attachment-remove:hover{background:#3f1d1d}
 
-/* Day always uses the compact mobile cards (same markup on phone + desktop). */
+/* Day: compact cards by default; landscape phone uses the table (see below). */
 #scheduleView.mode-day .desktop-week{display:none!important}
 #scheduleView.mode-day .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
 
@@ -1106,10 +1106,12 @@ button:active:not(:disabled),
   #scheduleView.mode-plan .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
 }
 
-/* Phone landscape: real weekly/plan table (horizontal scroll), not card stack. */
+/* Phone landscape: real day/week/plan table (horizontal scroll), not card stack. */
 @media (max-width:960px) and (orientation: landscape){
+  #scheduleView.mode-day .mobile-week,
   #scheduleView.mode-week .mobile-week,
   #scheduleView.mode-plan .mobile-week{display:none!important}
+  #scheduleView.mode-day .desktop-week,
   #scheduleView.mode-week .desktop-week,
   #scheduleView.mode-plan .desktop-week{
     display:block!important;
@@ -1119,11 +1121,13 @@ button:active:not(:disabled),
     border-radius:12px;
     overflow:hidden;
   }
+  #scheduleView.mode-day .desktop-week .table-scroll,
   #scheduleView.mode-week .desktop-week .table-scroll,
   #scheduleView.mode-plan .desktop-week .table-scroll{
     overflow:auto;
     -webkit-overflow-scrolling:touch;
   }
+  #scheduleView.mode-day .desktop-week table,
   #scheduleView.mode-week .desktop-week table,
   #scheduleView.mode-plan .desktop-week table{
     display:table!important;
@@ -1132,11 +1136,15 @@ button:active:not(:disabled),
     border-collapse:collapse;
     border-spacing:0;
   }
+  #scheduleView.mode-day .desktop-week thead,
   #scheduleView.mode-week .desktop-week thead,
   #scheduleView.mode-plan .desktop-week thead{display:table-header-group!important}
+  #scheduleView.mode-day .desktop-week tbody,
   #scheduleView.mode-week .desktop-week tbody,
   #scheduleView.mode-plan .desktop-week tbody{display:table-row-group!important;gap:0}
+  #scheduleView.mode-day .desktop-week tr,
   #scheduleView.mode-week .desktop-week tr,
+  #scheduleView.mode-day .desktop-week tr.op-row,
   #scheduleView.mode-week .desktop-week tr.op-row,
   #scheduleView.mode-plan .desktop-week tr,
   #scheduleView.mode-plan .desktop-week tr.op-row{
@@ -1151,6 +1159,7 @@ button:active:not(:disabled),
     grid-template-areas:none;
     gap:0;
   }
+  #scheduleView.mode-day .desktop-week th,
   #scheduleView.mode-week .desktop-week th,
   #scheduleView.mode-plan .desktop-week th{
     display:table-cell!important;
@@ -1162,7 +1171,9 @@ button:active:not(:disabled),
     white-space:nowrap;
     border:0;
   }
+  #scheduleView.mode-day .desktop-week td,
   #scheduleView.mode-week .desktop-week td,
+  #scheduleView.mode-day .desktop-week tr.op-row td,
   #scheduleView.mode-week .desktop-week tr.op-row td,
   #scheduleView.mode-plan .desktop-week td,
   #scheduleView.mode-plan .desktop-week tr.op-row td{
@@ -1180,25 +1191,40 @@ button:active:not(:disabled),
     background:transparent!important;
     vertical-align:middle;
   }
+  #scheduleView.mode-day .desktop-week td::before,
   #scheduleView.mode-week .desktop-week td::before,
+  #scheduleView.mode-day .desktop-week tr.op-row td::before,
   #scheduleView.mode-week .desktop-week tr.op-row td::before,
   #scheduleView.mode-plan .desktop-week td::before,
   #scheduleView.mode-plan .desktop-week tr.op-row td::before{
     content:none!important;
     display:none!important;
   }
+  #scheduleView.mode-day .desktop-week .col-age,
   #scheduleView.mode-week .desktop-week .col-age,
+  #scheduleView.mode-day .desktop-week .col-blood,
   #scheduleView.mode-week .desktop-week .col-blood,
+  #scheduleView.mode-day .desktop-week .col-infection,
   #scheduleView.mode-week .desktop-week .col-infection,
+  #scheduleView.mode-day .desktop-week .col-status,
   #scheduleView.mode-week .desktop-week .col-status,
+  #scheduleView.mode-day .desktop-week .col-notes,
   #scheduleView.mode-week .desktop-week .col-notes,
+  #scheduleView.mode-day .desktop-week .col-when,
   #scheduleView.mode-week .desktop-week .col-when,
+  #scheduleView.mode-day .desktop-week .col-patient,
   #scheduleView.mode-week .desktop-week .col-patient,
+  #scheduleView.mode-day .desktop-week .col-diagnosis,
   #scheduleView.mode-week .desktop-week .col-diagnosis,
+  #scheduleView.mode-day .desktop-week .col-procedure,
   #scheduleView.mode-week .desktop-week .col-procedure,
+  #scheduleView.mode-day .desktop-week .col-team,
   #scheduleView.mode-week .desktop-week .col-team,
+  #scheduleView.mode-day .desktop-week .col-anes,
   #scheduleView.mode-week .desktop-week .col-anes,
+  #scheduleView.mode-day .desktop-week .col-files,
   #scheduleView.mode-week .desktop-week .col-files,
+  #scheduleView.mode-day .desktop-week .col-actions,
   #scheduleView.mode-week .desktop-week .col-actions,
   #scheduleView.mode-plan .desktop-week .col-age,
   #scheduleView.mode-plan .desktop-week .col-blood,
@@ -1220,18 +1246,31 @@ button:active:not(:disabled),
     border:0!important;
     border-top:1px solid #e8eef3!important;
   }
+  #scheduleView.mode-day .desktop-week td.col-age,
   #scheduleView.mode-week .desktop-week td.col-age,
+  #scheduleView.mode-day .desktop-week td.col-blood,
   #scheduleView.mode-week .desktop-week td.col-blood,
+  #scheduleView.mode-day .desktop-week td.col-infection,
   #scheduleView.mode-week .desktop-week td.col-infection,
+  #scheduleView.mode-day .desktop-week td.col-status,
   #scheduleView.mode-week .desktop-week td.col-status,
+  #scheduleView.mode-day .desktop-week td.col-notes,
   #scheduleView.mode-week .desktop-week td.col-notes,
+  #scheduleView.mode-day .desktop-week td.col-when,
   #scheduleView.mode-week .desktop-week td.col-when,
+  #scheduleView.mode-day .desktop-week td.col-patient,
   #scheduleView.mode-week .desktop-week td.col-patient,
+  #scheduleView.mode-day .desktop-week td.col-diagnosis,
   #scheduleView.mode-week .desktop-week td.col-diagnosis,
+  #scheduleView.mode-day .desktop-week td.col-procedure,
   #scheduleView.mode-week .desktop-week td.col-procedure,
+  #scheduleView.mode-day .desktop-week td.col-team,
   #scheduleView.mode-week .desktop-week td.col-team,
+  #scheduleView.mode-day .desktop-week td.col-anes,
   #scheduleView.mode-week .desktop-week td.col-anes,
+  #scheduleView.mode-day .desktop-week td.col-files,
   #scheduleView.mode-week .desktop-week td.col-files,
+  #scheduleView.mode-day .desktop-week td.col-actions,
   #scheduleView.mode-week .desktop-week td.col-actions,
   #scheduleView.mode-plan .desktop-week td.col-age,
   #scheduleView.mode-plan .desktop-week td.col-blood,
@@ -1248,18 +1287,31 @@ button:active:not(:disabled),
   #scheduleView.mode-plan .desktop-week td.col-actions{
     background:transparent!important;
   }
+  #scheduleView.mode-day .desktop-week th.col-age,
   #scheduleView.mode-week .desktop-week th.col-age,
+  #scheduleView.mode-day .desktop-week th.col-blood,
   #scheduleView.mode-week .desktop-week th.col-blood,
+  #scheduleView.mode-day .desktop-week th.col-infection,
   #scheduleView.mode-week .desktop-week th.col-infection,
+  #scheduleView.mode-day .desktop-week th.col-status,
   #scheduleView.mode-week .desktop-week th.col-status,
+  #scheduleView.mode-day .desktop-week th.col-notes,
   #scheduleView.mode-week .desktop-week th.col-notes,
+  #scheduleView.mode-day .desktop-week th.col-when,
   #scheduleView.mode-week .desktop-week th.col-when,
+  #scheduleView.mode-day .desktop-week th.col-patient,
   #scheduleView.mode-week .desktop-week th.col-patient,
+  #scheduleView.mode-day .desktop-week th.col-diagnosis,
   #scheduleView.mode-week .desktop-week th.col-diagnosis,
+  #scheduleView.mode-day .desktop-week th.col-procedure,
   #scheduleView.mode-week .desktop-week th.col-procedure,
+  #scheduleView.mode-day .desktop-week th.col-team,
   #scheduleView.mode-week .desktop-week th.col-team,
+  #scheduleView.mode-day .desktop-week th.col-anes,
   #scheduleView.mode-week .desktop-week th.col-anes,
+  #scheduleView.mode-day .desktop-week th.col-files,
   #scheduleView.mode-week .desktop-week th.col-files,
+  #scheduleView.mode-day .desktop-week th.col-actions,
   #scheduleView.mode-week .desktop-week th.col-actions,
   #scheduleView.mode-plan .desktop-week th.col-age,
   #scheduleView.mode-plan .desktop-week th.col-blood,
@@ -1278,18 +1330,31 @@ button:active:not(:disabled),
     border-top:0!important;
     color:#17365d;
   }
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-age,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-age,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-blood,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-blood,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-infection,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-infection,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-status,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-status,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-notes,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-notes,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-when,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-when,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-patient,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-patient,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-diagnosis,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-diagnosis,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-procedure,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-procedure,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-team,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-team,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-anes,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-anes,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-files,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-files,
+  .theme-dark #scheduleView.mode-day .desktop-week th.col-actions,
   .theme-dark #scheduleView.mode-week .desktop-week th.col-actions,
   .theme-dark #scheduleView.mode-plan .desktop-week th.col-age,
   .theme-dark #scheduleView.mode-plan .desktop-week th.col-blood,
@@ -1307,8 +1372,11 @@ button:active:not(:disabled),
     background:#243b53!important;
     color:#dbeafe;
   }
+  #scheduleView.mode-day .desktop-week .col-diagnosis,
   #scheduleView.mode-week .desktop-week .col-diagnosis,
+  #scheduleView.mode-day .desktop-week .col-procedure,
   #scheduleView.mode-week .desktop-week .col-procedure,
+  #scheduleView.mode-day .desktop-week .col-notes,
   #scheduleView.mode-week .desktop-week .col-notes,
   #scheduleView.mode-plan .desktop-week .col-diagnosis,
   #scheduleView.mode-plan .desktop-week .col-procedure,
@@ -1319,6 +1387,7 @@ button:active:not(:disabled),
     border:0!important;
     border-top:1px solid #e8eef3!important;
   }
+  #scheduleView.mode-day .desktop-week .row-actions,
   #scheduleView.mode-week .desktop-week .row-actions,
   #scheduleView.mode-plan .desktop-week .row-actions{
     display:flex;
@@ -1327,39 +1396,49 @@ button:active:not(:disabled),
     width:auto;
     justify-content:flex-start;
   }
+  #scheduleView.mode-day .desktop-week .icon-action,
   #scheduleView.mode-week .desktop-week .icon-action,
   #scheduleView.mode-plan .desktop-week .icon-action{
     width:36px;
     height:36px;
     border-radius:10px;
   }
+  #scheduleView.mode-day .desktop-week .empty:not([hidden]),
   #scheduleView.mode-week .desktop-week .empty:not([hidden]),
   #scheduleView.mode-plan .desktop-week .empty:not([hidden]){
     display:block;
     padding:24px;
     text-align:center;
   }
+  #scheduleView.mode-day .desktop-week .empty[hidden],
   #scheduleView.mode-week .desktop-week .empty[hidden],
   #scheduleView.mode-plan .desktop-week .empty[hidden]{
     display:none!important;
   }
+  .theme-dark #scheduleView.mode-day .desktop-week,
   .theme-dark #scheduleView.mode-week .desktop-week,
   .theme-dark #scheduleView.mode-plan .desktop-week{
     background:#1f2937;
     border-color:#374151;
     box-shadow:none;
   }
+  .theme-dark #scheduleView.mode-day .desktop-week th,
   .theme-dark #scheduleView.mode-week .desktop-week th,
   .theme-dark #scheduleView.mode-plan .desktop-week th{
     background:#243b53;
     color:#dbeafe;
   }
+  .theme-dark #scheduleView.mode-day .desktop-week td,
   .theme-dark #scheduleView.mode-week .desktop-week td,
+  .theme-dark #scheduleView.mode-day .desktop-week tr.op-row td,
   .theme-dark #scheduleView.mode-week .desktop-week tr.op-row td,
   .theme-dark #scheduleView.mode-plan .desktop-week td,
   .theme-dark #scheduleView.mode-plan .desktop-week tr.op-row td,
+  .theme-dark #scheduleView.mode-day .desktop-week .col-diagnosis,
   .theme-dark #scheduleView.mode-week .desktop-week .col-diagnosis,
+  .theme-dark #scheduleView.mode-day .desktop-week .col-procedure,
   .theme-dark #scheduleView.mode-week .desktop-week .col-procedure,
+  .theme-dark #scheduleView.mode-day .desktop-week .col-notes,
   .theme-dark #scheduleView.mode-week .desktop-week .col-notes,
   .theme-dark #scheduleView.mode-plan .desktop-week .col-diagnosis,
   .theme-dark #scheduleView.mode-plan .desktop-week .col-procedure,
