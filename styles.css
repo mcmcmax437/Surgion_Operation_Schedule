@@ -1247,11 +1247,15 @@ button:active:not(:disabled),
     height:36px;
     border-radius:10px;
   }
-  #scheduleView.mode-week .desktop-week .empty,
-  #scheduleView.mode-plan .desktop-week .empty{
+  #scheduleView.mode-week .desktop-week .empty:not([hidden]),
+  #scheduleView.mode-plan .desktop-week .empty:not([hidden]){
     display:block;
     padding:24px;
     text-align:center;
+  }
+  #scheduleView.mode-week .desktop-week .empty[hidden],
+  #scheduleView.mode-plan .desktop-week .empty[hidden]{
+    display:none!important;
   }
   .theme-dark #scheduleView.mode-week .desktop-week,
   .theme-dark #scheduleView.mode-plan .desktop-week{
