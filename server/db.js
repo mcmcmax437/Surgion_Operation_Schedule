@@ -212,6 +212,32 @@ export async function migrate(pool) {
   if (!(await columnExists(pool, "change_logs", "geo"))) {
     await pool.query(`ALTER TABLE change_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
   }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id CHAR(36) PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      password_hash VARCHAR(255) NULL,
+      google_sub VARCHAR(255) NULL,
+      role ENUM('admin', 'doctor') NOT NULL DEFAULT 'doctor',
+      status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
+      created_at DATETIME(3) NOT NULL,
+      updated_at DATETIME(3) NOT NULL,
+      UNIQUE KEY uq_users_email (email),
+      UNIQUE KEY uq_users_google_sub (google_sub),
+      INDEX idx_users_role (role)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  if (!(await columnExists(pool, "sessions", "user_id"))) {
+    await pool.query(
+      `ALTER TABLE sessions ADD COLUMN user_id CHAR(36) NULL AFTER token`,
+    );
+  }
+  if (!(await indexExists(pool, "sessions", "idx_sessions_user"))) {
+    await pool.query(`ALTER TABLE sessions ADD INDEX idx_sessions_user (user_id)`);
+  }
 }
 
 export async function seedStaff(pool) {

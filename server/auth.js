@@ -185,6 +185,36 @@ export function requestToken(req) {
   return "";
 }
 
+export function isAdminUser(user, ip) {
+  if (user?.role === "admin" && user?.status === "active") return true;
+  return canViewLogs(ip);
+}
+
+export async function createSession(pool, {
+  userId = null,
+  ip,
+  userAgent: ua,
+  sessionDays = Number(process.env.SESSION_DAYS || 365),
+}) {
+  const token = newToken();
+  const now = new Date();
+  const expires = new Date(now.getTime() + sessionDays * 24 * 60 * 60 * 1000);
+  await pool.query(
+    `INSERT INTO sessions (token, user_id, ip, user_agent, created_at, last_seen_at, expires_at)
+     VALUES (:token, :user_id, :ip, :user_agent, :created_at, :last_seen_at, :expires_at)`,
+    {
+      token,
+      user_id: userId || null,
+      ip,
+      user_agent: ua,
+      created_at: now,
+      last_seen_at: now,
+      expires_at: expires,
+    },
+  );
+  return { token, expiresAt: expires.toISOString() };
+}
+
 export function requireAuth(pool) {
   return async (req, res, next) => {
     const token = requestToken(req);
@@ -193,7 +223,7 @@ export function requireAuth(pool) {
     }
 
     const [rows] = await pool.query(
-      `SELECT token, expires_at FROM sessions WHERE token = :token LIMIT 1`,
+      `SELECT token, user_id, expires_at FROM sessions WHERE token = :token LIMIT 1`,
       { token },
     );
     if (!rows.length || new Date(rows[0].expires_at) < new Date()) {
@@ -211,6 +241,18 @@ export function requireAuth(pool) {
     req.sessionToken = token;
     req.clientIp = clientIp(req);
     req.clientUa = userAgent(req);
+    req.user = null;
+
+    if (rows[0].user_id) {
+      const { findUserById, publicUser } = await import("./users.js");
+      const user = await findUserById(pool, rows[0].user_id);
+      if (!user || user.status !== "active") {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      req.user = publicUser(user);
+    }
+
+    req.isAdmin = isAdminUser(req.user, req.clientIp);
     next();
   };
 }

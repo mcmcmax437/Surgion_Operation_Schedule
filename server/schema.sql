@@ -51,11 +51,28 @@ CREATE TABLE IF NOT EXISTS staff (
 
 CREATE TABLE IF NOT EXISTS sessions (
   token CHAR(64) PRIMARY KEY,
+  user_id CHAR(36) NULL,
   ip VARCHAR(64) NULL,
   user_agent VARCHAR(512) NULL,
   created_at DATETIME(3) NOT NULL,
   last_seen_at DATETIME(3) NOT NULL,
-  expires_at DATETIME(3) NOT NULL
+  expires_at DATETIME(3) NOT NULL,
+  INDEX idx_sessions_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS users (
+  id CHAR(36) PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NULL,
+  google_sub VARCHAR(255) NULL,
+  role ENUM('admin', 'doctor') NOT NULL DEFAULT 'doctor',
+  status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_google_sub (google_sub),
+  INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS access_logs (

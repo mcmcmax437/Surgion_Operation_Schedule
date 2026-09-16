@@ -22,6 +22,19 @@
   width:18px;
   height:18px;
 }
+.session-user{
+  display:inline-flex;
+  align-items:center;
+  max-width:min(220px,42vw);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#315b7a;
+  font-size:12px;
+  font-weight:700;
+}
+.theme-dark .session-user{color:#9ac3e5}
+.top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .logout-btn:hover{
   background:#b42318;
   border-color:#b42318;

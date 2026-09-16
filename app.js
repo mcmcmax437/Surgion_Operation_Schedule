@@ -423,6 +423,7 @@ function selectedPickerValues(containerId) {
 }
 
 let canViewLogs = false;
+let currentUser = null;
 
 function applyScheduleMode() {
   const view = $("#scheduleView");
@@ -485,6 +486,21 @@ function applyAdminVisibility(allowed) {
   if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "archive")) {
     showView("day");
   }
+}
+
+function applySessionUser(session) {
+  currentUser = session?.user || null;
+  const chip = $("#sessionUser");
+  if (!chip) return;
+  if (!currentUser) {
+    chip.hidden = true;
+    chip.textContent = "";
+    return;
+  }
+  const roleLabel = currentUser.role === "admin" ? "Адмін" : "Лікар";
+  chip.hidden = false;
+  chip.textContent = `${currentUser.name || currentUser.email} · ${roleLabel}`;
+  chip.title = currentUser.email || "";
 }
 
 function findOperation(id) {
@@ -1747,6 +1763,7 @@ async function refresh() {
   archivedOperations = archived;
   staff = staffData;
   applyAdminVisibility(session?.isAdmin || session?.canViewLogs);
+  applySessionUser(session);
   renderStaffLists();
   render();
 }
