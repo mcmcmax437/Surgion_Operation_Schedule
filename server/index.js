@@ -131,6 +131,18 @@ app.set("trust proxy", true);
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 
+function actorFromReq(req) {
+  const user = req?.user;
+  if (!user) {
+    return { actorUserId: null, actorName: null, actorEmail: null };
+  }
+  return {
+    actorUserId: user.id || null,
+    actorName: user.name || null,
+    actorEmail: user.email || null,
+  };
+}
+
 function bodyToOperation(body) {
   const teamMembers = Array.isArray(body.teamMembers)
     ? body.teamMembers
@@ -316,6 +328,9 @@ async function permanentlyDeleteOperation(id, meta = {}) {
     before,
     ip: meta.ip || null,
     userAgent: meta.userAgent || null,
+    actorUserId: meta.actorUserId || null,
+    actorName: meta.actorName || null,
+    actorEmail: meta.actorEmail || null,
   });
   return true;
 }
@@ -709,6 +724,7 @@ app.post("/api/operations", auth, optionalUpload, async (req, res) => {
       after: created,
       ip: req.clientIp,
       userAgent: req.clientUa,
+      ...actorFromReq(req),
     });
 
     res.status(201).json(created);
@@ -824,6 +840,7 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
       after,
       ip: req.clientIp,
       userAgent: req.clientUa,
+      ...actorFromReq(req),
     });
 
     res.json(after);
@@ -839,6 +856,7 @@ app.delete("/api/operations/:id", auth, async (req, res) => {
   const ok = await permanentlyDeleteOperation(req.params.id, {
     ip: req.clientIp,
     userAgent: req.clientUa,
+    ...actorFromReq(req),
   });
   if (!ok) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
@@ -872,6 +890,7 @@ app.delete("/api/attachments/:id", auth, async (req, res) => {
     after,
     ip: req.clientIp,
     userAgent: req.clientUa,
+    ...actorFromReq(req),
   });
 
   res.json({ ok: true });
@@ -958,6 +977,7 @@ app.put("/api/staff", auth, async (req, res) => {
     after,
     ip: req.clientIp,
     userAgent: req.clientUa,
+    ...actorFromReq(req),
   });
 
   res.json(after);
@@ -1042,6 +1062,10 @@ app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
       }
     }
 
+    if (req.user?.id && req.user.id === existing.id && nextStatus === "disabled") {
+      return res.status(400).json({ error: "Не можна заблокувати власний акаунт." });
+    }
+
     let passwordHash;
     if (password) passwordHash = await hashPassword(password);
 
@@ -1068,6 +1092,7 @@ app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
         after: adminUserDetails(updated),
         ip: req.clientIp,
         userAgent: req.clientUa,
+        ...actorFromReq(req),
       });
     } catch (logError) {
       console.error("user update log failed:", logError);
@@ -1109,6 +1134,7 @@ app.delete("/api/users/:id", auth, requireAdmin, async (req, res) => {
         after: null,
         ip: req.clientIp,
         userAgent: req.clientUa,
+        ...actorFromReq(req),
       });
     } catch (logError) {
       console.error("user delete log failed:", logError);
@@ -1124,7 +1150,8 @@ app.delete("/api/users/:id", auth, requireAdmin, async (req, res) => {
 app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
-    `SELECT id, entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, geo, user_agent, created_at
+    `SELECT id, entity_type, entity_id, action, summary, changed_fields, before_json, after_json,
+            actor_user_id, actor_name, actor_email, ip, geo, user_agent, created_at
      FROM change_logs
      ORDER BY created_at DESC
      LIMIT ${limit}`,
@@ -1138,6 +1165,9 @@ app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
     changedFields: parseJson(row.changed_fields, []),
     before: parseJson(row.before_json, null),
     after: parseJson(row.after_json, null),
+    actorUserId: row.actor_user_id || null,
+    actorName: row.actor_name || null,
+    actorEmail: row.actor_email || null,
     ip: row.ip,
     geo: row.geo,
     userAgent: row.user_agent,

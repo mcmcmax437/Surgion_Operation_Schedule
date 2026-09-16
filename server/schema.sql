@@ -95,10 +95,14 @@ CREATE TABLE IF NOT EXISTS change_logs (
   changed_fields JSON NULL,
   before_json JSON NULL,
   after_json JSON NULL,
+  actor_user_id CHAR(36) NULL,
+  actor_name VARCHAR(255) NULL,
+  actor_email VARCHAR(255) NULL,
   ip VARCHAR(64) NULL,
   geo VARCHAR(255) NULL,
   user_agent VARCHAR(512) NULL,
   created_at DATETIME(3) NOT NULL,
   INDEX idx_change_created (created_at),
-  INDEX idx_change_entity (entity_type, entity_id)
+  INDEX idx_change_entity (entity_type, entity_id),
+  INDEX idx_change_actor (actor_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

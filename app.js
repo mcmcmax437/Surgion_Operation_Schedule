@@ -33,10 +33,8 @@ const on = (selector, event, handler) => {
   if (node) node.addEventListener(event, handler);
 };
 let operations = [];
-let archivedOperations = [];
 let staff = { team: [], anesthesiologists: [] };
 let editingId = null;
-const ARCHIVE_RETENTION_DAYS = 7;
 const DEPARTMENTS = [
   { id: "dept1", label: "Хірургічне відділення №1" },
   { id: "dept2", label: "Хірургічне відділення №2" },
@@ -451,7 +449,7 @@ function applyScheduleMode() {
 }
 
 function showView(view) {
-  if ((view === "logs" || view === "staff" || view === "users" || view === "archive") && !canViewLogs) {
+  if ((view === "logs" || view === "staff" || view === "users") && !canViewLogs) {
     view = "day";
   }
   if (view === "day" || view === "week" || view === "plan") {
@@ -460,27 +458,24 @@ function showView(view) {
   }
   currentView = view;
   if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
-  if ($("#archiveView")) $("#archiveView").hidden = view !== "archive";
   if ($("#staffView")) $("#staffView").hidden = view !== "staff";
   if ($("#usersView")) $("#usersView").hidden = view !== "users";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
   if ($("#dayTab")) $("#dayTab").classList.toggle("active", view === "schedule" && scheduleMode === "day");
   if ($("#weekTab")) $("#weekTab").classList.toggle("active", view === "schedule" && scheduleMode === "week");
   if ($("#planTab")) $("#planTab").classList.toggle("active", view === "schedule" && scheduleMode === "plan");
-  if ($("#archiveTab")) $("#archiveTab").classList.toggle("active", view === "archive");
   if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
   if ($("#usersTab")) $("#usersTab").classList.toggle("active", view === "users");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
   applyScheduleMode();
   if (view === "schedule") render();
   if (view === "logs") loadLogs();
-  if (view === "archive") renderArchive();
   if (view === "users") loadUsers();
 }
 
 function applyAdminVisibility(allowed) {
   canViewLogs = Boolean(allowed);
-  ["logsTab", "staffTab", "usersTab", "archiveTab"].forEach((id) => {
+  ["logsTab", "staffTab", "usersTab"].forEach((id) => {
     const tab = $(`#${id}`);
     if (!tab) return;
     tab.hidden = !canViewLogs;
@@ -488,7 +483,7 @@ function applyAdminVisibility(allowed) {
     tab.style.display = canViewLogs ? "" : "none";
   });
   document.querySelector(".view-tabs")?.classList.toggle("is-admin", canViewLogs);
-  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users" || currentView === "archive")) {
+  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users")) {
     showView("day");
   }
 }
@@ -509,17 +504,7 @@ function applySessionUser(session) {
 }
 
 function findOperation(id) {
-  return operations.find((item) => item.id === id)
-    || archivedOperations.find((item) => item.id === id)
-    || null;
-}
-
-function archiveDaysLeft(archivedAt) {
-  if (!archivedAt) return ARCHIVE_RETENTION_DAYS;
-  const start = new Date(archivedAt).getTime();
-  if (Number.isNaN(start)) return ARCHIVE_RETENTION_DAYS;
-  const end = start + ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-  return Math.max(0, Math.ceil((end - Date.now()) / (24 * 60 * 60 * 1000)));
+  return operations.find((item) => item.id === id) || null;
 }
 
 function applyLogsVisibility(allowed) {
@@ -763,7 +748,6 @@ function render() {
   renderDepartment("dept1", rows.filter((item) => item.department !== "dept2"));
   renderDepartment("dept2", rows.filter((item) => item.department === "dept2"));
   updateViewTabCounts();
-  renderArchive();
   stabilizeScheduleScroll(anchorTop);
 }
 
@@ -816,56 +800,6 @@ function updateViewTabCounts() {
   document.querySelectorAll("[data-add-dept]").forEach((button) => {
     button.textContent = "+ Додати операцію";
   });
-}
-
-function renderArchive() {
-  const body = $("#archiveBody");
-  const empty = $("#archiveEmptyState");
-  const count = $("#archiveCount");
-  if (!body) return;
-
-  const rows = [...archivedOperations].sort((a, b) => {
-    const byDate = String(b.date || "").localeCompare(String(a.date || ""));
-    if (byDate) return byDate;
-    const aq = a.queueNo == null ? 9999 : Number(a.queueNo);
-    const bq = b.queueNo == null ? 9999 : Number(b.queueNo);
-    return aq - bq;
-  });
-
-  body.innerHTML = rows.map((item) => {
-    const daysLeft = archiveDaysLeft(item.archivedAt);
-    const deleteLabel = daysLeft <= 0 ? "сьогодні" : `через ${daysLeft} дн.`;
-    const danger = infectionLabel(item);
-    return `
-    <tr class="op-row is-expanded" data-id="${item.id}">
-      <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
-      <td class="col-patient" data-label="Пацієнт">
-        <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
-        <span class="sub">${escapeHtml(item.id)}</span>
-      </td>
-      <td data-label="Відділення">${escapeHtml(departmentLabel(item.department))}</td>
-      <td class="col-infection" data-label="Небезпека">${escapeHtml(danger)}</td>
-      <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
-      <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
-      <td class="col-purge" data-label="Автовидалення"><span class="archive-purge">${escapeHtml(deleteLabel)}</span></td>
-      <td class="col-actions" data-label="Дії">
-        <div class="row-actions">
-          <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
-          </button>
-          <button class="icon-action" data-action="edit" data-id="${item.id}" type="button" title="Змінити" aria-label="Змінити">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-          </button>
-          <button class="icon-action danger-action" data-action="delete" data-id="${item.id}" type="button" title="Видалити" aria-label="Видалити">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6 7h12v2H6V7zm2 3h8l-1 10H9L8 10zm3-6h2l1 2H10l1-2z"/></svg>
-          </button>
-        </div>
-      </td>
-    </tr>`;
-  }).join("");
-
-  if (empty) empty.hidden = rows.length > 0;
-  if (count) count.textContent = String(rows.length);
 }
 
 function formatFileSize(bytes) {
@@ -973,7 +907,6 @@ function dropAttachmentFromCaches(attachmentId) {
     item.attachments = item.attachments.filter((file) => file.id !== attachmentId);
   };
   operations.forEach(drop);
-  archivedOperations.forEach(drop);
   currentFormAttachments = currentFormAttachments.filter((file) => file.id !== attachmentId);
 }
 
@@ -1694,6 +1627,17 @@ function logPlaceHtml(item) {
   return `${escapeHtml(ip)}${geo}`;
 }
 
+function logActorHtml(item) {
+  const name = String(item.actorName || "").trim();
+  const email = String(item.actorEmail || "").trim();
+  if (!name && !email) {
+    return `<span class="sub">Пароль відділення / невідомо</span>`;
+  }
+  const title = name || email;
+  const sub = name && email && name !== email ? `<span class="sub">${escapeHtml(email)}</span>` : "";
+  return `<strong>${escapeHtml(title)}</strong>${sub}`;
+}
+
 async function loadLogs() {
   try {
     const [changes, access] = await Promise.all([
@@ -1704,12 +1648,13 @@ async function loadLogs() {
     $("#changeLogsBody").innerHTML = changes.map((item) => `
       <tr>
         <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
+        <td data-label="Користувач">${logActorHtml(item)}</td>
         <td data-label="Дія">${escapeHtml(item.action)}</td>
         <td data-label="Опис">${escapeHtml(item.summary)}</td>
         <td data-label="Поля">${escapeHtml((item.changedFields || []).join(", ") || "—")}</td>
         <td data-label="IP / місце">${logPlaceHtml(item)}</td>
       </tr>
-    `).join("") || `<tr><td colspan="5">Змін ще немає.</td></tr>`;
+    `).join("") || `<tr><td colspan="6">Змін ще немає.</td></tr>`;
 
     $("#accessLogsBody").innerHTML = access.map((item) => `
       <tr>
@@ -1834,6 +1779,10 @@ async function saveUserEdit(event) {
 async function toggleBanUser(userId) {
   const user = siteUsers.find((item) => item.id === userId);
   if (!user) return;
+  if (currentUser?.id && currentUser.id === userId && user.status !== "disabled") {
+    alert("Не можна заблокувати власний акаунт.");
+    return;
+  }
   const nextStatus = user.status === "disabled" ? "active" : "disabled";
   const confirmText = nextStatus === "disabled"
     ? `Заблокувати ${user.email}? Користувач втратить доступ одразу.`
@@ -1900,14 +1849,12 @@ function setTheme(theme, { animate = true } = {}) {
 }
 
 async function refresh() {
-  const [ops, archived, staffData, session] = await Promise.all([
+  const [ops, staffData, session] = await Promise.all([
     api("/operations"),
-    api("/operations?archived=1"),
     api("/staff"),
     api("/session"),
   ]);
   operations = ops;
-  archivedOperations = archived;
   staff = staffData;
   applyAdminVisibility(session?.isAdmin || session?.canViewLogs);
   applySessionUser(session);
@@ -1919,7 +1866,6 @@ on("#themeToggle", "change", (event) => setTheme(event.target.checked ? "dark" :
 on("#dayTab", "click", () => showView("day"));
 on("#weekTab", "click", () => showView("week"));
 on("#planTab", "click", () => showView("plan"));
-on("#archiveTab", "click", () => showView("archive"));
 on("#staffTab", "click", () => showView("staff"));
 on("#usersTab", "click", () => showView("users"));
 on("#logsTab", "click", () => showView("logs"));
@@ -2134,7 +2080,6 @@ on("#dept1Body", "click", handleOperationRowClick);
 on("#dept2Body", "click", handleOperationRowClick);
 on("#dept1Days", "click", handleOperationRowClick);
 on("#dept2Days", "click", handleOperationRowClick);
-on("#archiveBody", "click", handleOperationRowClick);
 on("#refreshLogs", "click", () => loadLogs());
 
 setTheme(localStorage.getItem("surgery-theme") || "light", { animate: false });
