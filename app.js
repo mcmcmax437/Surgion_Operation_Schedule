@@ -9,6 +9,24 @@ if (!getToken()) {
   window.location.replace("login.html");
 }
 
+(function preventBrowserPageZoom() {
+  const mediaZoomSelector = ".media-viewport, .media-fs-overlay, .media-fs-stage, img.media-zoomable, #mediaFsImage";
+  let lastTouchEnd = 0;
+  document.addEventListener("gesturestart", (event) => {
+    if (!event.target?.closest?.(mediaZoomSelector)) event.preventDefault();
+  }, { passive: false });
+  document.addEventListener("gesturechange", (event) => {
+    if (!event.target?.closest?.(mediaZoomSelector)) event.preventDefault();
+  }, { passive: false });
+  document.addEventListener("touchend", (event) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 320 && event.touches.length === 0) {
+      if (!event.target?.closest?.(mediaZoomSelector)) event.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+})();
+
 const $ = (selector) => document.querySelector(selector);
 const on = (selector, event, handler) => {
   const node = $(selector);
@@ -1748,8 +1766,20 @@ on("#mediaFsOverlay", "close", () => {
   document.body.classList.remove("media-fs-open");
   syncMediaFullscreenUi();
 });
-document.addEventListener("fullscreenchange", syncMediaFullscreenUi);
-document.addEventListener("webkitfullscreenchange", syncMediaFullscreenUi);
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    resetMediaZoomState();
+    updateMediaZoomUi();
+  }
+  syncMediaFullscreenUi();
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  if (!document.webkitFullscreenElement && !document.fullscreenElement) {
+    resetMediaZoomState();
+    updateMediaZoomUi();
+  }
+  syncMediaFullscreenUi();
+});
 on("#mediaDialog", "close", closeMediaDialog);
 on("#mediaDialog", "click", (event) => {
   if (event.target === $("#mediaDialog")) closeMediaDialog();
