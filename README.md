@@ -33,12 +33,15 @@ MYSQL_PASSWORD=...
 MYSQL_DATABASE=surgion_schedule
 ```
 
-### Google Sign-In
+### Google Sign-In (без зміни `.env`)
 
-1. Створіть OAuth Client ID (тип **Web application**) у Google Cloud Console.
-2. Додайте Authorized JavaScript origins: `https://your-domain` (і `http://localhost` для тестів).
-3. Вставте Client ID у `GOOGLE_CLIENT_ID` у `.env` і перезапустіть API (`pm2 restart …`).
-4. На сторінці входу з’явиться кнопка Google.
+1. У Google Cloud Console створіть OAuth Client ID (тип **Web application**).
+2. Authorized JavaScript origins: `https://schedule.tereshkovych.com.ua` (і ваш домен).
+3. Впишіть Client ID у файл `auth.config.json` у корені проєкту:
+   ```json
+   { "googleClientId": "123456789-xxxx.apps.googleusercontent.com" }
+   ```
+4. Задеплойте (файл їде з кодом; `.env` чіпати не потрібно). На сторінці входу з’явиться кнопка Google.
 
 Створіть базу MySQL, наприклад:
 
