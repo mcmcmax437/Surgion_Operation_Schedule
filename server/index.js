@@ -49,8 +49,28 @@ const SESSION_DAYS = Number(process.env.SESSION_DAYS || 365);
 const ARCHIVE_RETENTION_DAYS = Number(process.env.ARCHIVE_RETENTION_DAYS || 7);
 const ARCHIVE_TZ = process.env.ARCHIVE_TZ || "Europe/Kyiv";
 const ARCHIVE_JOB_MS = Number(process.env.ARCHIVE_JOB_MS || 60 * 60 * 1000);
-const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || "").trim();
 const REGISTRATION_ENABLED = String(process.env.REGISTRATION_ENABLED || "true").toLowerCase() !== "false";
+
+function loadGoogleClientId() {
+  const fromEnv = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  if (fromEnv) return fromEnv;
+  try {
+    const raw = fs.readFileSync(path.join(rootDir, "auth.config.json"), "utf8");
+    const conf = JSON.parse(raw);
+    const id = String(conf?.googleClientId || "").trim();
+    if (id && !id.includes("YOUR_GOOGLE")) return id;
+  } catch {
+    // optional file
+  }
+  return "";
+}
+
+const GOOGLE_CLIENT_ID = loadGoogleClientId();
+if (GOOGLE_CLIENT_ID) {
+  console.log("Google Sign-In enabled");
+} else {
+  console.log("Google Sign-In disabled (set googleClientId in auth.config.json or GOOGLE_CLIENT_ID in .env)");
+}
 
 const hasSharedPassword = Boolean(ACCESS_PASSWORD);
 const hasAdminBootstrap = Boolean(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);

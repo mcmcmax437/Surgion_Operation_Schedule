@@ -9,7 +9,9 @@ const loginPanel = document.querySelector("#loginPanel");
 const registerPanel = document.querySelector("#registerPanel");
 const sharedPanel = document.querySelector("#sharedPanel");
 const sharedToggle = document.querySelector("#sharedToggle");
+const googleWrap = document.querySelector("#googleSignInWrap");
 const googleBox = document.querySelector("#googleSignIn");
+const googleFallbackBtn = document.querySelector("#googleFallbackBtn");
 const googleDivider = document.querySelector("#googleDivider");
 const tabLogin = document.querySelector("#tabLogin");
 const tabRegister = document.querySelector("#tabRegister");
@@ -21,6 +23,7 @@ let authConfig = {
   googleClientId: null,
   sharedPasswordEnabled: false,
 };
+let googleReady = false;
 
 function showError(message) {
   error.textContent = message;
@@ -56,8 +59,8 @@ function showPanel(panelId) {
   tabLogin.classList.toggle("is-active", isLogin);
   tabRegister.classList.toggle("is-active", !isLogin);
   authLead.textContent = isLogin
-    ? "Увійдіть зі своїм email і паролем."
-    : "Створіть акаунт — перший користувач стане адміністратором.";
+    ? "Увійдіть через Google або email і пароль."
+    : "Створіть акаунт лікаря для доступу до розкладу.";
 }
 
 function mapAuthError(err, fallback) {
@@ -84,6 +87,10 @@ async function completeLogin(token) {
 
 async function handleGoogleCredential(response) {
   clearError();
+  if (!response?.credential) {
+    showError("Google не повернув дані для входу.");
+    return;
+  }
   try {
     const data = await api("/auth/google", {
       method: "POST",
@@ -96,31 +103,59 @@ async function handleGoogleCredential(response) {
   }
 }
 
-function renderGoogleButton() {
+function initGoogleClient() {
   if (!authConfig.googleEnabled || !authConfig.googleClientId || !window.google?.accounts?.id) {
     return false;
   }
-  googleBox.hidden = false;
-  if (googleDivider) googleDivider.hidden = false;
   window.google.accounts.id.initialize({
     client_id: authConfig.googleClientId,
     callback: handleGoogleCredential,
     ux_mode: "popup",
     context: "signin",
+    auto_select: false,
+    cancel_on_tap_outside: true,
   });
-  googleBox.innerHTML = "";
-  window.google.accounts.id.renderButton(googleBox, {
-    theme: "outline",
-    size: "large",
-    shape: "rectangular",
-    text: "continue_with",
-    width: 320,
-    locale: "uk",
-  });
+  googleReady = true;
   return true;
 }
 
-function waitForGoogle(timeoutMs = 4000) {
+function renderGoogleButton() {
+  if (!authConfig.googleEnabled || !authConfig.googleClientId) {
+    if (googleWrap) googleWrap.hidden = true;
+    if (googleDivider) googleDivider.hidden = true;
+    return false;
+  }
+  if (googleWrap) googleWrap.hidden = false;
+  if (googleDivider) googleDivider.hidden = false;
+
+  if (!initGoogleClient()) {
+    if (googleFallbackBtn) googleFallbackBtn.hidden = false;
+    return false;
+  }
+
+  if (googleBox) {
+    googleBox.innerHTML = "";
+    googleBox.hidden = false;
+    try {
+      window.google.accounts.id.renderButton(googleBox, {
+        theme: "outline",
+        size: "large",
+        shape: "rectangular",
+        text: "continue_with",
+        width: Math.min(360, Math.floor((googleWrap?.clientWidth || 320))),
+        locale: "uk",
+      });
+      if (googleFallbackBtn) googleFallbackBtn.hidden = true;
+    } catch {
+      if (googleFallbackBtn) googleFallbackBtn.hidden = false;
+    }
+  } else if (googleFallbackBtn) {
+    googleFallbackBtn.hidden = false;
+  }
+  return true;
+}
+
+function waitForGoogle(timeoutMs = 5000) {
   return new Promise((resolve) => {
     if (window.google?.accounts?.id) {
       resolve(true);
@@ -160,9 +195,17 @@ async function loadAuthConfig() {
   if (authConfig.sharedPasswordEnabled) {
     sharedToggle.hidden = false;
   }
-  if (authConfig.googleEnabled) {
+  if (authConfig.googleEnabled && authConfig.googleClientId) {
     const ready = await waitForGoogle();
     if (ready) renderGoogleButton();
+    else {
+      if (googleWrap) googleWrap.hidden = false;
+      if (googleDivider) googleDivider.hidden = false;
+      if (googleFallbackBtn) googleFallbackBtn.hidden = false;
+    }
+  } else {
+    if (googleWrap) googleWrap.hidden = true;
+    if (googleDivider) googleDivider.hidden = true;
   }
 }
 
@@ -180,6 +223,30 @@ sharedToggle?.addEventListener("click", () => {
   sharedToggle.textContent = sharedPanel.hidden
     ? "Вхід за паролем відділення"
     : "Сховати пароль відділення";
+});
+
+googleFallbackBtn?.addEventListener("click", () => {
+  clearError();
+  if (!authConfig.googleClientId) {
+    showError("Google вхід ще не налаштовано (немає Client ID).");
+    return;
+  }
+  if (!window.google?.accounts?.id) {
+    showError("Не завантажено Google Sign-In. Перевірте мережу і оновіть сторінку.");
+    return;
+  }
+  if (!googleReady) initGoogleClient();
+  try {
+    window.google.accounts.id.prompt((notification) => {
+      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+        // Fallback: open the button flow by re-rendering official button.
+        renderGoogleButton();
+        showError("Натисніть кнопку Google ще раз для входу.");
+      }
+    });
+  } catch {
+    renderGoogleButton();
+  }
 });
 
 document.querySelector("#showLoginPassword")?.addEventListener("change", (event) => {

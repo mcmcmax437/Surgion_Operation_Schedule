@@ -169,6 +169,16 @@
     justify-items:center;
     row-gap:4px;
   }
+  .view-tab.admin-tab{
+    grid-template-rows:1fr;
+    align-content:center;
+    align-items:center;
+  }
+  .view-tab.admin-tab .tab-label{
+    height:auto;
+    min-height:0;
+    line-height:1.15;
+  }
   .toolbar{
     display:grid;
     grid-template-columns:1fr 1fr;
