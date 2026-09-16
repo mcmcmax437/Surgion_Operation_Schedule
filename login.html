@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Вхід — Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260916h" />
+    <link rel="stylesheet" href="styles.css?v=20260916i" />
     <style>
       .login-error[hidden],
       .auth-panel[hidden],
@@ -44,29 +44,30 @@
         <p class="clinic-name">Національний науковий центр фтизіатрії, пульмонології і алергології ім. Ф.Г. Яновського НАМН України</p>
         <p class="eyebrow">Захищений доступ</p>
         <h1>Розклад операцій</h1>
-        <p id="authLead">Увійдіть як лікар або зареєструйте новий акаунт.</p>
+        <p id="authLead">Зареєструйте акаунт або увійдіть — Google можна підключити пізніше.</p>
 
         <div class="auth-tabs" role="tablist">
-          <button type="button" class="auth-tab is-active" id="tabLogin" data-panel="loginPanel">Увійти</button>
-          <button type="button" class="auth-tab" id="tabRegister" data-panel="registerPanel">Реєстрація</button>
+          <button type="button" class="auth-tab" id="tabLogin" data-panel="loginPanel">Увійти</button>
+          <button type="button" class="auth-tab is-active" id="tabRegister" data-panel="registerPanel">Реєстрація</button>
         </div>
 
         <div id="googleSignIn" hidden></div>
         <p class="auth-divider" id="googleDivider" hidden><span>або</span></p>
 
-        <form class="auth-panel" id="loginPanel">
+        <form class="auth-panel" id="loginPanel" hidden>
           <label>Email<input id="loginEmail" type="email" autocomplete="username" placeholder="doctor@example.com" required /></label>
           <label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
           <label class="show-password"><input id="showLoginPassword" type="checkbox" /> Показати пароль</label>
           <button class="primary" type="submit" id="loginSubmit">Увійти</button>
         </form>
 
-        <form class="auth-panel" id="registerPanel" hidden>
+        <form class="auth-panel" id="registerPanel">
           <label>ПІБ / імʼя<input id="registerName" type="text" autocomplete="name" placeholder="Прізвище І.Б." required /></label>
           <label>Email<input id="registerEmail" type="email" autocomplete="email" placeholder="doctor@example.com" required /></label>
           <label>Пароль<input id="registerPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
           <label>Підтвердження пароля<input id="registerPassword2" type="password" autocomplete="new-password" minlength="8" required /></label>
           <label class="show-password"><input id="showRegisterPassword" type="checkbox" /> Показати пароль</label>
+          <small class="picker-help">Перший зареєстрований акаунт стає адміністратором. Далі нові лікарі реєструються як звичайні користувачі.</small>
           <button class="primary" type="submit" id="registerSubmit">Створити акаунт</button>
         </form>
 
@@ -80,7 +81,7 @@
         <small id="loginError" class="login-error" hidden></small>
       </div>
     </section>
-    <script src="api.js?v=20260916h"></script>
-    <script src="login.js?v=20260916h"></script>
+    <script src="api.js?v=20260916i"></script>
+    <script src="login.js?v=20260916i"></script>
   </body>
 </html>

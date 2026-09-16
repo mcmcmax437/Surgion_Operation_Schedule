@@ -56,8 +56,8 @@ function showPanel(panelId) {
   tabLogin.classList.toggle("is-active", isLogin);
   tabRegister.classList.toggle("is-active", !isLogin);
   authLead.textContent = isLogin
-    ? "Увійдіть як лікар або адміністратор."
-    : "Зареєструйте акаунт лікаря для доступу до розкладу.";
+    ? "Увійдіть зі своїм email і паролем."
+    : "Створіть акаунт — перший користувач стане адміністратором.";
 }
 
 function mapAuthError(err, fallback) {
@@ -154,6 +154,8 @@ async function loadAuthConfig() {
   if (!authConfig.registrationEnabled) {
     tabRegister.hidden = true;
     showPanel("loginPanel");
+  } else {
+    showPanel("registerPanel");
   }
   if (authConfig.sharedPasswordEnabled) {
     sharedToggle.hidden = false;

@@ -119,6 +119,13 @@ export async function linkGoogleSub(pool, userId, googleSub) {
   );
 }
 
+export async function countActiveAdmins(pool) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND status = 'active'`,
+  );
+  return Number(rows[0]?.count || 0);
+}
+
 export async function ensureAdminUser(pool) {
   const email = normalizeEmail(process.env.ADMIN_EMAIL || "");
   const password = String(process.env.ADMIN_PASSWORD || "");

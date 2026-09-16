@@ -37,6 +37,7 @@ import {
   createUser,
   linkGoogleSub,
   ensureAdminUser,
+  countActiveAdmins,
 } from "./users.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -404,11 +405,13 @@ app.post("/api/register", async (req, res) => {
       return res.status(409).json({ error: "Користувач із таким email уже існує." });
     }
     const passwordHash = await hashPassword(password);
+    // No .env admin setup required: the first registered account becomes admin.
+    const role = (await countActiveAdmins(pool)) === 0 ? "admin" : "doctor";
     const user = await createUser(pool, {
       email,
       name,
       passwordHash,
-      role: "doctor",
+      role,
       status: "active",
     });
     await issueLoginResponse(res, {
@@ -417,7 +420,7 @@ app.post("/api/register", async (req, res) => {
       ip,
       ua,
       event: "register_success",
-      details: { method: "password" },
+      details: { method: "password", role },
     });
   } catch (error) {
     console.error("register failed:", error);
@@ -523,11 +526,12 @@ app.post("/api/auth/google", async (req, res) => {
       if (user) {
         if (!user.google_sub) await linkGoogleSub(pool, user.id, googleSub);
       } else if (REGISTRATION_ENABLED) {
+        const role = (await countActiveAdmins(pool)) === 0 ? "admin" : "doctor";
         user = await createUser(pool, {
           email,
           name,
           googleSub,
-          role: "doctor",
+          role,
           status: "active",
         });
       } else {
