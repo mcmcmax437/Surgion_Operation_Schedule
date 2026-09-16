@@ -9,6 +9,8 @@
 - журнал змін (додано / змінено поля / видалено)
 - журнал доступів з **IP**
 - спільний пароль відділення (перевірка на сервері)
+- акаунти лікарів (реєстрація / вхід) та адмін
+- опційний вхід через Google
 - вкладки: розклад, архів, працівники, журнали
 - архів: операції з датою раніше сьогодні; автовидалення з медіа через 7 днів
 
@@ -17,7 +19,12 @@
 На VPS у каталозі застосунку створіть `.env` (див. `.env.example`):
 
 ```env
-ACCESS_PASSWORD=...
+ACCESS_PASSWORD=...          # опційно: старий спільний пароль відділення
+ADMIN_EMAIL=admin@clinic.ua
+ADMIN_PASSWORD=...
+ADMIN_NAME=Адміністратор
+REGISTRATION_ENABLED=true
+GOOGLE_CLIENT_ID=...         # опційно: Google Identity Services client ID
 PORT=3001
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
@@ -25,6 +32,13 @@ MYSQL_USER=...
 MYSQL_PASSWORD=...
 MYSQL_DATABASE=surgion_schedule
 ```
+
+### Google Sign-In
+
+1. Створіть OAuth Client ID (тип **Web application**) у Google Cloud Console.
+2. Додайте Authorized JavaScript origins: `https://your-domain` (і `http://localhost` для тестів).
+3. Вставте Client ID у `GOOGLE_CLIENT_ID` у `.env` і перезапустіть API (`pm2 restart …`).
+4. На сторінці входу з’явиться кнопка Google.
 
 Створіть базу MySQL, наприклад:
 

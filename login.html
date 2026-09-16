@@ -4,27 +4,84 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Вхід — Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260916g" />
+    <link rel="stylesheet" href="styles.css?v=20260916i" />
     <style>
-      .login-error[hidden]{display:none!important}
+      .login-error[hidden],
+      .auth-panel[hidden],
+      .auth-shared[hidden],
+      #googleSignIn[hidden]{display:none!important}
+      .login-card{width:min(440px,100%)}
+      .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 16px}
+      .auth-tab{
+        border:1px solid #cbd5e1;background:#f1f4f7;color:#315b7a;border-radius:10px;
+        min-height:42px;font:inherit;font-weight:800;cursor:pointer;
+      }
+      .auth-tab.is-active{background:#17365d;border-color:#17365d;color:#fff}
+      .auth-divider{
+        display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;
+        margin:16px 0;color:#718096;font-size:12px;font-weight:700;
+      }
+      .auth-divider::before,.auth-divider::after{content:"";height:1px;background:#dbe5ee}
+      #googleSignIn{display:flex;justify-content:center;min-height:44px;margin-bottom:4px}
       .show-password{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;margin-top:8px}
       .show-password input{width:18px;min-height:18px!important}
+      .auth-shared-toggle{
+        margin-top:14px;border:0;background:transparent;color:#315b7a;font:inherit;font-size:13px;
+        font-weight:700;cursor:pointer;padding:0;text-decoration:underline;
+      }
+      .auth-shared{margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0}
+      .theme-dark .auth-tab{background:#1f2937;border-color:#4b5563;color:#9ac3e5}
+      .theme-dark .auth-tab.is-active{background:#47759b;border-color:#47759b;color:#fff}
+      .theme-dark .auth-divider::before,.theme-dark .auth-divider::after{background:#374151}
+      .theme-dark .auth-shared{border-color:#374151}
+      .theme-dark .auth-shared-toggle{color:#9ac3e5}
     </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <section class="login-screen">
-      <form class="login-card" id="loginForm">
+      <div class="login-card">
         <p class="clinic-name">Національний науковий центр фтизіатрії, пульмонології і алергології ім. Ф.Г. Яновського НАМН України</p>
         <p class="eyebrow">Захищений доступ</p>
         <h1>Розклад операцій</h1>
-        <p>Введіть пароль один раз — далі сайт відкриватиметься автоматично.</p>
-        <label>Пароль<input id="accessPassword" type="password" autocomplete="current-password" required autofocus /></label>
-        <label class="show-password"><input id="showPassword" type="checkbox" /> Показати пароль</label>
-        <button class="primary" type="submit">Увійти</button>
-        <small id="loginError" class="login-error" hidden>Неправильний пароль.</small>
-      </form>
+        <p id="authLead">Зареєструйте акаунт або увійдіть — Google можна підключити пізніше.</p>
+
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab" id="tabLogin" data-panel="loginPanel">Увійти</button>
+          <button type="button" class="auth-tab is-active" id="tabRegister" data-panel="registerPanel">Реєстрація</button>
+        </div>
+
+        <div id="googleSignIn" hidden></div>
+        <p class="auth-divider" id="googleDivider" hidden><span>або</span></p>
+
+        <form class="auth-panel" id="loginPanel" hidden>
+          <label>Email<input id="loginEmail" type="email" autocomplete="username" placeholder="doctor@example.com" required /></label>
+          <label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+          <label class="show-password"><input id="showLoginPassword" type="checkbox" /> Показати пароль</label>
+          <button class="primary" type="submit" id="loginSubmit">Увійти</button>
+        </form>
+
+        <form class="auth-panel" id="registerPanel">
+          <label>ПІБ / імʼя<input id="registerName" type="text" autocomplete="name" placeholder="Прізвище І.Б." required /></label>
+          <label>Email<input id="registerEmail" type="email" autocomplete="email" placeholder="doctor@example.com" required /></label>
+          <label>Пароль<input id="registerPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <label>Підтвердження пароля<input id="registerPassword2" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <label class="show-password"><input id="showRegisterPassword" type="checkbox" /> Показати пароль</label>
+          <small class="picker-help">Перший зареєстрований акаунт стає адміністратором. Далі нові лікарі реєструються як звичайні користувачі.</small>
+          <button class="primary" type="submit" id="registerSubmit">Створити акаунт</button>
+        </form>
+
+        <button type="button" class="auth-shared-toggle" id="sharedToggle" hidden>Вхід за паролем відділення</button>
+        <form class="auth-shared" id="sharedPanel" hidden>
+          <label>Пароль відділення<input id="accessPassword" type="password" autocomplete="current-password" /></label>
+          <label class="show-password"><input id="showSharedPassword" type="checkbox" /> Показати пароль</label>
+          <button class="secondary" type="submit" id="sharedSubmit">Увійти паролем відділення</button>
+        </form>
+
+        <small id="loginError" class="login-error" hidden></small>
+      </div>
     </section>
-    <script src="api.js?v=20260910a"></script>
-    <script src="login.js?v=20260910a"></script>
+    <script src="api.js?v=20260916i"></script>
+    <script src="login.js?v=20260916i"></script>
   </body>
 </html>

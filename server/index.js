@@ -19,14 +19,26 @@ import {
 import {
   clientIp,
   userAgent,
-  newToken,
   logAccess,
   logChange,
   diffFields,
   requireAuth,
-  canViewLogs,
   attachGeo,
+  createSession,
 } from "./auth.js";
+import {
+  normalizeEmail,
+  isValidEmail,
+  hashPassword,
+  verifyPassword,
+  publicUser,
+  findUserByEmail,
+  findUserByGoogleSub,
+  createUser,
+  linkGoogleSub,
+  ensureAdminUser,
+  countActiveAdmins,
+} from "./users.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
@@ -37,9 +49,13 @@ const SESSION_DAYS = Number(process.env.SESSION_DAYS || 365);
 const ARCHIVE_RETENTION_DAYS = Number(process.env.ARCHIVE_RETENTION_DAYS || 7);
 const ARCHIVE_TZ = process.env.ARCHIVE_TZ || "Europe/Kyiv";
 const ARCHIVE_JOB_MS = Number(process.env.ARCHIVE_JOB_MS || 60 * 60 * 1000);
+const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+const REGISTRATION_ENABLED = String(process.env.REGISTRATION_ENABLED || "true").toLowerCase() !== "false";
 
-if (!ACCESS_PASSWORD) {
-  console.error("ACCESS_PASSWORD is required in .env");
+const hasSharedPassword = Boolean(ACCESS_PASSWORD);
+const hasAdminBootstrap = Boolean(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
+if (!hasSharedPassword && !hasAdminBootstrap) {
+  console.error("Set ACCESS_PASSWORD and/or ADMIN_EMAIL + ADMIN_PASSWORD in .env");
   process.exit(1);
 }
 if (!process.env.MYSQL_USER || !process.env.MYSQL_DATABASE) {
@@ -308,26 +324,152 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/auth/config", (_req, res) => {
+  res.json({
+    registrationEnabled: REGISTRATION_ENABLED,
+    googleEnabled: Boolean(GOOGLE_CLIENT_ID),
+    googleClientId: GOOGLE_CLIENT_ID || null,
+    sharedPasswordEnabled: hasSharedPassword,
+  });
+});
+
 app.get("/api/session", auth, async (req, res) => {
+  const admin = Boolean(req.isAdmin);
   res.json({
     ip: req.clientIp,
-    canViewLogs: canViewLogs(req.clientIp),
-    isAdmin: canViewLogs(req.clientIp),
+    user: req.user || null,
+    canViewLogs: admin,
+    isAdmin: admin,
   });
+});
+
+async function issueLoginResponse(res, {
+  pool,
+  user = null,
+  ip,
+  ua,
+  event = "login_success",
+  details = {},
+}) {
+  const session = await createSession(pool, {
+    userId: user?.id || null,
+    ip,
+    userAgent: ua,
+    sessionDays: SESSION_DAYS,
+  });
+  try {
+    await logAccess(pool, {
+      event,
+      ip,
+      userAgent: ua,
+      details: {
+        ...details,
+        userId: user?.id || null,
+        email: user?.email || null,
+        expiresAt: session.expiresAt,
+      },
+    });
+  } catch (logError) {
+    console.error(`${event} log failed:`, logError);
+  }
+  res.json({
+    token: session.token,
+    expiresAt: session.expiresAt,
+    user: user ? publicUser(user) : null,
+  });
+}
+
+app.post("/api/register", async (req, res) => {
+  if (!REGISTRATION_ENABLED) {
+    return res.status(403).json({ error: "Реєстрація вимкнена." });
+  }
+  const ip = clientIp(req);
+  const ua = userAgent(req);
+  const email = normalizeEmail(req.body?.email);
+  const name = String(req.body?.name || "").trim();
+  const password = String(req.body?.password || "");
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: "Вкажіть коректний email." });
+  }
+  if (name.length < 2) {
+    return res.status(400).json({ error: "Вкажіть ПІБ або імʼя лікаря." });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Пароль має містити щонайменше 8 символів." });
+  }
+
+  try {
+    const existing = await findUserByEmail(pool, email);
+    if (existing) {
+      return res.status(409).json({ error: "Користувач із таким email уже існує." });
+    }
+    const passwordHash = await hashPassword(password);
+    // No .env admin setup required: the first registered account becomes admin.
+    const role = (await countActiveAdmins(pool)) === 0 ? "admin" : "doctor";
+    const user = await createUser(pool, {
+      email,
+      name,
+      passwordHash,
+      role,
+      status: "active",
+    });
+    await issueLoginResponse(res, {
+      pool,
+      user,
+      ip,
+      ua,
+      event: "register_success",
+      details: { method: "password", role },
+    });
+  } catch (error) {
+    console.error("register failed:", error);
+    res.status(503).json({
+      error: "Сервер тимчасово недоступний. Спробуйте ще раз за хвилину.",
+    });
+  }
 });
 
 app.post("/api/login", async (req, res) => {
   const ip = clientIp(req);
   const ua = userAgent(req);
+  const email = normalizeEmail(req.body?.email || "");
   const password = String(req.body?.password || "");
 
   try {
-    if (password !== ACCESS_PASSWORD) {
+    // Account login (doctors / admin).
+    if (email) {
+      if (!isValidEmail(email) || !password) {
+        return res.status(400).json({ error: "Вкажіть email і пароль." });
+      }
+      const user = await findUserByEmail(pool, email);
+      if (!user || user.status !== "active" || !user.password_hash) {
+        await logAccess(pool, { event: "login_fail", ip, userAgent: ua, details: { email, method: "password" } }).catch(() => {});
+        return res.status(401).json({ error: "Невірний email або пароль." });
+      }
+      const ok = await verifyPassword(password, user.password_hash);
+      if (!ok) {
+        await logAccess(pool, { event: "login_fail", ip, userAgent: ua, details: { email, method: "password" } }).catch(() => {});
+        return res.status(401).json({ error: "Невірний email або пароль." });
+      }
+      return issueLoginResponse(res, {
+        pool,
+        user,
+        ip,
+        ua,
+        event: "login_success",
+        details: { method: "password" },
+      });
+    }
+
+    // Legacy shared department password (optional).
+    if (!hasSharedPassword || password !== ACCESS_PASSWORD) {
       try {
         await logAccess(pool, {
           event: "login_fail",
           ip,
           userAgent: ua,
+          details: { method: "shared" },
         });
       } catch (logError) {
         console.error("login_fail log failed:", logError);
@@ -335,40 +477,93 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid password" });
     }
 
-    const token = newToken();
-    const now = new Date();
-    const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-
-    await pool.query(
-      `INSERT INTO sessions (token, ip, user_agent, created_at, last_seen_at, expires_at)
-       VALUES (:token, :ip, :user_agent, :created_at, :last_seen_at, :expires_at)`,
-      {
-        token,
-        ip,
-        user_agent: ua,
-        created_at: now,
-        last_seen_at: now,
-        expires_at: expires,
-      },
-    );
-
-    try {
-      await logAccess(pool, {
-        event: "login_success",
-        ip,
-        userAgent: ua,
-        details: { expiresAt: expires.toISOString() },
-      });
-    } catch (logError) {
-      console.error("login_success log failed:", logError);
-    }
-
-    res.json({ token, expiresAt: expires.toISOString() });
+    return issueLoginResponse(res, {
+      pool,
+      user: null,
+      ip,
+      ua,
+      event: "login_success",
+      details: { method: "shared" },
+    });
   } catch (error) {
     console.error("login failed:", error);
     res.status(503).json({
       error: "Сервер тимчасово недоступний. Спробуйте ще раз за хвилину.",
     });
+  }
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  if (!GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: "Вхід через Google не налаштовано." });
+  }
+  const ip = clientIp(req);
+  const ua = userAgent(req);
+  const credential = String(req.body?.credential || "").trim();
+  if (!credential) {
+    return res.status(400).json({ error: "Немає Google credential." });
+  }
+
+  try {
+    const { OAuth2Client } = await import("google-auth-library");
+    const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload() || {};
+    const googleSub = payload.sub;
+    const email = normalizeEmail(payload.email || "");
+    const name = String(payload.name || email || "Google user").trim();
+    const emailVerified = Boolean(payload.email_verified);
+    if (!googleSub || !email || !emailVerified) {
+      return res.status(401).json({ error: "Google акаунт не підтверджено." });
+    }
+
+    let user = await findUserByGoogleSub(pool, googleSub);
+    if (!user) {
+      user = await findUserByEmail(pool, email);
+      if (user) {
+        if (!user.google_sub) await linkGoogleSub(pool, user.id, googleSub);
+      } else if (REGISTRATION_ENABLED) {
+        const role = (await countActiveAdmins(pool)) === 0 ? "admin" : "doctor";
+        user = await createUser(pool, {
+          email,
+          name,
+          googleSub,
+          role,
+          status: "active",
+        });
+      } else {
+        return res.status(403).json({ error: "Реєстрація нових користувачів вимкнена." });
+      }
+    }
+
+    if (!user || user.status !== "active") {
+      return res.status(403).json({ error: "Обліковий запис вимкнено." });
+    }
+
+    return issueLoginResponse(res, {
+      pool,
+      user,
+      ip,
+      ua,
+      event: "login_success",
+      details: { method: "google" },
+    });
+  } catch (error) {
+    console.error("google auth failed:", error);
+    try {
+      await logAccess(pool, {
+        event: "login_fail",
+        ip,
+        userAgent: ua,
+        details: { method: "google" },
+      });
+    } catch {
+      // ignore
+    }
+    res.status(401).json({ error: "Не вдалося увійти через Google." });
   }
 });
 
@@ -380,6 +575,7 @@ app.post("/api/logout", auth, async (req, res) => {
     event: "logout",
     ip: req.clientIp,
     userAgent: req.clientUa,
+    details: { userId: req.user?.id || null },
   });
   res.json({ ok: true });
 });
@@ -668,8 +864,8 @@ app.get("/api/staff", auth, async (_req, res) => {
 });
 
 app.put("/api/staff", auth, async (req, res) => {
-  if (!canViewLogs(req.clientIp)) {
-    return res.status(403).json({ error: "Staff list is available only for allowed IP" });
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: "Staff list is available only for admin" });
   }
   const before = {
     team: [],
@@ -733,8 +929,8 @@ app.put("/api/staff", auth, async (req, res) => {
 });
 
 function requireLogsAccess(req, res, next) {
-  if (!canViewLogs(req.clientIp)) {
-    return res.status(403).json({ error: "Logs are available only for allowed IP" });
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: "Logs are available only for admin" });
   }
   next();
 }
@@ -802,6 +998,10 @@ try {
   await waitForDatabase(pool);
   await migrate(pool);
   await seedStaff(pool);
+  const admin = await ensureAdminUser(pool);
+  if (admin) {
+    console.log(`Admin account ready: ${admin.email}`);
+  }
 } catch (error) {
   console.error("Fatal: database bootstrap failed:", error);
   process.exit(1);

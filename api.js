@@ -63,7 +63,7 @@
       throw new Error("Немає зв’язку з API. Перевірте nginx /api/ і що Node запущений (pm2).");
     }
 
-    if (response.status === 401 && path.indexOf("/login") !== 0) {
+    if (response.status === 401 && !/^\/(login|register|auth\/)/.test(path)) {
       clearAuth();
       window.location.replace("login.html");
       throw new Error("Unauthorized");
