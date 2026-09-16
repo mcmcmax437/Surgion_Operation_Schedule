@@ -595,6 +595,7 @@ let mediaPanX = 0;
 let mediaPanY = 0;
 let mediaPinch = null;
 let mediaPanDrag = null;
+let mediaZoomRaf = 0;
 let mediaOperationId = null;
 const MEDIA_ZOOM_MIN = 1;
 const MEDIA_ZOOM_MAX = 4;
@@ -1072,7 +1073,7 @@ function clearMediaObjectUrls() {
   mediaObjectUrls = [];
   mediaFiles = [];
   mediaIndex = 0;
-  mediaZoom = 1;
+  resetMediaZoomState();
 }
 
 function closeMediaDialog() {
@@ -1115,7 +1116,7 @@ function currentMediaIsVideo() {
 }
 
 function mediaTransformValue() {
-  return `translate(${mediaPanX}px, ${mediaPanY}px) scale(${mediaZoom})`;
+  return `translate3d(${mediaPanX}px, ${mediaPanY}px, 0) scale(${mediaZoom})`;
 }
 
 function resetMediaPan() {
@@ -1123,6 +1124,11 @@ function resetMediaPan() {
   mediaPanY = 0;
   mediaPinch = null;
   mediaPanDrag = null;
+}
+
+function resetMediaZoomState() {
+  mediaZoom = 1;
+  resetMediaPan();
 }
 
 function touchPairDistance(a, b) {
@@ -1136,27 +1142,40 @@ function touchPairCenter(a, b) {
   };
 }
 
+function applyMediaTransform() {
+  const transform = mediaTransformValue();
+  const moving = Boolean(mediaPinch || mediaPanDrag);
+  const img = $("#mediaDialogBody")?.querySelector("img.media-zoomable");
+  const fsImg = $("#mediaFsImage");
+  if (img) {
+    img.style.transform = transform;
+    img.classList.toggle("is-zoomed", mediaZoom > 1);
+    img.classList.toggle("is-pinching", moving);
+  }
+  if (fsImg?.getAttribute("src")) {
+    fsImg.style.transform = transform;
+    fsImg.classList.toggle("is-zoomed", mediaZoom > 1);
+    fsImg.classList.toggle("is-pinching", moving);
+  }
+}
+
+function scheduleMediaTransform() {
+  if (mediaZoomRaf) return;
+  mediaZoomRaf = requestAnimationFrame(() => {
+    mediaZoomRaf = 0;
+    applyMediaTransform();
+  });
+}
+
 function updateMediaZoomUi() {
   const isImage = Boolean($("#mediaDialogBody")?.querySelector("img.media-zoomable")) && !currentMediaIsVideo();
   const imageTools = $("#mediaImageTools");
   if (imageTools) imageTools.hidden = !isImage;
 
-  const img = $("#mediaDialogBody")?.querySelector("img.media-zoomable");
-  const fsImg = $("#mediaFsImage");
   if ($("#mediaZoomLabel")) $("#mediaZoomLabel").textContent = `${Math.round(mediaZoom * 100)}%`;
   if ($("#mediaZoomOut")) $("#mediaZoomOut").disabled = mediaZoom <= MEDIA_ZOOM_MIN;
   if ($("#mediaZoomIn")) $("#mediaZoomIn").disabled = mediaZoom >= MEDIA_ZOOM_MAX;
-  const transform = mediaTransformValue();
-  if (img) {
-    img.style.transform = transform;
-    img.classList.toggle("is-zoomed", mediaZoom > 1);
-    img.classList.toggle("is-pinching", Boolean(mediaPinch));
-  }
-  if (fsImg && fsImg.getAttribute("src")) {
-    fsImg.style.transform = transform;
-    fsImg.classList.toggle("is-zoomed", mediaZoom > 1);
-    fsImg.classList.toggle("is-pinching", Boolean(mediaPinch));
-  }
+  applyMediaTransform();
 }
 
 function setMediaZoom(nextZoom) {
@@ -1176,12 +1195,6 @@ function bindMediaPinchTarget(target) {
 
   target.addEventListener("touchstart", (event) => {
     if (currentMediaIsVideo()) return;
-    const onOverlay = Boolean(
-      target.id === "mediaFsOverlay"
-      || target.classList?.contains("media-fs-stage")
-      || target.closest?.(".media-fs-overlay"),
-    );
-    if (!onOverlay && !isMediaFullscreenView()) return;
     if (event.touches.length === 2) {
       event.preventDefault();
       mediaPanDrag = null;
@@ -1195,7 +1208,7 @@ function bindMediaPinchTarget(target) {
         startCenterX: center.x,
         startCenterY: center.y,
       };
-      updateMediaZoomUi();
+      applyMediaTransform();
       return;
     }
     if (event.touches.length === 1 && mediaZoom > 1) {
@@ -1206,6 +1219,7 @@ function bindMediaPinchTarget(target) {
         startPanX: mediaPanX,
         startPanY: mediaPanY,
       };
+      applyMediaTransform();
     }
   }, { passive: false });
 
@@ -1223,7 +1237,7 @@ function bindMediaPinchTarget(target) {
         mediaPanX = 0;
         mediaPanY = 0;
       }
-      updateMediaZoomUi();
+      scheduleMediaTransform();
       return;
     }
     if (mediaPanDrag && event.touches.length === 1 && mediaZoom > 1) {
@@ -1231,15 +1245,17 @@ function bindMediaPinchTarget(target) {
       const touch = event.touches[0];
       mediaPanX = mediaPanDrag.startPanX + (touch.clientX - mediaPanDrag.startX);
       mediaPanY = mediaPanDrag.startPanY + (touch.clientY - mediaPanDrag.startY);
-      updateMediaZoomUi();
+      scheduleMediaTransform();
     }
   }, { passive: false });
 
   const endPinch = () => {
+    const wasInteracting = Boolean(mediaPinch || mediaPanDrag);
     mediaPinch = null;
     mediaPanDrag = null;
     if (mediaZoom <= 1) resetMediaPan();
-    updateMediaZoomUi();
+    else mediaZoom = Math.min(MEDIA_ZOOM_MAX, Math.max(MEDIA_ZOOM_MIN, Number(mediaZoom.toFixed(2))));
+    if (wasInteracting) updateMediaZoomUi();
   };
   target.addEventListener("touchend", endPinch);
   target.addEventListener("touchcancel", endPinch);
@@ -1332,7 +1348,7 @@ function exitMediaFullscreen(silent = false) {
     fsImg.style.transform = "";
     fsImg.classList.remove("is-zoomed", "is-pinching");
   }
-  resetMediaPan();
+  resetMediaZoomState();
   document.body.classList.remove("media-fs-open");
   if (document.fullscreenElement) {
     document.exitFullscreen?.().catch(() => {});
@@ -1399,8 +1415,7 @@ function renderMediaSlide() {
   const current = mediaFiles[mediaIndex];
   const isVideo = currentMediaIsVideo();
   const fileName = decodeFileName(current.metadata.name);
-  mediaZoom = 1;
-  resetMediaPan();
+  resetMediaZoomState();
   exitMediaFullscreen(true);
 
   body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">

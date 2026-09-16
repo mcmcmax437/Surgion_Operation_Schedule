@@ -234,8 +234,9 @@ function currentWeekMonday() {
   return mondayOfWeek(todayInArchiveTz());
 }
 
-function shouldArchiveDate(dateYmd) {
-  return Boolean(dateYmd && dateYmd < currentWeekMonday());
+function shouldArchiveDate(_dateYmd) {
+  // Keep all operations in the active schedule forever (no auto week archive).
+  return false;
 }
 
 async function unlinkAttachmentFiles(files) {
@@ -280,40 +281,20 @@ async function runArchiveMaintenance(force = false) {
 
   archiveMaintenancePromise = (async () => {
   lastArchiveMaintenanceAt = Date.now();
-  const today = todayInArchiveTz();
-  const [archiveResult] = await pool.query(
+  // Restore previously auto-archived operations back into the live schedule.
+  // Do not auto-archive past weeks and do not purge by age.
+  const [restoreResult] = await pool.query(
     `UPDATE operations
-     SET archived_at = UTC_TIMESTAMP(3),
+     SET archived_at = NULL,
          updated_at = UTC_TIMESTAMP(3)
-     WHERE archived_at IS NULL
-       AND date IS NOT NULL
-       AND date < :weekMonday`,
-    { weekMonday: currentWeekMonday() },
+     WHERE archived_at IS NOT NULL`,
   );
 
-  const [expired] = await pool.query(
-    `SELECT id, patient FROM operations
-     WHERE archived_at IS NOT NULL
-       AND archived_at <= DATE_SUB(UTC_TIMESTAMP(3), INTERVAL :days DAY)`,
-    { days: ARCHIVE_RETENTION_DAYS },
-  );
-
-  let purged = 0;
-  for (const row of expired) {
-    const ok = await permanentlyDeleteOperation(row.id, {
-      action: "auto-delete",
-      summary: `Автовидалення з архіву ${row.id} (${row.patient}) після ${ARCHIVE_RETENTION_DAYS} днів`,
-    });
-    if (ok) purged += 1;
+  const restored = Number(restoreResult?.affectedRows || 0);
+  if (restored) {
+    console.log(`Archive maintenance: restored=${restored} operations to active schedule`);
   }
-
-  const archived = Number(archiveResult?.affectedRows || 0);
-  if (archived || purged) {
-    console.log(
-      `Archive maintenance: archived=${archived}, purged=${purged}, today=${today}`,
-    );
-  }
-  return { archived, purged, today };
+  return { archived: 0, purged: 0, restored, today: todayInArchiveTz() };
   })();
 
   try {
@@ -842,6 +823,6 @@ setInterval(() => {
 app.listen(PORT, () => {
   console.log(`API listening on http://127.0.0.1:${PORT}`);
   console.log(
-    `Archive: past ops → archive; purge after ${ARCHIVE_RETENTION_DAYS}d (${ARCHIVE_TZ})`,
+    `Archive: keep all operations forever; restore any archived on boot (${ARCHIVE_TZ})`,
   );
 });
