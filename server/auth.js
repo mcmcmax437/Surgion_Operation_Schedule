@@ -152,13 +152,18 @@ export async function logChange(pool, {
   after = null,
   ip,
   userAgent: ua,
+  actorUserId = null,
+  actorName = null,
+  actorEmail = null,
 }) {
   const geo = await lookupGeo(ip);
   await pool.query(
     `INSERT INTO change_logs
-      (entity_type, entity_id, action, summary, changed_fields, before_json, after_json, ip, geo, user_agent, created_at)
+      (entity_type, entity_id, action, summary, changed_fields, before_json, after_json,
+       actor_user_id, actor_name, actor_email, ip, geo, user_agent, created_at)
      VALUES
-      (:entity_type, :entity_id, :action, :summary, :changed_fields, :before_json, :after_json, :ip, :geo, :user_agent, :created_at)`,
+      (:entity_type, :entity_id, :action, :summary, :changed_fields, :before_json, :after_json,
+       :actor_user_id, :actor_name, :actor_email, :ip, :geo, :user_agent, :created_at)`,
     {
       entity_type: entityType,
       entity_id: entityId,
@@ -167,6 +172,9 @@ export async function logChange(pool, {
       changed_fields: changedFields ? JSON.stringify(changedFields) : null,
       before_json: before ? JSON.stringify(before) : null,
       after_json: after ? JSON.stringify(after) : null,
+      actor_user_id: actorUserId || null,
+      actor_name: actorName ? String(actorName).trim().slice(0, 255) : null,
+      actor_email: actorEmail ? String(actorEmail).trim().slice(0, 255) : null,
       ip,
       geo,
       user_agent: ua,

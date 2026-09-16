@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260916n" />
+    <link rel="stylesheet" href="styles.css?v=20260916o" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -176,7 +176,6 @@
         <button class="view-tab active" id="dayTab" type="button"><span class="tab-label"><span class="tab-label-full">Розклад на день</span><span class="tab-label-short">День</span></span><span class="tab-count" id="dayTabCount">0</span></button>
         <button class="view-tab" id="weekTab" type="button"><span class="tab-label"><span class="tab-label-full">Розклад на тиждень</span><span class="tab-label-short">Тиждень</span></span><span class="tab-count" id="weekTabCount">0</span></button>
         <button class="view-tab" id="planTab" type="button"><span class="tab-label"><span class="tab-label-full">План</span><span class="tab-label-short">План</span></span><span class="tab-count" id="planTabCount">0</span></button>
-        <button class="view-tab admin-tab" id="archiveTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Архів</span><span class="tab-label-short">Архів</span></span></button>
         <button class="view-tab admin-tab" id="staffTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Лікарі</span><span class="tab-label-short">Лікарі</span></span></button>
         <button class="view-tab admin-tab" id="usersTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Користувачі</span><span class="tab-label-short">Юзери</span></span></button>
         <button class="view-tab admin-tab" id="logsTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Журнали</span><span class="tab-label-short">Журнали</span></span></button>
@@ -252,34 +251,12 @@
       </section>
       </section>
 
-      <section id="archiveView" class="staff-view" hidden>
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Минулі операції</p>
-            <h2>Архів</h2>
-            <p>Операції з датою раніше сьогодні потрапляють сюди автоматично і видаляються разом із медіа через 7 днів.</p>
-          </div>
-          <strong id="archiveCount" class="staff-count">0</strong>
-        </div>
-        <section class="table-card">
-          <div class="table-scroll">
-            <table>
-              <thead><tr>
-                <th>Дата</th><th>Пацієнт</th><th>Відділення</th><th>Небезпека</th><th>Втручання</th><th>Файли</th><th>Автовидалення</th><th></th>
-              </tr></thead>
-              <tbody id="archiveBody"></tbody>
-            </table>
-          </div>
-          <div class="empty" id="archiveEmptyState" hidden>Архів порожній.</div>
-        </section>
-      </section>
-
       <section id="logsView" class="staff-view" hidden>
         <div class="section-heading">
           <div>
             <p class="eyebrow">Аудит</p>
             <h2>Журнали змін і доступів</h2>
-            <p>Історія додавання/редагування даних, IP-адреси входів і приблизне місце за IP (без дозволу користувача).</p>
+            <p>Історія додавання/редагування даних із ПІБ автора змін, IP-адреси входів і приблизне місце за IP.</p>
           </div>
           <button class="secondary" id="refreshLogs" type="button">Оновити</button>
         </div>
@@ -288,7 +265,7 @@
         <section class="table-card">
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Час</th><th>Дія</th><th>Опис</th><th>Поля</th><th>IP / місце</th></tr></thead>
+              <thead><tr><th>Час</th><th>Користувач</th><th>Дія</th><th>Опис</th><th>Поля</th><th>IP / місце</th></tr></thead>
               <tbody id="changeLogsBody"></tbody>
             </table>
           </div>
@@ -527,7 +504,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260916n"></script>
-    <script src="app.js?v=20260916n"></script>
+    <script src="api.js?v=20260916o"></script>
+    <script src="app.js?v=20260916o"></script>
   </body>
 </html>

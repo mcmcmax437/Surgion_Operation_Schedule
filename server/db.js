@@ -212,6 +212,24 @@ export async function migrate(pool) {
   if (!(await columnExists(pool, "change_logs", "geo"))) {
     await pool.query(`ALTER TABLE change_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
   }
+  if (!(await columnExists(pool, "change_logs", "actor_user_id"))) {
+    await pool.query(
+      `ALTER TABLE change_logs ADD COLUMN actor_user_id CHAR(36) NULL AFTER after_json`,
+    );
+  }
+  if (!(await columnExists(pool, "change_logs", "actor_name"))) {
+    await pool.query(
+      `ALTER TABLE change_logs ADD COLUMN actor_name VARCHAR(255) NULL AFTER actor_user_id`,
+    );
+  }
+  if (!(await columnExists(pool, "change_logs", "actor_email"))) {
+    await pool.query(
+      `ALTER TABLE change_logs ADD COLUMN actor_email VARCHAR(255) NULL AFTER actor_name`,
+    );
+  }
+  if (!(await indexExists(pool, "change_logs", "idx_change_actor"))) {
+    await pool.query(`ALTER TABLE change_logs ADD INDEX idx_change_actor (actor_user_id)`);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
