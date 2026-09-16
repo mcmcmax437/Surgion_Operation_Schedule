@@ -250,6 +250,25 @@ function statusBadgeHtml(item) {
 
 const OPERATION_SIDE_VALUES = ["справа", "зліва"];
 const OPERATION_SIDE_SUFFIX_RE = /\s*[—\-–]?\s*(справа|зліва)\s*$/iu;
+const PROCEDURE_OPTIONS = [
+  "VATS біопсія плеври",
+  "VATS санація плевральної порожнини",
+  "VATS біопсія легені",
+  "VATS біопсія легені і в/г лімфовузлів",
+  "VATS біопсія в/г лімфовузлів",
+  "VATS біопсія новоутворення",
+  "VATS резекція бул з плевродезом",
+  "VATS резекція бул з парієтальною плевректомією",
+  "VATS плевректомія з декортикацією",
+  "VATS сублобарна резекція",
+  "VATS клиновидна резекція",
+  "VATS сегментектомія",
+  "VATS полісегментарна резекція",
+  "VATS лобектомія",
+  "VATS білобектомія",
+  "VATS пневмонектомія",
+  "VATS видалення новоутворення середостіння",
+];
 
 function normalizeOperationSide(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -276,8 +295,66 @@ function syncProcedureSideFromSelect() {
   const procedureInput = $("#procedure");
   const sideSelect = $("#operationSide");
   if (!procedureInput || !sideSelect) return;
+  const side = normalizeOperationSide(sideSelect.value);
   const base = stripOperationSideSuffix(procedureInput.value);
-  procedureInput.value = formatProcedureWithSide(base, sideSelect.value);
+  // Only append side when one is selected; otherwise keep/edit the free-text base.
+  procedureInput.value = side ? formatProcedureWithSide(base, side) : base;
+  paintProcedureSuggestions();
+}
+
+function setProcedureFromSuggestion(label) {
+  const procedureInput = $("#procedure");
+  if (!procedureInput) return;
+  const side = normalizeOperationSide($("#operationSide")?.value);
+  procedureInput.value = formatProcedureWithSide(label, side);
+  procedureInput.focus();
+  // Place cursor before the side suffix so the base text is easy to edit.
+  const base = stripOperationSideSuffix(procedureInput.value);
+  const cursor = base.length;
+  procedureInput.setSelectionRange(cursor, cursor);
+  hideProcedureSuggestions();
+}
+
+function procedureSuggestionQuery() {
+  return stripOperationSideSuffix($("#procedure")?.value || "").toLowerCase();
+}
+
+function filteredProcedureOptions() {
+  const query = procedureSuggestionQuery();
+  if (!query) return PROCEDURE_OPTIONS;
+  return PROCEDURE_OPTIONS.filter((item) => item.toLowerCase().includes(query));
+}
+
+function paintProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  if (!list || list.hidden) return;
+  const options = filteredProcedureOptions();
+  list.innerHTML = options.length
+    ? options.map((item) => `<button type="button" class="procedure-suggest-item" role="option" data-procedure="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")
+    : `<p class="procedure-suggest-empty">Немає збігів — можна ввести назву вручну.</p>`;
+}
+
+function showProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  const toggle = $("#procedureSuggestToggle");
+  if (!list) return;
+  list.hidden = false;
+  if (toggle) toggle.setAttribute("aria-expanded", "true");
+  paintProcedureSuggestions();
+}
+
+function hideProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  const toggle = $("#procedureSuggestToggle");
+  if (list) list.hidden = true;
+  if (toggle) toggle.setAttribute("aria-expanded", "false");
+}
+
+function toggleProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  if (!list) return;
+  if (list.hidden) showProcedureSuggestions();
+  else hideProcedureSuggestions();
 }
 
 function patientFlagsHtml(item) {
@@ -908,6 +985,7 @@ function resetForm() {
   if ($("#department")) $("#department").value = defaultDepartment;
   if ($("#operationStatus")) $("#operationStatus").value = "";
   if ($("#operationSide")) $("#operationSide").value = "";
+  hideProcedureSuggestions();
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
@@ -1747,6 +1825,25 @@ on("#attachmentsPanelList", "click", (event) => {
 });
 on("#operationForm", "submit", saveOperation);
 on("#operationSide", "change", syncProcedureSideFromSelect);
+on("#procedureSuggestToggle", "click", (event) => {
+  event.preventDefault();
+  toggleProcedureSuggestions();
+});
+on("#procedure", "focus", () => showProcedureSuggestions());
+on("#procedure", "input", () => {
+  showProcedureSuggestions();
+  paintProcedureSuggestions();
+});
+on("#procedureSuggestList", "mousedown", (event) => {
+  const button = event.target.closest("[data-procedure]");
+  if (!button) return;
+  event.preventDefault();
+  setProcedureFromSuggestion(button.getAttribute("data-procedure") || "");
+});
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".procedure-field")) return;
+  hideProcedureSuggestions();
+});
 on("#patientName", "blur", (event) => {
   event.target.value = formatShortName(event.target.value);
 });
