@@ -138,6 +138,7 @@
       "when when"
       "diagnosis diagnosis"
       "procedure procedure"
+      "notes notes"
       "team team"
       "anes anes"
       "files files"
@@ -185,11 +186,15 @@
   .col-when{grid-area:when;padding-top:8px!important;border-top:1px solid #e8eef3!important}
   .col-diagnosis{grid-area:diagnosis}
   .col-procedure{grid-area:procedure}
+  .col-notes{grid-area:notes}
   .col-team{grid-area:team}
   .col-anes{grid-area:anes}
   .col-files{grid-area:files;padding-top:8px!important;border-top:1px solid #e8eef3!important}
   .col-actions{grid-area:actions}
   .col-actions::before{display:none}
+  .col-age,
+  .col-blood,
+  .col-infection{display:none!important}
   .col-patient .patient{font-size:17px;line-height:1.25;color:#17365d}
   .col-when .date{font-size:15px}
   .people-chips{
@@ -214,7 +219,7 @@
     height:48px;
     border-radius:12px;
   }
-  .col-diagnosis,.col-procedure{
+  .col-diagnosis,.col-procedure,.col-notes{
     padding:10px 12px!important;
     border-radius:12px;
     background:#eef5fb;
@@ -222,12 +227,14 @@
   }
   .col-diagnosis{font-size:15px;font-weight:700;color:#1f2937}
   .col-procedure{font-size:16px;font-weight:800;color:#17365d}
-  .theme-dark .col-diagnosis,.theme-dark .col-procedure{
+  .col-notes{font-size:14px;font-weight:650;color:#334155;white-space:pre-wrap;word-break:break-word}
+  .theme-dark .col-diagnosis,.theme-dark .col-procedure,.theme-dark .col-notes{
     background:#182b3b;
     border-color:#4b5563;
     color:#e5e7eb;
   }
   .theme-dark .col-procedure{color:#dbeafe}
+  .theme-dark .col-notes{color:#cbd5e1}
   .theme-dark tr.op-row,.theme-dark tr{
     background:#1f2937;
     border-color:#374151;
@@ -872,7 +879,15 @@ dialog.media-fs-overlay::backdrop{
 .week-procedure .week-field-value{font-size:17px}
 .week-diagnosis{margin:0;color:#1f2937;font-weight:700}
 .week-diagnosis .week-field-value{font-size:15px}
-.week-notes{margin:0;color:#334155;font-weight:650}
+.week-notes{
+  margin:0 0 10px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#eef5fb;
+  border:1px solid #d5e4f0;
+  color:#334155;
+  font-weight:650;
+}
 .week-notes .week-field-value{font-size:14px;white-space:pre-wrap;word-break:break-word}
 .week-people{margin:0 0 6px;font-size:16px;line-height:1.35;color:#334155}
 .week-people span{color:#718096;font-weight:700;font-size:14px}
@@ -881,7 +896,7 @@ dialog.media-fs-overlay::backdrop{
 .theme-dark .week-clinical{background:#182b3b;border-color:#4b5563}
 .theme-dark .week-card-date,.theme-dark .week-procedure,.theme-dark .col-diagnosis,.theme-dark .col-procedure{color:#dbeafe}
 .theme-dark .week-diagnosis{color:#e5e7eb}
-.theme-dark .week-notes{color:#cbd5e1}
+.theme-dark .week-notes{background:#182b3b;border-color:#4b5563;color:#cbd5e1}
 .theme-dark .week-field-label{color:#9ac3e5}
 .queue-badge,.col-queue{display:none!important}
 .patient{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:750}
@@ -1211,6 +1226,7 @@ html:not(.theme-dark) .icon-action.danger-action{
 html:not(.theme-dark) .media-dialog-head,
 html:not(.theme-dark) .media-dialog .media-card,
 html:not(.theme-dark) .week-clinical,
+html:not(.theme-dark) .week-notes,
 html:not(.theme-dark) .media-zoom-tools,
 html:not(.theme-dark) .media-image-tools,
 html:not(.theme-dark) .notice,
