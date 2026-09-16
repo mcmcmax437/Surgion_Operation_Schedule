@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260916c" />
+    <link rel="stylesheet" href="styles.css?v=20260916d" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -235,6 +235,13 @@
           <label>Дата операції<input id="operationDate" type="date" /></label>
           <label class="wide">ПІБ пацієнта *<input id="patientName" required placeholder="Іванов І.Б." /></label>
           <label>Вік пацієнта<input id="patientAge" type="number" min="0" max="120" step="1" placeholder="років" /></label>
+          <label>Сторона операції
+            <select id="operationSide">
+              <option value="">Не обрано</option>
+              <option value="справа">Справа</option>
+              <option value="зліва">Зліва</option>
+            </select>
+          </label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
           <fieldset class="wide picker-field">
             <legend>Потенційна небезпека для лікаря</legend>
@@ -346,6 +353,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260916c"></script>
+    <script src="app.js?v=20260916d"></script>
   </body>
 </html>

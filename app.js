@@ -248,6 +248,38 @@ function statusBadgeHtml(item) {
   return `<span class="status-badge ${meta.css}" title="Статус перевірки">${escapeHtml(meta.label)}</span>`;
 }
 
+const OPERATION_SIDE_VALUES = ["справа", "зліва"];
+const OPERATION_SIDE_SUFFIX_RE = /\s*[—\-–]?\s*(справа|зліва)\s*$/iu;
+
+function normalizeOperationSide(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  return OPERATION_SIDE_VALUES.includes(raw) ? raw : "";
+}
+
+function stripOperationSideSuffix(procedure) {
+  return String(procedure || "").replace(OPERATION_SIDE_SUFFIX_RE, "").trim();
+}
+
+function detectOperationSide(procedure) {
+  const match = String(procedure || "").trim().match(OPERATION_SIDE_SUFFIX_RE);
+  return match ? normalizeOperationSide(match[1]) : "";
+}
+
+function formatProcedureWithSide(procedure, side) {
+  const base = stripOperationSideSuffix(procedure);
+  const normalized = normalizeOperationSide(side);
+  if (!base) return "";
+  return normalized ? `${base} ${normalized}` : base;
+}
+
+function syncProcedureSideFromSelect() {
+  const procedureInput = $("#procedure");
+  const sideSelect = $("#operationSide");
+  if (!procedureInput || !sideSelect) return;
+  const base = stripOperationSideSuffix(procedureInput.value);
+  procedureInput.value = formatProcedureWithSide(base, sideSelect.value);
+}
+
 function patientFlagsHtml(item) {
   const flags = item.patientFlags || [];
   return PATIENT_FLAG_OPTIONS
@@ -875,6 +907,7 @@ function resetForm() {
   setSelectedPatientFlags([]);
   if ($("#department")) $("#department").value = defaultDepartment;
   if ($("#operationStatus")) $("#operationStatus").value = "";
+  if ($("#operationSide")) $("#operationSide").value = "";
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
@@ -902,6 +935,7 @@ function openForm(id = null) {
       procedure: item.procedure,
       notes: item.notes,
       operationStatus: normalizeOperationStatus(item.status),
+      operationSide: detectOperationSide(item.procedure),
     };
 
     Object.entries(fields).forEach(([field, value]) => {
@@ -932,7 +966,7 @@ async function saveOperation(event) {
     bloodGroup: $("#bloodGroup").value,
     teamMembers: selectedPickerValues("teamPicker").slice(0, MAX_SURGEONS),
     diagnosis: $("#diagnosis").value.trim(),
-    procedure: $("#procedure").value.trim(),
+    procedure: formatProcedureWithSide($("#procedure").value.trim(), $("#operationSide")?.value),
     anesthesiologists: selectedPickerValues("anesthesiologistPicker").slice(0, MAX_ANESTHESIOLOGISTS),
     infections: selectedInfections(),
     patientFlags: selectedPatientFlags(),
@@ -1712,6 +1746,7 @@ on("#attachmentsPanelList", "click", (event) => {
   removePendingFile(Number(pending.dataset.removePending));
 });
 on("#operationForm", "submit", saveOperation);
+on("#operationSide", "change", syncProcedureSideFromSelect);
 on("#patientName", "blur", (event) => {
   event.target.value = formatShortName(event.target.value);
 });
