@@ -493,6 +493,7 @@ function filteredOperations() {
 function operationRowHtml(item) {
   const danger = infectionLabel(item);
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
+  const notesText = String(item.notes || "").trim();
   return `
     <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
@@ -501,13 +502,14 @@ function operationRowHtml(item) {
         <span class="patient-age">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
-      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
-      <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
       <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
       <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
+      <td class="col-notes" data-label="Примітки">${notesText ? escapeHtml(notesText) : "—"}</td>
+      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
+      <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
       <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
       <td class="col-actions" data-label="Дії">
         <div class="row-actions">
@@ -530,6 +532,7 @@ function mobileCardHtml(item) {
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
   const dateLabel = item.date ? formatDayHeading(item.date) : "Без дати";
   const diagnosisText = item.diagnosis || "—";
+  const notesText = String(item.notes || "").trim();
   return `
     <article class="week-card ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
       <p class="week-card-date">${escapeHtml(dateLabel)}</p>
@@ -543,6 +546,7 @@ function mobileCardHtml(item) {
       <div class="week-clinical">
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
         <p class="week-diagnosis"><span class="week-field-label">Діагноз</span><span class="week-field-value">${escapeHtml(diagnosisText)}</span></p>
+        ${notesText ? `<p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${escapeHtml(notesText)}</span></p>` : ""}
       </div>
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>

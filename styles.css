@@ -872,6 +872,8 @@ dialog.media-fs-overlay::backdrop{
 .week-procedure .week-field-value{font-size:17px}
 .week-diagnosis{margin:0;color:#1f2937;font-weight:700}
 .week-diagnosis .week-field-value{font-size:15px}
+.week-notes{margin:0;color:#334155;font-weight:650}
+.week-notes .week-field-value{font-size:14px;white-space:pre-wrap;word-break:break-word}
 .week-people{margin:0 0 6px;font-size:16px;line-height:1.35;color:#334155}
 .week-people span{color:#718096;font-weight:700;font-size:14px}
 .col-diagnosis,.col-procedure{font-weight:700;color:#17365d}
@@ -879,6 +881,7 @@ dialog.media-fs-overlay::backdrop{
 .theme-dark .week-clinical{background:#182b3b;border-color:#4b5563}
 .theme-dark .week-card-date,.theme-dark .week-procedure,.theme-dark .col-diagnosis,.theme-dark .col-procedure{color:#dbeafe}
 .theme-dark .week-diagnosis{color:#e5e7eb}
+.theme-dark .week-notes{color:#cbd5e1}
 .theme-dark .week-field-label{color:#9ac3e5}
 .queue-badge,.col-queue{display:none!important}
 .patient{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:750}
@@ -1073,15 +1076,24 @@ button:active:not(:disabled),
   .desktop-week th{vertical-align:middle}
   .desktop-week .col-queue,
   .desktop-week .col-age,
-  .desktop-week .col-blood{
+  .desktop-week .col-blood,
+  .desktop-week .col-status{
     text-align:center;
     width:1%;
     white-space:nowrap;
+  }
+  .desktop-week .col-notes{
+    max-width:220px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    font-size:13px;
+    color:#334155;
   }
   .desktop-week .col-queue .queue-badge,
   .desktop-week .col-blood .blood-badge{
     margin:0 auto;
   }
+  .theme-dark .desktop-week .col-notes{color:#cbd5e1}
 }
 
 .flag-chip{
@@ -1098,10 +1110,17 @@ button:active:not(:disabled),
 .week-card-top .flag-chip,
 .col-blood .flag-chip{margin-left:4px}
 .col-blood{
-  display:inline-flex;
   align-items:center;
   flex-wrap:wrap;
   gap:4px;
+}
+td.col-blood{
+  display:table-cell;
+}
+td.col-blood .blood-badge,
+td.col-blood .flag-chip{vertical-align:middle}
+@media (max-width:760px){
+  td.col-blood{display:inline-flex}
 }
 
 .patient-age{
