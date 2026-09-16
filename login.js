@@ -57,8 +57,8 @@ function showPanel(panelId) {
   tabLogin.classList.toggle("is-active", isLogin);
   tabRegister.classList.toggle("is-active", !isLogin);
   authLead.textContent = isLogin
-    ? "Швидкий вхід через Google або email і пароль."
-    : "Швидкий вхід через Google або реєстрація з email.";
+    ? "Увійдіть через Google або email і пароль."
+    : "Зареєструйтесь або увійдіть через Google.";
 }
 
 function mapAuthError(err, fallback) {
