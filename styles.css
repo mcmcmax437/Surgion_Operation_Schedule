@@ -1217,9 +1217,95 @@ button:active:not(:disabled),
     grid-area:auto;
     padding:8px 10px!important;
     border-radius:0;
-    background:transparent!important;
     border:0!important;
     border-top:1px solid #e8eef3!important;
+  }
+  #scheduleView.mode-week .desktop-week td.col-age,
+  #scheduleView.mode-week .desktop-week td.col-blood,
+  #scheduleView.mode-week .desktop-week td.col-infection,
+  #scheduleView.mode-week .desktop-week td.col-status,
+  #scheduleView.mode-week .desktop-week td.col-notes,
+  #scheduleView.mode-week .desktop-week td.col-when,
+  #scheduleView.mode-week .desktop-week td.col-patient,
+  #scheduleView.mode-week .desktop-week td.col-diagnosis,
+  #scheduleView.mode-week .desktop-week td.col-procedure,
+  #scheduleView.mode-week .desktop-week td.col-team,
+  #scheduleView.mode-week .desktop-week td.col-anes,
+  #scheduleView.mode-week .desktop-week td.col-files,
+  #scheduleView.mode-week .desktop-week td.col-actions,
+  #scheduleView.mode-plan .desktop-week td.col-age,
+  #scheduleView.mode-plan .desktop-week td.col-blood,
+  #scheduleView.mode-plan .desktop-week td.col-infection,
+  #scheduleView.mode-plan .desktop-week td.col-status,
+  #scheduleView.mode-plan .desktop-week td.col-notes,
+  #scheduleView.mode-plan .desktop-week td.col-when,
+  #scheduleView.mode-plan .desktop-week td.col-patient,
+  #scheduleView.mode-plan .desktop-week td.col-diagnosis,
+  #scheduleView.mode-plan .desktop-week td.col-procedure,
+  #scheduleView.mode-plan .desktop-week td.col-team,
+  #scheduleView.mode-plan .desktop-week td.col-anes,
+  #scheduleView.mode-plan .desktop-week td.col-files,
+  #scheduleView.mode-plan .desktop-week td.col-actions{
+    background:transparent!important;
+  }
+  #scheduleView.mode-week .desktop-week th.col-age,
+  #scheduleView.mode-week .desktop-week th.col-blood,
+  #scheduleView.mode-week .desktop-week th.col-infection,
+  #scheduleView.mode-week .desktop-week th.col-status,
+  #scheduleView.mode-week .desktop-week th.col-notes,
+  #scheduleView.mode-week .desktop-week th.col-when,
+  #scheduleView.mode-week .desktop-week th.col-patient,
+  #scheduleView.mode-week .desktop-week th.col-diagnosis,
+  #scheduleView.mode-week .desktop-week th.col-procedure,
+  #scheduleView.mode-week .desktop-week th.col-team,
+  #scheduleView.mode-week .desktop-week th.col-anes,
+  #scheduleView.mode-week .desktop-week th.col-files,
+  #scheduleView.mode-week .desktop-week th.col-actions,
+  #scheduleView.mode-plan .desktop-week th.col-age,
+  #scheduleView.mode-plan .desktop-week th.col-blood,
+  #scheduleView.mode-plan .desktop-week th.col-infection,
+  #scheduleView.mode-plan .desktop-week th.col-status,
+  #scheduleView.mode-plan .desktop-week th.col-notes,
+  #scheduleView.mode-plan .desktop-week th.col-when,
+  #scheduleView.mode-plan .desktop-week th.col-patient,
+  #scheduleView.mode-plan .desktop-week th.col-diagnosis,
+  #scheduleView.mode-plan .desktop-week th.col-procedure,
+  #scheduleView.mode-plan .desktop-week th.col-team,
+  #scheduleView.mode-plan .desktop-week th.col-anes,
+  #scheduleView.mode-plan .desktop-week th.col-files,
+  #scheduleView.mode-plan .desktop-week th.col-actions{
+    background:#e5f0f8!important;
+    border-top:0!important;
+    color:#17365d;
+  }
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-age,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-blood,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-infection,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-status,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-notes,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-when,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-patient,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-diagnosis,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-procedure,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-team,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-anes,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-files,
+  .theme-dark #scheduleView.mode-week .desktop-week th.col-actions,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-age,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-blood,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-infection,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-status,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-notes,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-when,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-patient,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-diagnosis,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-procedure,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-team,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-anes,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-files,
+  .theme-dark #scheduleView.mode-plan .desktop-week th.col-actions{
+    background:#243b53!important;
+    color:#dbeafe;
   }
   #scheduleView.mode-week .desktop-week .col-diagnosis,
   #scheduleView.mode-week .desktop-week .col-procedure,

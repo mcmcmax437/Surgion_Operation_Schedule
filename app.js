@@ -622,7 +622,7 @@ function operationRowHtml(item) {
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
       <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
       <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
-      <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
+      <td class="col-blood" data-label="Група крові">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
       <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
       <td class="col-notes" data-label="Примітки">${notesText ? escapeHtml(notesText) : "—"}</td>
       <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
