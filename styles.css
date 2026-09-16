@@ -1088,7 +1088,7 @@ button:active:not(:disabled),
 .theme-dark .attachment-remove{color:#fca5a5}
 .theme-dark .attachment-remove:hover{background:#3f1d1d}
 
-/* Day always uses the compact mobile cards (same markup on phone + desktop). */
+/* Day: compact cards by default; landscape phone uses the table (see below). */
 #scheduleView.mode-day .desktop-week{display:none!important}
 #scheduleView.mode-day .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
 
@@ -1106,7 +1106,7 @@ button:active:not(:disabled),
   #scheduleView.mode-plan .mobile-week{display:grid!important;gap:10px;margin-bottom:8px}
 }
 
-/* Phone landscape: real weekly/plan table (horizontal scroll), not card stack. */
+/* Phone landscape: real day/week/plan table (horizontal scroll), not card stack. */
 @media (max-width:960px) and (orientation: landscape){
   #scheduleView.mode-day .mobile-week,
   #scheduleView.mode-week .mobile-week,
