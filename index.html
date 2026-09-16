@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260916l" />
+    <link rel="stylesheet" href="styles.css?v=20260916n" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -67,9 +67,94 @@
       .theme-dark .user-status.is-active{background:#064e3b;color:#6ee7b7}.theme-dark .user-status.is-disabled{background:#7f1d1d;color:#fecaca}
       .theme-dark .user-role{color:#9ac3e5}.theme-dark .user-auth-flags{color:#94a3b8}
       .theme-dark .user-meta{background:#182b3b;border-color:#4b5563}.theme-dark .user-meta dt{color:#94a3b8}.theme-dark .user-meta dd{color:#e2e8f0}
-      .users-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
-      .users-actions button{border:0;background:transparent;color:#47759b;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:4px 2px}
+      .users-actions{display:flex;flex-wrap:nowrap;gap:8px;justify-content:flex-start;align-items:center}
+      .users-actions button{border:0;background:transparent;color:#47759b;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:6px 4px;white-space:nowrap}
       .users-actions button.danger{color:#b42318}
+      .users-actions button:disabled{opacity:.4;cursor:not-allowed}
+      #operationDate{text-align:left;-webkit-appearance:none;appearance:none}
+      #operationDate::-webkit-date-and-time-value{text-align:left;margin:0}
+      #operationDate::-webkit-datetime-edit{text-align:left;padding:0}
+      #operationDate::-webkit-datetime-edit-fields-wrapper{padding:0}
+      @media(max-width:760px){
+        #usersBody tr{
+          display:grid!important;
+          grid-template-columns:1fr 1fr;
+          grid-template-areas:
+            "name email"
+            "role status"
+            "auth created"
+            "actions actions";
+          gap:10px 12px;
+          margin:0;
+          padding:14px;
+          border:1px solid #dbe5ee;
+          border-radius:16px;
+          background:#fff;
+          box-shadow:0 6px 18px #17365d12;
+          border-left:4px solid #47759b;
+        }
+        #usersBody td{
+          display:flex!important;
+          flex-direction:column;
+          align-items:flex-start;
+          justify-content:flex-start;
+          gap:4px;
+          width:100%;
+          padding:0!important;
+          border:0!important;
+          text-align:left!important;
+          font-size:14px;
+          background:transparent!important;
+        }
+        #usersBody td::before{
+          content:attr(data-label);
+          display:block;
+          color:#718096;
+          font-size:11px;
+          font-weight:800;
+          letter-spacing:.02em;
+          text-transform:uppercase;
+          text-align:left;
+        }
+        #usersBody td:nth-child(1){grid-area:name}
+        #usersBody td:nth-child(2){grid-area:email}
+        #usersBody td:nth-child(3){grid-area:role}
+        #usersBody td:nth-child(4){grid-area:status}
+        #usersBody td:nth-child(5){grid-area:auth}
+        #usersBody td:nth-child(6){grid-area:created}
+        #usersBody td:nth-child(7){
+          grid-area:actions;
+          padding-top:10px!important;
+          border-top:1px solid #e8eef3!important;
+        }
+        #usersBody td:nth-child(7)::before{display:none}
+        #usersBody .users-actions{
+          display:grid;
+          grid-template-columns:repeat(3,minmax(0,1fr));
+          gap:8px;
+          width:100%;
+        }
+        #usersBody .users-actions button{
+          width:100%;
+          min-height:44px;
+          margin:0;
+          padding:8px 4px;
+          text-align:center;
+          border:1px solid #dbe5ee;
+          border-radius:10px;
+          background:#f8fbfe;
+          font-size:12px;
+        }
+        #usersBody .users-actions button.danger{
+          color:#b42318;
+          border-color:#f3c4c0;
+          background:#fff5f5;
+        }
+        .theme-dark #usersBody tr{background:#1f2937;border-color:#374151;box-shadow:none;border-left-color:#47759b}
+        .theme-dark #usersBody td:nth-child(7){border-top-color:#374151!important}
+        .theme-dark #usersBody .users-actions button{background:#182b3b;border-color:#4b5563;color:#9ac3e5}
+        .theme-dark #usersBody .users-actions button.danger{background:#7f1d1d33;border-color:#7f1d1d;color:#fecaca}
+      }
       @media(max-width:760px){.picker{display:grid;grid-template-columns:1fr}.picker label{min-height:46px}.view-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:6px;margin-bottom:12px}.view-tabs.is-admin{grid-template-columns:repeat(3,minmax(0,1fr))}.view-tab{width:100%;height:58px;min-height:58px;padding:6px 4px;font-size:13px;line-height:1;white-space:nowrap;display:grid;grid-template-rows:18px 20px;align-content:center;justify-items:center;row-gap:4px}.view-tab .tab-count{width:28px;min-width:28px;height:20px;margin:0;padding:0;font-size:12px}.staff-grid{grid-template-columns:1fr}.staff-card{padding:16px}.staff-person{grid-template-columns:auto 1fr}.staff-actions{grid-column:2}.staff-actions button{padding:5px 0}}
     </style>
   </head>
@@ -364,7 +449,7 @@
               <option value="Потребує дообстеження">Потребує дообстеження</option>
               <option value="Відміна">Відміна</option>
             </select>
-            <small class="picker-help">Не обовʼязково при створенні. Після створення будь-який лікар може виставити статус (зазвичай анестезіолог).</small>
+            <small class="picker-help">Заповнює лікар-анастезіолог після огляду пацієнта</small>
           </label>
           <fieldset class="wide picker-field">
             <legend>Тип пацієнта</legend>
@@ -442,7 +527,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260916l"></script>
-    <script src="app.js?v=20260916l"></script>
+    <script src="api.js?v=20260916n"></script>
+    <script src="app.js?v=20260916n"></script>
   </body>
 </html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Вхід — Розклад операцій</title>
-    <link rel="stylesheet" href="styles.css?v=20260916m" />
+    <link rel="stylesheet" href="styles.css?v=20260916n" />
     <style>
       .login-error[hidden],
       .auth-panel[hidden],
@@ -12,15 +12,18 @@
       .auth-recover[hidden]{display:none!important}
       .login-card{width:min(440px,100%)}
       .auth-submit-row{
-        display:flex;align-items:stretch;gap:10px;margin-top:4px;
+        display:flex;align-items:center;gap:10px;margin-top:4px;
       }
       .auth-submit-row .primary{
-        flex:1 1 auto;min-width:0;
+        flex:1 1 auto;min-width:0;width:auto;margin-top:0!important;
+        height:48px;min-height:48px;padding:0 18px;
+        display:inline-flex;align-items:center;justify-content:center;
       }
       .social-btn{
-        width:48px;min-width:48px;height:48px;border:1px solid #dadce0;border-radius:10px;background:#fff;
+        width:48px;min-width:48px;height:48px;min-height:48px;flex:0 0 48px;
+        border:1px solid #dadce0;border-radius:10px;background:#fff;
         display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
-        box-shadow:0 1px 2px #0f172a14;align-self:stretch;
+        box-shadow:0 1px 2px #0f172a14;align-self:center;box-sizing:border-box;
       }
       .social-btn:hover{background:#f8f9fa;border-color:#c0c4c8}
       .social-btn:active{transform:scale(.97)}
@@ -129,7 +132,7 @@
         <small id="loginError" class="login-error" hidden></small>
       </div>
     </section>
-    <script src="api.js?v=20260916m"></script>
-    <script src="login.js?v=20260916m"></script>
+    <script src="api.js?v=20260916n"></script>
+    <script src="login.js?v=20260916n"></script>
   </body>
 </html>
