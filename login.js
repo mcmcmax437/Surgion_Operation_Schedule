@@ -9,10 +9,8 @@ const loginPanel = document.querySelector("#loginPanel");
 const registerPanel = document.querySelector("#registerPanel");
 const sharedPanel = document.querySelector("#sharedPanel");
 const sharedToggle = document.querySelector("#sharedToggle");
-const googleWrap = document.querySelector("#googleSignInWrap");
-const googleBox = document.querySelector("#googleSignIn");
-const googleFallbackBtn = document.querySelector("#googleFallbackBtn");
-const googleDivider = document.querySelector("#googleDivider");
+const googleQuickBtn = document.querySelector("#googleQuickBtn");
+const googleOfficialBtn = document.querySelector("#googleOfficialBtn");
 const tabLogin = document.querySelector("#tabLogin");
 const tabRegister = document.querySelector("#tabRegister");
 const authLead = document.querySelector("#authLead");
@@ -38,7 +36,7 @@ function clearError() {
 function setBusy(button, busy, label) {
   if (!button) return;
   button.disabled = busy;
-  if (label) button.textContent = label;
+  if (label != null) button.textContent = label;
 }
 
 async function enterIfSessionValid() {
@@ -59,8 +57,8 @@ function showPanel(panelId) {
   tabLogin.classList.toggle("is-active", isLogin);
   tabRegister.classList.toggle("is-active", !isLogin);
   authLead.textContent = isLogin
-    ? "Увійдіть через Google або email і пароль."
-    : "Створіть акаунт лікаря для доступу до розкладу.";
+    ? "Швидкий вхід через Google або email і пароль."
+    : "Швидкий вхід через Google або реєстрація з email.";
 }
 
 function mapAuthError(err, fallback) {
@@ -91,6 +89,7 @@ async function handleGoogleCredential(response) {
     showError("Google не повернув дані для входу.");
     return;
   }
+  if (googleQuickBtn) googleQuickBtn.disabled = true;
   try {
     const data = await api("/auth/google", {
       method: "POST",
@@ -100,15 +99,32 @@ async function handleGoogleCredential(response) {
   } catch (err) {
     clearAuth();
     showError(mapAuthError(err, "Не вдалося увійти через Google."));
+    if (googleQuickBtn) googleQuickBtn.disabled = false;
   }
 }
 
-function initGoogleClient() {
-  if (!authConfig.googleEnabled || !authConfig.googleClientId || !window.google?.accounts?.id) {
-    return false;
+async function resolveGoogleClientId() {
+  // Prefer API config, then static auth.config.json (no .env needed).
+  let clientId = String(authConfig.googleClientId || "").trim();
+  if (clientId) return clientId;
+  try {
+    const response = await fetch("auth.config.json", { cache: "no-store" });
+    if (response.ok) {
+      const conf = await response.json();
+      clientId = String(conf?.googleClientId || "").trim();
+      if (clientId && !clientId.includes("YOUR_GOOGLE")) return clientId;
+    }
+  } catch {
+    // optional
   }
+  const fromApp = String(window.APP_CONFIG?.GOOGLE_CLIENT_ID || "").trim();
+  return fromApp || "";
+}
+
+function initGoogleClient(clientId) {
+  if (!clientId || !window.google?.accounts?.id) return false;
   window.google.accounts.id.initialize({
-    client_id: authConfig.googleClientId,
+    client_id: clientId,
     callback: handleGoogleCredential,
     ux_mode: "popup",
     context: "signin",
@@ -116,46 +132,12 @@ function initGoogleClient() {
     cancel_on_tap_outside: true,
   });
   googleReady = true;
+  authConfig.googleClientId = clientId;
+  authConfig.googleEnabled = true;
   return true;
 }
 
-function renderGoogleButton() {
-  if (!authConfig.googleEnabled || !authConfig.googleClientId) {
-    if (googleWrap) googleWrap.hidden = true;
-    if (googleDivider) googleDivider.hidden = true;
-    return false;
-  }
-  if (googleWrap) googleWrap.hidden = false;
-  if (googleDivider) googleDivider.hidden = false;
-
-  if (!initGoogleClient()) {
-    if (googleFallbackBtn) googleFallbackBtn.hidden = false;
-    return false;
-  }
-
-  if (googleBox) {
-    googleBox.innerHTML = "";
-    googleBox.hidden = false;
-    try {
-      window.google.accounts.id.renderButton(googleBox, {
-        theme: "outline",
-        size: "large",
-        shape: "rectangular",
-        text: "continue_with",
-        width: Math.min(360, Math.floor((googleWrap?.clientWidth || 320))),
-        locale: "uk",
-      });
-      if (googleFallbackBtn) googleFallbackBtn.hidden = true;
-    } catch {
-      if (googleFallbackBtn) googleFallbackBtn.hidden = false;
-    }
-  } else if (googleFallbackBtn) {
-    googleFallbackBtn.hidden = false;
-  }
-  return true;
-}
-
-function waitForGoogle(timeoutMs = 5000) {
+function waitForGoogle(timeoutMs = 6000) {
   return new Promise((resolve) => {
     if (window.google?.accounts?.id) {
       resolve(true);
@@ -170,8 +152,63 @@ function waitForGoogle(timeoutMs = 5000) {
         clearInterval(timer);
         resolve(false);
       }
-    }, 100);
+    }, 80);
   });
+}
+
+async function prepareGoogle() {
+  const clientId = await resolveGoogleClientId();
+  if (!clientId) return false;
+  const ready = await waitForGoogle();
+  if (!ready) return false;
+  return initGoogleClient(clientId);
+}
+
+async function startGoogleSignIn() {
+  clearError();
+  if (googleQuickBtn) googleQuickBtn.disabled = true;
+
+  const ok = googleReady || await prepareGoogle();
+  if (!ok || !authConfig.googleClientId) {
+    if (googleQuickBtn) googleQuickBtn.disabled = false;
+    showError("Google вхід ще не налаштовано: додайте googleClientId у файл auth.config.json і задеплойте.");
+    return;
+  }
+
+  try {
+    // Prefer One Tap / account chooser; also keep an official button as backup.
+    window.google.accounts.id.prompt((notification) => {
+      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+        if (googleOfficialBtn) {
+          googleOfficialBtn.hidden = false;
+          googleOfficialBtn.innerHTML = "";
+          window.google.accounts.id.renderButton(googleOfficialBtn, {
+            theme: "outline",
+            size: "large",
+            shape: "rectangular",
+            type: "icon",
+            text: "signin_with",
+            locale: "uk",
+          });
+        }
+        if (googleQuickBtn) googleQuickBtn.disabled = false;
+      }
+    });
+  } catch {
+    if (googleOfficialBtn) {
+      googleOfficialBtn.hidden = false;
+      googleOfficialBtn.innerHTML = "";
+      window.google.accounts.id.renderButton(googleOfficialBtn, {
+        theme: "outline",
+        size: "large",
+        shape: "rectangular",
+        type: "icon",
+        text: "signin_with",
+        locale: "uk",
+      });
+    }
+    if (googleQuickBtn) googleQuickBtn.disabled = false;
+  }
 }
 
 async function loadAuthConfig() {
@@ -186,6 +223,12 @@ async function loadAuthConfig() {
     };
   }
 
+  // Also try static file so Google can work without API/env.
+  if (!authConfig.googleClientId) {
+    authConfig.googleClientId = await resolveGoogleClientId();
+    authConfig.googleEnabled = Boolean(authConfig.googleClientId);
+  }
+
   if (!authConfig.registrationEnabled) {
     tabRegister.hidden = true;
     showPanel("loginPanel");
@@ -195,18 +238,9 @@ async function loadAuthConfig() {
   if (authConfig.sharedPasswordEnabled) {
     sharedToggle.hidden = false;
   }
-  if (authConfig.googleEnabled && authConfig.googleClientId) {
-    const ready = await waitForGoogle();
-    if (ready) renderGoogleButton();
-    else {
-      if (googleWrap) googleWrap.hidden = false;
-      if (googleDivider) googleDivider.hidden = false;
-      if (googleFallbackBtn) googleFallbackBtn.hidden = false;
-    }
-  } else {
-    if (googleWrap) googleWrap.hidden = true;
-    if (googleDivider) googleDivider.hidden = true;
-  }
+
+  // Warm up Google in the background so the G button responds faster.
+  prepareGoogle().catch(() => {});
 }
 
 tabLogin?.addEventListener("click", () => showPanel("loginPanel"));
@@ -225,28 +259,8 @@ sharedToggle?.addEventListener("click", () => {
     : "Сховати пароль відділення";
 });
 
-googleFallbackBtn?.addEventListener("click", () => {
-  clearError();
-  if (!authConfig.googleClientId) {
-    showError("Google вхід ще не налаштовано (немає Client ID).");
-    return;
-  }
-  if (!window.google?.accounts?.id) {
-    showError("Не завантажено Google Sign-In. Перевірте мережу і оновіть сторінку.");
-    return;
-  }
-  if (!googleReady) initGoogleClient();
-  try {
-    window.google.accounts.id.prompt((notification) => {
-      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
-        // Fallback: open the button flow by re-rendering official button.
-        renderGoogleButton();
-        showError("Натисніть кнопку Google ще раз для входу.");
-      }
-    });
-  } catch {
-    renderGoogleButton();
-  }
+googleQuickBtn?.addEventListener("click", () => {
+  startGoogleSignIn();
 });
 
 document.querySelector("#showLoginPassword")?.addEventListener("change", (event) => {
