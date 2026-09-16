@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260916j" />
+    <link rel="stylesheet" href="styles.css?v=20260916l" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -59,6 +59,17 @@
       .theme-dark .person-chip{background:#315b7a;color:#fff}
       .staff-view{padding:4px 0 24px}.section-heading{margin:0 0 18px}.section-heading h2{margin:3px 0 6px;color:#17365d}.section-heading p:not(.eyebrow){margin:0;color:#64748b}
       .staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.staff-card{padding:20px;border:1px solid #dbe5ee;border-radius:16px;background:#fff;box-shadow:0 8px 24px #17365d0d}.staff-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.staff-card-head h3{margin:0;color:#17365d}.staff-card-head p{margin:5px 0 0;color:#718096;font-size:13px}.staff-count{display:grid;place-items:center;min-width:32px;height:32px;border-radius:50%;background:#e8f2fa;color:#315b7a;font-weight:800}.staff-list{display:grid;gap:8px;margin:18px 0}.staff-person{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px}.staff-person-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#d9eaf7;color:#17365d;font-size:11px;font-weight:800}.staff-person-name{font-weight:700;color:#334155}.staff-actions{display:flex;gap:5px}.staff-actions button{border:0;background:transparent;color:#47759b;font-size:12px;font-weight:700;cursor:pointer}.staff-actions button:last-child{color:#b42318}.staff-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid #e2e8f0}.staff-form>div{display:flex;gap:8px;justify-content:flex-end}.theme-dark .staff-card{background:#1f2937;border-color:#4b5563}.theme-dark .staff-card-head h3,.theme-dark .section-heading h2{color:#dbeafe}.theme-dark .staff-card-head p,.theme-dark .section-heading p:not(.eyebrow){color:#cbd5e1}.theme-dark .staff-person{border-color:#4b5563;background:#182b3b}.theme-dark .staff-person-name{color:#e5e7eb}.theme-dark .staff-form{border-color:#4b5563}
+      .user-status{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:800}
+      .user-status.is-active{background:#e3f6ed;color:#027a48}.user-status.is-disabled{background:#fdecec;color:#b42318}
+      .user-role{font-weight:700;color:#315b7a}.user-auth-flags{color:#64748b;font-size:13px}
+      .user-meta{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:16px 0 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fbfe}
+      .user-meta dt{margin:0;color:#64748b;font-size:12px;font-weight:700}.user-meta dd{margin:0;color:#334155;font-size:13px;font-weight:650;word-break:break-word}
+      .theme-dark .user-status.is-active{background:#064e3b;color:#6ee7b7}.theme-dark .user-status.is-disabled{background:#7f1d1d;color:#fecaca}
+      .theme-dark .user-role{color:#9ac3e5}.theme-dark .user-auth-flags{color:#94a3b8}
+      .theme-dark .user-meta{background:#182b3b;border-color:#4b5563}.theme-dark .user-meta dt{color:#94a3b8}.theme-dark .user-meta dd{color:#e2e8f0}
+      .users-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+      .users-actions button{border:0;background:transparent;color:#47759b;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:4px 2px}
+      .users-actions button.danger{color:#b42318}
       @media(max-width:760px){.picker{display:grid;grid-template-columns:1fr}.picker label{min-height:46px}.view-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:6px;margin-bottom:12px}.view-tabs.is-admin{grid-template-columns:repeat(3,minmax(0,1fr))}.view-tab{width:100%;height:58px;min-height:58px;padding:6px 4px;font-size:13px;line-height:1;white-space:nowrap;display:grid;grid-template-rows:18px 20px;align-content:center;justify-items:center;row-gap:4px}.view-tab .tab-count{width:28px;min-width:28px;height:20px;margin:0;padding:0;font-size:12px}.staff-grid{grid-template-columns:1fr}.staff-card{padding:16px}.staff-person{grid-template-columns:auto 1fr}.staff-actions{grid-column:2}.staff-actions button{padding:5px 0}}
     </style>
   </head>
@@ -82,6 +93,7 @@
         <button class="view-tab" id="planTab" type="button"><span class="tab-label"><span class="tab-label-full">План</span><span class="tab-label-short">План</span></span><span class="tab-count" id="planTabCount">0</span></button>
         <button class="view-tab admin-tab" id="archiveTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Архів</span><span class="tab-label-short">Архів</span></span></button>
         <button class="view-tab admin-tab" id="staffTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Лікарі</span><span class="tab-label-short">Лікарі</span></span></button>
+        <button class="view-tab admin-tab" id="usersTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Користувачі</span><span class="tab-label-short">Юзери</span></span></button>
         <button class="view-tab admin-tab" id="logsTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Журнали</span><span class="tab-label-short">Журнали</span></span></button>
       </nav>
 
@@ -223,7 +235,76 @@
           </article>
         </div>
       </section>
+
+      <section id="usersView" class="staff-view" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Доступ до сайту</p>
+            <h2>Користувачі</h2>
+            <p>Перегляд деталей акаунтів, зміна ролі, блокування або видалення користувачів.</p>
+          </div>
+          <button class="secondary" id="refreshUsers" type="button">Оновити</button>
+        </div>
+        <section class="table-card">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Імʼя</th>
+                  <th>Email</th>
+                  <th>Роль</th>
+                  <th>Статус</th>
+                  <th>Вхід</th>
+                  <th>Створено</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="usersEmpty" hidden>Користувачів ще немає.</div>
+        </section>
+      </section>
     </main>
+
+    <dialog id="userDialog">
+    <form method="post" id="userForm">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Акаунт</p>
+            <h2 id="userDialogTitle">Користувач</h2>
+          </div>
+          <button class="icon-button" id="closeUserDialog" type="button" aria-label="Закрити">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5.3 5.3 6.4 10.9 12l-5.6 5.6 1.1 1.1L12 13.1l5.6 5.6 1.1-1.1L13.1 12l5.6-5.6-1.1-1.1L12 10.9 6.4 5.3z"/></svg>
+          </button>
+        </div>
+        <input type="hidden" id="userEditId" />
+        <div class="form-grid">
+          <label class="wide">ПІБ / імʼя<input id="userName" required /></label>
+          <label class="wide">Email<input id="userEmail" type="email" required /></label>
+          <label>Роль
+            <select id="userRole">
+              <option value="doctor">Лікар</option>
+              <option value="admin">Адміністратор</option>
+            </select>
+          </label>
+          <label>Статус
+            <select id="userStatus">
+              <option value="active">Активний</option>
+              <option value="disabled">Заблокований</option>
+            </select>
+          </label>
+          <label class="wide">Новий пароль <span class="picker-help">(залиште порожнім, щоб не змінювати)</span>
+            <input id="userPassword" type="password" minlength="8" autocomplete="new-password" />
+          </label>
+        </div>
+        <dl class="user-meta" id="userMeta"></dl>
+        <div class="dialog-actions">
+          <button class="secondary" id="cancelUserEdit" type="button">Скасувати</button>
+          <button class="primary" id="saveUser" type="submit">Зберегти</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="operationDialog">
       <form method="post" id="operationForm">
@@ -361,7 +442,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260916j"></script>
-    <script src="app.js?v=20260916j"></script>
+    <script src="api.js?v=20260916l"></script>
+    <script src="app.js?v=20260916l"></script>
   </body>
 </html>

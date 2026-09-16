@@ -54,6 +54,76 @@ export function publicUser(row) {
   };
 }
 
+export function adminUserDetails(row) {
+  if (!row) return null;
+  return {
+    ...publicUser(row),
+    hasPassword: Boolean(row.password_hash),
+    googleLinked: Boolean(row.google_sub),
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+  };
+}
+
+export async function listUsers(pool) {
+  const [rows] = await pool.query(
+    `SELECT * FROM users ORDER BY created_at ASC, email ASC`,
+  );
+  return rows.map(adminUserDetails);
+}
+
+export async function updateUser(pool, id, {
+  name,
+  email,
+  role,
+  status,
+  passwordHash = undefined,
+}) {
+  const existing = await findUserById(pool, id);
+  if (!existing) return null;
+
+  const nextName = name != null ? String(name || "").trim() : existing.name;
+  const nextEmail = email != null ? normalizeEmail(email) : existing.email;
+  const nextRole = role != null
+    ? (role === "admin" ? "admin" : "doctor")
+    : existing.role;
+  const nextStatus = status != null
+    ? (status === "disabled" ? "disabled" : "active")
+    : (existing.status || "active");
+
+  await pool.query(
+    `UPDATE users
+     SET name = :name,
+         email = :email,
+         role = :role,
+         status = :status,
+         password_hash = COALESCE(:password_hash, password_hash),
+         updated_at = :updated_at
+     WHERE id = :id`,
+    {
+      id,
+      name: nextName,
+      email: nextEmail,
+      role: nextRole,
+      status: nextStatus,
+      password_hash: passwordHash === undefined ? null : passwordHash,
+      updated_at: new Date(),
+    },
+  );
+  return findUserById(pool, id);
+}
+
+export async function deleteUser(pool, id) {
+  await pool.query(`DELETE FROM sessions WHERE user_id = :id`, { id });
+  const [result] = await pool.query(`DELETE FROM users WHERE id = :id`, { id });
+  return Number(result?.affectedRows || 0) > 0;
+}
+
+export async function revokeUserSessions(pool, userId) {
+  if (!userId) return;
+  await pool.query(`DELETE FROM sessions WHERE user_id = :id`, { id: userId });
+}
+
 export async function findUserByEmail(pool, email) {
   const [rows] = await pool.query(
     `SELECT * FROM users WHERE email = :email LIMIT 1`,

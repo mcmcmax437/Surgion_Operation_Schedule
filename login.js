@@ -7,13 +7,18 @@ const { api, getToken, setAuth, clearAuth } = window.SurgeryAPI;
 const error = document.querySelector("#loginError");
 const loginPanel = document.querySelector("#loginPanel");
 const registerPanel = document.querySelector("#registerPanel");
+const recoverPanel = document.querySelector("#recoverPanel");
 const sharedPanel = document.querySelector("#sharedPanel");
 const sharedToggle = document.querySelector("#sharedToggle");
-const googleQuickBtn = document.querySelector("#googleQuickBtn");
 const googleOfficialBtn = document.querySelector("#googleOfficialBtn");
-const tabLogin = document.querySelector("#tabLogin");
-const tabRegister = document.querySelector("#tabRegister");
+const googleQuickBtns = [...document.querySelectorAll(".google-quick-btn")];
+const authTitle = document.querySelector("#authTitle");
 const authLead = document.querySelector("#authLead");
+const authSwitchWrap = document.querySelector("#authSwitchWrap");
+const authSwitchHint = document.querySelector("#authSwitchHint");
+const authSwitchBtn = document.querySelector("#authSwitchBtn");
+const forgotPasswordBtn = document.querySelector("#forgotPasswordBtn");
+const recoverBackBtn = document.querySelector("#recoverBackBtn");
 
 let authConfig = {
   registrationEnabled: true,
@@ -22,6 +27,7 @@ let authConfig = {
   sharedPasswordEnabled: false,
 };
 let googleReady = false;
+let currentPanel = "login";
 
 function showError(message) {
   error.textContent = message;
@@ -39,6 +45,12 @@ function setBusy(button, busy, label) {
   if (label != null) button.textContent = label;
 }
 
+function setGoogleBusy(busy) {
+  googleQuickBtns.forEach((btn) => {
+    btn.disabled = busy;
+  });
+}
+
 async function enterIfSessionValid() {
   if (!getToken()) return;
   try {
@@ -51,14 +63,37 @@ async function enterIfSessionValid() {
 
 function showPanel(panelId) {
   clearError();
-  const isLogin = panelId === "loginPanel";
-  loginPanel.hidden = !isLogin;
-  registerPanel.hidden = isLogin;
-  tabLogin.classList.toggle("is-active", isLogin);
-  tabRegister.classList.toggle("is-active", !isLogin);
-  authLead.textContent = isLogin
-    ? "Швидкий вхід через Google або email і пароль."
-    : "Швидкий вхід через Google або реєстрація з email.";
+  currentPanel = panelId;
+  const isLogin = panelId === "login";
+  const isRegister = panelId === "register";
+  const isRecover = panelId === "recover";
+
+  if (loginPanel) loginPanel.hidden = !isLogin;
+  if (registerPanel) registerPanel.hidden = !isRegister;
+  if (recoverPanel) recoverPanel.hidden = !isRecover;
+  if (sharedPanel && !isLogin) sharedPanel.hidden = true;
+
+  if (authTitle) {
+    authTitle.textContent = isRegister ? "Реєстрація" : isRecover ? "Пароль" : "Вхід";
+  }
+  if (authLead) {
+    authLead.textContent = isRegister
+      ? "Створіть акаунт або увійдіть через Google."
+      : isRecover
+        ? "Як відновити доступ до акаунту."
+        : "Увійдіть через email і пароль або Google.";
+  }
+
+  if (authSwitchWrap) {
+    authSwitchWrap.hidden = isRecover || (!authConfig.registrationEnabled && isLogin);
+  }
+  if (isLogin) {
+    if (authSwitchHint) authSwitchHint.textContent = "Немає акаунту?";
+    if (authSwitchBtn) authSwitchBtn.textContent = "Реєстрація";
+  } else if (isRegister) {
+    if (authSwitchHint) authSwitchHint.textContent = "Вже є акаунт?";
+    if (authSwitchBtn) authSwitchBtn.textContent = "Увійти";
+  }
 }
 
 function mapAuthError(err, fallback) {
@@ -89,7 +124,7 @@ async function handleGoogleCredential(response) {
     showError("Google не повернув дані для входу.");
     return;
   }
-  if (googleQuickBtn) googleQuickBtn.disabled = true;
+  setGoogleBusy(true);
   try {
     const data = await api("/auth/google", {
       method: "POST",
@@ -99,12 +134,11 @@ async function handleGoogleCredential(response) {
   } catch (err) {
     clearAuth();
     showError(mapAuthError(err, "Не вдалося увійти через Google."));
-    if (googleQuickBtn) googleQuickBtn.disabled = false;
+    setGoogleBusy(false);
   }
 }
 
 async function resolveGoogleClientId() {
-  // Prefer API config, then static auth.config.json (no .env needed).
   let clientId = String(authConfig.googleClientId || "").trim();
   if (clientId) return clientId;
   try {
@@ -166,17 +200,16 @@ async function prepareGoogle() {
 
 async function startGoogleSignIn() {
   clearError();
-  if (googleQuickBtn) googleQuickBtn.disabled = true;
+  setGoogleBusy(true);
 
   const ok = googleReady || await prepareGoogle();
   if (!ok || !authConfig.googleClientId) {
-    if (googleQuickBtn) googleQuickBtn.disabled = false;
+    setGoogleBusy(false);
     showError("Google вхід ще не налаштовано: додайте googleClientId у файл auth.config.json і задеплойте.");
     return;
   }
 
   try {
-    // Prefer One Tap / account chooser; also keep an official button as backup.
     window.google.accounts.id.prompt((notification) => {
       if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
         if (googleOfficialBtn) {
@@ -191,7 +224,7 @@ async function startGoogleSignIn() {
             locale: "uk",
           });
         }
-        if (googleQuickBtn) googleQuickBtn.disabled = false;
+        setGoogleBusy(false);
       }
     });
   } catch {
@@ -207,7 +240,7 @@ async function startGoogleSignIn() {
         locale: "uk",
       });
     }
-    if (googleQuickBtn) googleQuickBtn.disabled = false;
+    setGoogleBusy(false);
   }
 }
 
@@ -223,44 +256,49 @@ async function loadAuthConfig() {
     };
   }
 
-  // Also try static file so Google can work without API/env.
   if (!authConfig.googleClientId) {
     authConfig.googleClientId = await resolveGoogleClientId();
     authConfig.googleEnabled = Boolean(authConfig.googleClientId);
   }
 
-  if (!authConfig.registrationEnabled) {
-    tabRegister.hidden = true;
-    showPanel("loginPanel");
-  } else {
-    showPanel("registerPanel");
-  }
-  if (authConfig.sharedPasswordEnabled) {
+  showPanel("login");
+  if (authConfig.sharedPasswordEnabled && sharedToggle) {
     sharedToggle.hidden = false;
   }
 
-  // Warm up Google in the background so the G button responds faster.
   prepareGoogle().catch(() => {});
 }
 
-tabLogin?.addEventListener("click", () => showPanel("loginPanel"));
-tabRegister?.addEventListener("click", () => {
-  if (!authConfig.registrationEnabled) {
-    showError("Реєстрація вимкнена адміністратором.");
+authSwitchBtn?.addEventListener("click", () => {
+  if (currentPanel === "login") {
+    if (!authConfig.registrationEnabled) {
+      showError("Реєстрація вимкнена адміністратором.");
+      return;
+    }
+    showPanel("register");
     return;
   }
-  showPanel("registerPanel");
+  showPanel("login");
+});
+
+forgotPasswordBtn?.addEventListener("click", () => {
+  showPanel("recover");
+});
+
+recoverBackBtn?.addEventListener("click", () => {
+  showPanel("login");
 });
 
 sharedToggle?.addEventListener("click", () => {
+  if (!sharedPanel) return;
   sharedPanel.hidden = !sharedPanel.hidden;
   sharedToggle.textContent = sharedPanel.hidden
-    ? "Вхід за паролем відділення"
+    ? "Пароль відділення"
     : "Сховати пароль відділення";
 });
 
-googleQuickBtn?.addEventListener("click", () => {
-  startGoogleSignIn();
+googleQuickBtns.forEach((btn) => {
+  btn.addEventListener("click", () => startGoogleSignIn());
 });
 
 document.querySelector("#showLoginPassword")?.addEventListener("change", (event) => {

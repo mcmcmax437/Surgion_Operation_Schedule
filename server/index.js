@@ -32,12 +32,18 @@ import {
   hashPassword,
   verifyPassword,
   publicUser,
+  adminUserDetails,
   findUserByEmail,
+  findUserById,
   findUserByGoogleSub,
   createUser,
   linkGoogleSub,
   ensureAdminUser,
   countActiveAdmins,
+  listUsers,
+  updateUser,
+  deleteUser,
+  revokeUserSessions,
 } from "./users.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -111,6 +117,15 @@ const upload = multer({
     cb(new Error("Only image and video files are allowed"));
   },
 });
+
+function optionalUpload(req, res, next) {
+  const contentType = String(req.headers["content-type"] || "");
+  if (contentType.includes("multipart/form-data")) {
+    return upload.array("files", 12)(req, res, next);
+  }
+  req.files = [];
+  next();
+}
 
 app.set("trust proxy", true);
 app.use(cors({ origin: true, credentials: true }));
@@ -620,7 +635,7 @@ app.get("/api/operations", auth, async (req, res) => {
   res.json(result);
 });
 
-app.post("/api/operations", auth, upload.array("files", 12), async (req, res) => {
+app.post("/api/operations", auth, optionalUpload, async (req, res) => {
   const data = bodyToOperation(req.body);
   if (!data.patient || !data.procedure) {
     return res.status(400).json({ error: "patient and procedure are required" });
@@ -705,7 +720,7 @@ app.post("/api/operations", auth, upload.array("files", 12), async (req, res) =>
   }
 });
 
-app.put("/api/operations/:id", auth, upload.array("files", 12), async (req, res) => {
+app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
   const data = bodyToOperation(req.body);
   if (!data.patient || !data.procedure) {
     return res.status(400).json({ error: "patient and procedure are required" });
@@ -954,6 +969,157 @@ function requireLogsAccess(req, res, next) {
   }
   next();
 }
+
+function requireAdmin(req, res, next) {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: "Доступ лише для адміністратора." });
+  }
+  next();
+}
+
+app.get("/api/users", auth, requireAdmin, async (_req, res) => {
+  try {
+    res.json(await listUsers(pool));
+  } catch (error) {
+    console.error("list users failed:", error);
+    res.status(500).json({ error: "Не вдалося завантажити користувачів." });
+  }
+});
+
+app.get("/api/users/:id", auth, requireAdmin, async (req, res) => {
+  try {
+    const user = await findUserById(pool, req.params.id);
+    if (!user) return res.status(404).json({ error: "Користувача не знайдено." });
+    res.json(adminUserDetails(user));
+  } catch (error) {
+    console.error("get user failed:", error);
+    res.status(500).json({ error: "Не вдалося завантажити користувача." });
+  }
+});
+
+app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
+  try {
+    const existing = await findUserById(pool, req.params.id);
+    if (!existing) return res.status(404).json({ error: "Користувача не знайдено." });
+
+    const name = req.body?.name != null ? String(req.body.name || "").trim() : undefined;
+    const email = req.body?.email != null ? normalizeEmail(req.body.email) : undefined;
+    const role = req.body?.role != null
+      ? (String(req.body.role) === "admin" ? "admin" : "doctor")
+      : undefined;
+    const status = req.body?.status != null
+      ? (String(req.body.status) === "disabled" ? "disabled" : "active")
+      : undefined;
+    const password = req.body?.password != null ? String(req.body.password || "") : undefined;
+
+    if (name !== undefined && name.length < 2) {
+      return res.status(400).json({ error: "Вкажіть ПІБ або імʼя." });
+    }
+    if (email !== undefined && !isValidEmail(email)) {
+      return res.status(400).json({ error: "Вкажіть коректний email." });
+    }
+    if (password !== undefined && password !== "" && password.length < 8) {
+      return res.status(400).json({ error: "Пароль має містити щонайменше 8 символів." });
+    }
+
+    if (email && email !== existing.email) {
+      const clash = await findUserByEmail(pool, email);
+      if (clash && clash.id !== existing.id) {
+        return res.status(409).json({ error: "Користувач із таким email уже існує." });
+      }
+    }
+
+    const nextRole = role ?? existing.role;
+    const nextStatus = status ?? (existing.status || "active");
+    const wasActiveAdmin = existing.role === "admin" && existing.status === "active";
+    const staysActiveAdmin = nextRole === "admin" && nextStatus === "active";
+    if (wasActiveAdmin && !staysActiveAdmin) {
+      const admins = await countActiveAdmins(pool);
+      if (admins <= 1) {
+        return res.status(400).json({
+          error: "Не можна зняти або заблокувати останнього активного адміністратора.",
+        });
+      }
+    }
+
+    let passwordHash;
+    if (password) passwordHash = await hashPassword(password);
+
+    const updated = await updateUser(pool, existing.id, {
+      name,
+      email,
+      role,
+      status,
+      passwordHash,
+    });
+
+    if (nextStatus === "disabled" || (password && password.length >= 8)) {
+      await revokeUserSessions(pool, existing.id);
+    }
+
+    try {
+      await logChange(pool, {
+        entityType: "user",
+        entityId: existing.id,
+        action: nextStatus === "disabled" && existing.status !== "disabled" ? "ban" : "update",
+        summary: `Оновлено користувача ${updated.email}`,
+        changedFields: ["name", "email", "role", "status", password ? "password" : null].filter(Boolean),
+        before: adminUserDetails(existing),
+        after: adminUserDetails(updated),
+        ip: req.clientIp,
+        userAgent: req.clientUa,
+      });
+    } catch (logError) {
+      console.error("user update log failed:", logError);
+    }
+
+    res.json(adminUserDetails(updated));
+  } catch (error) {
+    console.error("update user failed:", error);
+    res.status(500).json({ error: "Не вдалося оновити користувача." });
+  }
+});
+
+app.delete("/api/users/:id", auth, requireAdmin, async (req, res) => {
+  try {
+    const existing = await findUserById(pool, req.params.id);
+    if (!existing) return res.status(404).json({ error: "Користувача не знайдено." });
+
+    if (req.user?.id && req.user.id === existing.id) {
+      return res.status(400).json({ error: "Не можна видалити власний акаунт." });
+    }
+
+    if (existing.role === "admin" && existing.status === "active") {
+      const admins = await countActiveAdmins(pool);
+      if (admins <= 1) {
+        return res.status(400).json({ error: "Не можна видалити останнього активного адміністратора." });
+      }
+    }
+
+    await deleteUser(pool, existing.id);
+
+    try {
+      await logChange(pool, {
+        entityType: "user",
+        entityId: existing.id,
+        action: "delete",
+        summary: `Видалено користувача ${existing.email}`,
+        changedFields: [],
+        before: adminUserDetails(existing),
+        after: null,
+        ip: req.clientIp,
+        userAgent: req.clientUa,
+      });
+    } catch (logError) {
+      console.error("user delete log failed:", logError);
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("delete user failed:", error);
+    res.status(500).json({ error: "Не вдалося видалити користувача." });
+  }
+});
 
 app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);

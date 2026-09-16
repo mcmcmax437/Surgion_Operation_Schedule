@@ -424,6 +424,8 @@ function selectedPickerValues(containerId) {
 
 let canViewLogs = false;
 let currentUser = null;
+let siteUsers = [];
+let editingUserId = null;
 
 function applyScheduleMode() {
   const view = $("#scheduleView");
@@ -449,7 +451,7 @@ function applyScheduleMode() {
 }
 
 function showView(view) {
-  if ((view === "logs" || view === "staff" || view === "archive") && !canViewLogs) {
+  if ((view === "logs" || view === "staff" || view === "users" || view === "archive") && !canViewLogs) {
     view = "day";
   }
   if (view === "day" || view === "week" || view === "plan") {
@@ -460,22 +462,25 @@ function showView(view) {
   if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
   if ($("#archiveView")) $("#archiveView").hidden = view !== "archive";
   if ($("#staffView")) $("#staffView").hidden = view !== "staff";
+  if ($("#usersView")) $("#usersView").hidden = view !== "users";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
   if ($("#dayTab")) $("#dayTab").classList.toggle("active", view === "schedule" && scheduleMode === "day");
   if ($("#weekTab")) $("#weekTab").classList.toggle("active", view === "schedule" && scheduleMode === "week");
   if ($("#planTab")) $("#planTab").classList.toggle("active", view === "schedule" && scheduleMode === "plan");
   if ($("#archiveTab")) $("#archiveTab").classList.toggle("active", view === "archive");
   if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
+  if ($("#usersTab")) $("#usersTab").classList.toggle("active", view === "users");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
   applyScheduleMode();
   if (view === "schedule") render();
   if (view === "logs") loadLogs();
   if (view === "archive") renderArchive();
+  if (view === "users") loadUsers();
 }
 
 function applyAdminVisibility(allowed) {
   canViewLogs = Boolean(allowed);
-  ["logsTab", "staffTab", "archiveTab"].forEach((id) => {
+  ["logsTab", "staffTab", "usersTab", "archiveTab"].forEach((id) => {
     const tab = $(`#${id}`);
     if (!tab) return;
     tab.hidden = !canViewLogs;
@@ -483,7 +488,7 @@ function applyAdminVisibility(allowed) {
     tab.style.display = canViewLogs ? "" : "none";
   });
   document.querySelector(".view-tabs")?.classList.toggle("is-admin", canViewLogs);
-  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "archive")) {
+  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users" || currentView === "archive")) {
     showView("day");
   }
 }
@@ -675,7 +680,7 @@ function mobileCardHtml(item) {
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
       <p class="week-status">${statusBadgeHtml(item)}</p>
-      <p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${notesText ? escapeHtml(notesText) : "—"}</span></p>
+      ${notesText ? `<p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${escapeHtml(notesText)}</span></p>` : ""}
       <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
       <div class="row-actions">
         <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
@@ -1086,13 +1091,6 @@ async function saveOperation(event) {
     }
   }
 
-  const formData = new FormData();
-  Object.entries(data).forEach(([key, value]) => {
-    if (Array.isArray(value)) formData.append(key, JSON.stringify(value));
-    else formData.append(key, value ?? "");
-  });
-  files.forEach((file) => formData.append("files", file));
-
   const saveButton = $("#saveOperation");
   const progress = $("#uploadProgress");
   const progressBar = $("#uploadProgressBar");
@@ -1115,19 +1113,29 @@ async function saveOperation(event) {
   if (saveButton) saveButton.disabled = true;
 
   try {
-    if (files.length) setProgress(0, `Завантаження ${files.length} файл(ів)…`);
-    else setProgress(10, "Збереження операції…");
+    if (!files.length) {
+      // No new files: plain JSON save — avoid upload progress UX for existing attachments.
+      await api(path, { method, json: data });
+    } else {
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (Array.isArray(value)) formData.append(key, JSON.stringify(value));
+        else formData.append(key, value ?? "");
+      });
+      files.forEach((file) => formData.append("files", file));
 
-    await uploadForm(path, method, formData, (loaded, total) => {
-      if (!total) {
-        setProgress(50, "Завантаження файлів…");
-        return;
-      }
-      const percent = (loaded / total) * 100;
-      setProgress(percent, percent >= 100 ? "Обробка на сервері…" : `Завантаження файлів… ${Math.round(percent)}%`);
-    });
+      setProgress(0, `Завантаження ${files.length} файл(ів)…`);
+      await uploadForm(path, method, formData, (loaded, total) => {
+        if (!total) {
+          setProgress(50, "Завантаження файлів…");
+          return;
+        }
+        const percent = (loaded / total) * 100;
+        setProgress(percent, percent >= 100 ? "Обробка на сервері…" : `Завантаження файлів… ${Math.round(percent)}%`);
+      });
+      setProgress(100, "Готово");
+    }
 
-    setProgress(100, "Готово");
     $("#operationDialog").close();
     await refresh();
   } catch (error) {
@@ -1716,6 +1724,145 @@ async function loadLogs() {
   }
 }
 
+function userRoleLabel(role) {
+  return role === "admin" ? "Адмін" : "Лікар";
+}
+
+function userStatusLabel(status) {
+  return status === "disabled" ? "Заблокований" : "Активний";
+}
+
+function userAuthFlags(user) {
+  const parts = [];
+  if (user.hasPassword) parts.push("пароль");
+  if (user.googleLinked) parts.push("Google");
+  return parts.length ? parts.join(" · ") : "—";
+}
+
+function renderUsers() {
+  const body = $("#usersBody");
+  const empty = $("#usersEmpty");
+  if (!body) return;
+  if (empty) empty.hidden = siteUsers.length > 0;
+  body.innerHTML = siteUsers.map((user) => {
+    const statusClass = user.status === "disabled" ? "is-disabled" : "is-active";
+    const banLabel = user.status === "disabled" ? "Розблокувати" : "Заблокувати";
+    const isSelf = currentUser?.id && currentUser.id === user.id;
+    return `
+      <tr data-user-id="${escapeHtml(user.id)}">
+        <td data-label="Імʼя"><strong>${escapeHtml(user.name || "—")}</strong>${isSelf ? " <small>(ви)</small>" : ""}</td>
+        <td data-label="Email">${escapeHtml(user.email || "—")}</td>
+        <td data-label="Роль"><span class="user-role">${escapeHtml(userRoleLabel(user.role))}</span></td>
+        <td data-label="Статус"><span class="user-status ${statusClass}">${escapeHtml(userStatusLabel(user.status))}</span></td>
+        <td data-label="Вхід"><span class="user-auth-flags">${escapeHtml(userAuthFlags(user))}</span></td>
+        <td data-label="Створено">${escapeHtml(formatDateTime(user.createdAt))}</td>
+        <td data-label="Дії">
+          <div class="users-actions">
+            <button type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}">Редагувати</button>
+            <button type="button" data-user-action="toggle-ban" data-user-id="${escapeHtml(user.id)}">${banLabel}</button>
+            <button type="button" class="danger" data-user-action="delete" data-user-id="${escapeHtml(user.id)}" ${isSelf ? "disabled" : ""}>Видалити</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join("") || `<tr><td colspan="7">Користувачів ще немає.</td></tr>`;
+}
+
+async function loadUsers() {
+  if (!canViewLogs) return;
+  try {
+    siteUsers = await api("/users");
+    renderUsers();
+  } catch (error) {
+    alert(error.message || "Не вдалося завантажити користувачів.");
+  }
+}
+
+function fillUserMeta(user) {
+  const meta = $("#userMeta");
+  if (!meta) return;
+  meta.innerHTML = `
+    <dt>ID</dt><dd>${escapeHtml(user.id)}</dd>
+    <dt>Вхід</dt><dd>${escapeHtml(userAuthFlags(user))}</dd>
+    <dt>Створено</dt><dd>${escapeHtml(formatDateTime(user.createdAt))}</dd>
+    <dt>Оновлено</dt><dd>${escapeHtml(formatDateTime(user.updatedAt))}</dd>
+  `;
+}
+
+function openUserEditor(user) {
+  editingUserId = user.id;
+  if ($("#userEditId")) $("#userEditId").value = user.id;
+  if ($("#userDialogTitle")) $("#userDialogTitle").textContent = user.name || user.email || "Користувач";
+  if ($("#userName")) $("#userName").value = user.name || "";
+  if ($("#userEmail")) $("#userEmail").value = user.email || "";
+  if ($("#userRole")) $("#userRole").value = user.role === "admin" ? "admin" : "doctor";
+  if ($("#userStatus")) $("#userStatus").value = user.status === "disabled" ? "disabled" : "active";
+  if ($("#userPassword")) $("#userPassword").value = "";
+  fillUserMeta(user);
+  $("#userDialog")?.showModal();
+}
+
+function closeUserEditor() {
+  editingUserId = null;
+  $("#userDialog")?.close();
+}
+
+async function saveUserEdit(event) {
+  event.preventDefault();
+  const id = $("#userEditId")?.value || editingUserId;
+  if (!id) return;
+  const payload = {
+    name: $("#userName")?.value.trim() || "",
+    email: $("#userEmail")?.value.trim() || "",
+    role: $("#userRole")?.value || "doctor",
+    status: $("#userStatus")?.value || "active",
+  };
+  const password = $("#userPassword")?.value || "";
+  if (password) payload.password = password;
+  const saveButton = $("#saveUser");
+  if (saveButton) saveButton.disabled = true;
+  try {
+    await api(`/users/${id}`, { method: "PUT", json: payload });
+    closeUserEditor();
+    await loadUsers();
+  } catch (error) {
+    alert(error.message || "Не вдалося зберегти користувача.");
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
+async function toggleBanUser(userId) {
+  const user = siteUsers.find((item) => item.id === userId);
+  if (!user) return;
+  const nextStatus = user.status === "disabled" ? "active" : "disabled";
+  const confirmText = nextStatus === "disabled"
+    ? `Заблокувати ${user.email}? Користувач втратить доступ одразу.`
+    : `Розблокувати ${user.email}?`;
+  if (!window.confirm(confirmText)) return;
+  try {
+    await api(`/users/${userId}`, { method: "PUT", json: { status: nextStatus } });
+    await loadUsers();
+  } catch (error) {
+    alert(error.message || "Не вдалося змінити статус.");
+  }
+}
+
+async function deleteSiteUser(userId) {
+  const user = siteUsers.find((item) => item.id === userId);
+  if (!user) return;
+  if (currentUser?.id && currentUser.id === userId) {
+    alert("Не можна видалити власний акаунт.");
+    return;
+  }
+  if (!window.confirm(`Видалити користувача ${user.email}? Цю дію не можна скасувати.`)) return;
+  try {
+    await api(`/users/${userId}`, { method: "DELETE" });
+    await loadUsers();
+  } catch (error) {
+    alert(error.message || "Не вдалося видалити користувача.");
+  }
+}
+
 function setTheme(theme, { animate = true } = {}) {
   const apply = () => {
     document.documentElement.classList.toggle("theme-dark", theme === "dark");
@@ -1774,7 +1921,28 @@ on("#weekTab", "click", () => showView("week"));
 on("#planTab", "click", () => showView("plan"));
 on("#archiveTab", "click", () => showView("archive"));
 on("#staffTab", "click", () => showView("staff"));
+on("#usersTab", "click", () => showView("users"));
 on("#logsTab", "click", () => showView("logs"));
+on("#refreshUsers", "click", () => loadUsers());
+on("#closeUserDialog", "click", () => closeUserEditor());
+on("#cancelUserEdit", "click", () => closeUserEditor());
+on("#userForm", "submit", saveUserEdit);
+on("#usersBody", "click", (event) => {
+  const button = event.target.closest("button[data-user-action]");
+  if (!button) return;
+  const userId = button.dataset.userId;
+  const action = button.dataset.userAction;
+  if (action === "edit") {
+    const user = siteUsers.find((item) => item.id === userId);
+    if (user) openUserEditor(user);
+    return;
+  }
+  if (action === "toggle-ban") {
+    toggleBanUser(userId);
+    return;
+  }
+  if (action === "delete") deleteSiteUser(userId);
+});
 on("#teamStaffForm", "submit", (event) => submitStaff("team", event));
 on("#anesthesiologistStaffForm", "submit", (event) => submitStaff("anesthesiologists", event));
 on("#teamCancelEdit", "click", () => resetStaffForm("team"));
