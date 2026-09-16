@@ -250,6 +250,25 @@ function statusBadgeHtml(item) {
 
 const OPERATION_SIDE_VALUES = ["справа", "зліва"];
 const OPERATION_SIDE_SUFFIX_RE = /\s*[—\-–]?\s*(справа|зліва)\s*$/iu;
+const PROCEDURE_OPTIONS = [
+  "VATS біопсія плеври",
+  "VATS санація плевральної порожнини",
+  "VATS біопсія легені",
+  "VATS біопсія легені і в/г лімфовузлів",
+  "VATS біопсія в/г лімфовузлів",
+  "VATS біопсія новоутворення",
+  "VATS резекція бул з плевродезом",
+  "VATS резекція бул з парієтальною плевректомією",
+  "VATS плевректомія з декортикацією",
+  "VATS сублобарна резекція",
+  "VATS клиновидна резекція",
+  "VATS сегментектомія",
+  "VATS полісегментарна резекція",
+  "VATS лобектомія",
+  "VATS білобектомія",
+  "VATS пневмонектомія",
+  "VATS видалення новоутворення середостіння",
+];
 
 function normalizeOperationSide(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -276,8 +295,66 @@ function syncProcedureSideFromSelect() {
   const procedureInput = $("#procedure");
   const sideSelect = $("#operationSide");
   if (!procedureInput || !sideSelect) return;
+  const side = normalizeOperationSide(sideSelect.value);
   const base = stripOperationSideSuffix(procedureInput.value);
-  procedureInput.value = formatProcedureWithSide(base, sideSelect.value);
+  // Only append side when one is selected; otherwise keep/edit the free-text base.
+  procedureInput.value = side ? formatProcedureWithSide(base, side) : base;
+  paintProcedureSuggestions();
+}
+
+function setProcedureFromSuggestion(label) {
+  const procedureInput = $("#procedure");
+  if (!procedureInput) return;
+  const side = normalizeOperationSide($("#operationSide")?.value);
+  procedureInput.value = formatProcedureWithSide(label, side);
+  procedureInput.focus();
+  // Place cursor before the side suffix so the base text is easy to edit.
+  const base = stripOperationSideSuffix(procedureInput.value);
+  const cursor = base.length;
+  procedureInput.setSelectionRange(cursor, cursor);
+  hideProcedureSuggestions();
+}
+
+function procedureSuggestionQuery() {
+  return stripOperationSideSuffix($("#procedure")?.value || "").toLowerCase();
+}
+
+function filteredProcedureOptions() {
+  const query = procedureSuggestionQuery();
+  if (!query) return PROCEDURE_OPTIONS;
+  return PROCEDURE_OPTIONS.filter((item) => item.toLowerCase().includes(query));
+}
+
+function paintProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  if (!list || list.hidden) return;
+  const options = filteredProcedureOptions();
+  list.innerHTML = options.length
+    ? options.map((item) => `<button type="button" class="procedure-suggest-item" role="option" data-procedure="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")
+    : `<p class="procedure-suggest-empty">Немає збігів — можна ввести назву вручну.</p>`;
+}
+
+function showProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  const toggle = $("#procedureSuggestToggle");
+  if (!list) return;
+  list.hidden = false;
+  if (toggle) toggle.setAttribute("aria-expanded", "true");
+  paintProcedureSuggestions();
+}
+
+function hideProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  const toggle = $("#procedureSuggestToggle");
+  if (list) list.hidden = true;
+  if (toggle) toggle.setAttribute("aria-expanded", "false");
+}
+
+function toggleProcedureSuggestions() {
+  const list = $("#procedureSuggestList");
+  if (!list) return;
+  if (list.hidden) showProcedureSuggestions();
+  else hideProcedureSuggestions();
 }
 
 function patientFlagsHtml(item) {
@@ -539,9 +616,9 @@ function operationRowHtml(item) {
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
       <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
       <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
-      <td class="col-notes" data-label="Примітки">${notesText ? escapeHtml(notesText) : "—"}</td>
       <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
       <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
+      <td class="col-notes" data-label="Примітки">${notesText ? escapeHtml(notesText) : "—"}</td>
       <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
       <td class="col-actions" data-label="Дії">
         <div class="row-actions">
@@ -578,11 +655,11 @@ function mobileCardHtml(item) {
       <div class="week-clinical">
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
         <p class="week-diagnosis"><span class="week-field-label">Діагноз</span><span class="week-field-value">${escapeHtml(diagnosisText)}</span></p>
-        ${notesText ? `<p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${escapeHtml(notesText)}</span></p>` : ""}
       </div>
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
       <p class="week-status">${statusBadgeHtml(item)}</p>
+      <p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${notesText ? escapeHtml(notesText) : "—"}</span></p>
       <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
       <div class="row-actions">
         <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">
@@ -908,6 +985,7 @@ function resetForm() {
   if ($("#department")) $("#department").value = defaultDepartment;
   if ($("#operationStatus")) $("#operationStatus").value = "";
   if ($("#operationSide")) $("#operationSide").value = "";
+  hideProcedureSuggestions();
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
@@ -1747,6 +1825,25 @@ on("#attachmentsPanelList", "click", (event) => {
 });
 on("#operationForm", "submit", saveOperation);
 on("#operationSide", "change", syncProcedureSideFromSelect);
+on("#procedureSuggestToggle", "click", (event) => {
+  event.preventDefault();
+  toggleProcedureSuggestions();
+});
+on("#procedure", "focus", () => showProcedureSuggestions());
+on("#procedure", "input", () => {
+  showProcedureSuggestions();
+  paintProcedureSuggestions();
+});
+on("#procedureSuggestList", "mousedown", (event) => {
+  const button = event.target.closest("[data-procedure]");
+  if (!button) return;
+  event.preventDefault();
+  setProcedureFromSuggestion(button.getAttribute("data-procedure") || "");
+});
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".procedure-field")) return;
+  hideProcedureSuggestions();
+});
 on("#patientName", "blur", (event) => {
   event.target.value = formatShortName(event.target.value);
 });

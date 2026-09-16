@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260916d" />
+    <link rel="stylesheet" href="styles.css?v=20260916g" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -125,7 +125,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Примітки</th><th class="col-blood">Кров</th><th>Статус</th><th>Файли</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th class="col-blood">Кров</th><th>Статус</th><th>Примітки</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept1Body"></tbody>
             </table>
@@ -143,7 +143,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th>Примітки</th><th class="col-blood">Кров</th><th>Статус</th><th>Файли</th><th></th>
+                <th>Дата</th><th>Пацієнт</th><th class="col-age">Вік</th><th>Небезпека</th><th>Діагноз</th><th>Втручання</th><th>Операційна бригада</th><th>Анестезіологи</th><th class="col-blood">Кров</th><th>Статус</th><th>Примітки</th><th>Файли</th><th></th>
               </tr></thead>
               <tbody id="dept2Body"></tbody>
             </table>
@@ -260,7 +260,14 @@
             <small class="picker-help">Оберіть до 3 хірургів. Список прокручується.</small>
           </fieldset>
           <label class="wide">Діагноз<input id="diagnosis" placeholder="Основний діагноз" /></label>
-          <label class="wide">Вид хірургічного втручання<input id="procedure" required placeholder="Планове втручання" /></label>
+          <label class="wide procedure-field">Вид хірургічного втручання
+            <div class="procedure-combo">
+              <input id="procedure" required autocomplete="off" spellcheck="false" placeholder="Оберіть зі списку або введіть вручну" />
+              <button type="button" id="procedureSuggestToggle" class="procedure-suggest-toggle" aria-label="Показати список втручань" aria-expanded="false">▾</button>
+            </div>
+            <div id="procedureSuggestList" class="procedure-suggest" hidden role="listbox" aria-label="Список втручань"></div>
+            <small class="picker-help">Можна обрати зі списку, потім поставити курсор і змінити текст (наприклад «VATS верхня лобектомія»). Сторона додається лише якщо обрана вище.</small>
+          </label>
           <fieldset class="wide picker-field">
             <legend>Анестезіолог</legend>
             <input class="picker-search" id="anesthesiologistPickerSearch" type="search" placeholder="Пошук анестезіолога…" />
@@ -353,6 +360,6 @@
     </dialog>
 
     <script src="api.js?v=20260910a"></script>
-    <script src="app.js?v=20260916d"></script>
+    <script src="app.js?v=20260916g"></script>
   </body>
 </html>

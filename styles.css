@@ -55,6 +55,63 @@
 .picker-option input{width:18px;min-height:18px!important}
 .picker-option:has(input:checked){background:#d9eaf7;border-color:#47759b;color:#17365d}
 .picker-empty{padding:14px;color:#718096;font-size:13px;font-weight:600}
+.procedure-field{position:relative}
+.procedure-combo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
+.procedure-combo #procedure{width:100%;min-width:0}
+.procedure-suggest-toggle{
+  border:1px solid #cbd5e1;
+  background:#fff;
+  color:#17365d;
+  border-radius:8px;
+  min-width:44px;
+  min-height:44px;
+  font:inherit;
+  font-size:18px;
+  font-weight:800;
+  cursor:pointer;
+  line-height:1;
+}
+.procedure-suggest-toggle:hover{background:#e8f2fa}
+.procedure-suggest{
+  margin-top:8px;
+  max-height:220px;
+  overflow:auto;
+  display:grid;
+  gap:6px;
+  padding:8px;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  background:#f8fbfe;
+}
+.procedure-suggest[hidden]{display:none!important}
+.procedure-suggest-item{
+  display:block;
+  width:100%;
+  text-align:left;
+  border:1px solid #dbe5ee;
+  border-radius:8px;
+  background:#fff;
+  color:#17365d;
+  padding:10px 12px;
+  font:inherit;
+  font-size:14px;
+  font-weight:650;
+  cursor:pointer;
+}
+.procedure-suggest-item:hover,
+.procedure-suggest-item:focus{
+  background:#d9eaf7;
+  border-color:#47759b;
+  outline:0;
+}
+.procedure-suggest-empty{margin:0;padding:12px;color:#718096;font-size:13px;font-weight:600}
+.theme-dark .procedure-suggest-toggle{background:#1f2937;border-color:#4b5563;color:#dbeafe}
+.theme-dark .procedure-suggest-toggle:hover{background:#243b53}
+.theme-dark .procedure-suggest{background:#182b3b;border-color:#4b5563}
+.theme-dark .procedure-suggest-item{background:#1f2937;border-color:#4b5563;color:#e5e7eb}
+.theme-dark .procedure-suggest-item:hover,
+.theme-dark .procedure-suggest-item:focus{background:#315b7a;border-color:#47759b;color:#fff}
+.theme-dark .procedure-suggest-empty{color:#9ac3e5}
 .danger{background:#b42318;color:#fff;border:0;border-radius:10px;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer;min-height:44px}
 .danger:hover{background:#912018}
 .icon-action.danger-action{border-color:#f3b0a8;background:#fee4e2;color:#b42318}
@@ -140,6 +197,7 @@
       "procedure procedure"
       "team team"
       "anes anes"
+      "notes notes"
       "files files"
       "actions actions";
     gap:10px;
@@ -185,11 +243,15 @@
   .col-when{grid-area:when;padding-top:8px!important;border-top:1px solid #e8eef3!important}
   .col-diagnosis{grid-area:diagnosis}
   .col-procedure{grid-area:procedure}
+  .col-notes{grid-area:notes}
   .col-team{grid-area:team}
   .col-anes{grid-area:anes}
   .col-files{grid-area:files;padding-top:8px!important;border-top:1px solid #e8eef3!important}
   .col-actions{grid-area:actions}
   .col-actions::before{display:none}
+  .col-age,
+  .col-blood,
+  .col-infection{display:none!important}
   .col-patient .patient{font-size:17px;line-height:1.25;color:#17365d}
   .col-when .date{font-size:15px}
   .people-chips{
@@ -214,7 +276,7 @@
     height:48px;
     border-radius:12px;
   }
-  .col-diagnosis,.col-procedure{
+  .col-diagnosis,.col-procedure,.col-notes{
     padding:10px 12px!important;
     border-radius:12px;
     background:#eef5fb;
@@ -222,12 +284,14 @@
   }
   .col-diagnosis{font-size:15px;font-weight:700;color:#1f2937}
   .col-procedure{font-size:16px;font-weight:800;color:#17365d}
-  .theme-dark .col-diagnosis,.theme-dark .col-procedure{
+  .col-notes{font-size:14px;font-weight:650;color:#334155;white-space:pre-wrap;word-break:break-word}
+  .theme-dark .col-diagnosis,.theme-dark .col-procedure,.theme-dark .col-notes{
     background:#182b3b;
     border-color:#4b5563;
     color:#e5e7eb;
   }
   .theme-dark .col-procedure{color:#dbeafe}
+  .theme-dark .col-notes{color:#cbd5e1}
   .theme-dark tr.op-row,.theme-dark tr{
     background:#1f2937;
     border-color:#374151;
@@ -271,11 +335,12 @@
       "toggle status"
       "patient patient"
       "when when"
-      "files files"
       "diagnosis diagnosis"
       "procedure procedure"
       "team team"
       "anes anes"
+      "notes notes"
+      "files files"
       "actions actions" !important;
   }
   .col-toggle{grid-area:toggle}
@@ -315,11 +380,12 @@
     grid-template-areas:
       "patient patient"
       "when status"
-      "files files"
       "diagnosis diagnosis"
       "procedure procedure"
       "team team"
       "anes anes"
+      "notes notes"
+      "files files"
       "actions actions" !important;
   }
   .col-patient{grid-area:patient}
@@ -872,7 +938,15 @@ dialog.media-fs-overlay::backdrop{
 .week-procedure .week-field-value{font-size:17px}
 .week-diagnosis{margin:0;color:#1f2937;font-weight:700}
 .week-diagnosis .week-field-value{font-size:15px}
-.week-notes{margin:0;color:#334155;font-weight:650}
+.week-notes{
+  margin:0 0 10px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#eef5fb;
+  border:1px solid #d5e4f0;
+  color:#334155;
+  font-weight:650;
+}
 .week-notes .week-field-value{font-size:14px;white-space:pre-wrap;word-break:break-word}
 .week-people{margin:0 0 6px;font-size:16px;line-height:1.35;color:#334155}
 .week-people span{color:#718096;font-weight:700;font-size:14px}
@@ -881,7 +955,7 @@ dialog.media-fs-overlay::backdrop{
 .theme-dark .week-clinical{background:#182b3b;border-color:#4b5563}
 .theme-dark .week-card-date,.theme-dark .week-procedure,.theme-dark .col-diagnosis,.theme-dark .col-procedure{color:#dbeafe}
 .theme-dark .week-diagnosis{color:#e5e7eb}
-.theme-dark .week-notes{color:#cbd5e1}
+.theme-dark .week-notes{background:#182b3b;border-color:#4b5563;color:#cbd5e1}
 .theme-dark .week-field-label{color:#9ac3e5}
 .queue-badge,.col-queue{display:none!important}
 .patient{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:750}
@@ -1100,9 +1174,9 @@ button:active:not(:disabled),
   display:inline-flex;align-items:center;margin-left:6px;padding:4px 10px;
   border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.04em;line-height:1.35
 }
-.flag-zsu{background:#3f6212;color:#ecfccb}
+.flag-zsu{background:#1d4ed8;color:#fde047}
 .flag-vip{background:#a16207;color:#fef9c3}
-.theme-dark .flag-zsu{background:#365314;color:#d9f99d}
+.theme-dark .flag-zsu{background:#1e40af;color:#fde047}
 .theme-dark .flag-vip{background:#854d0e;color:#fde68a}
 .patient .flag-chip,
 .week-card-top .flag-chip,
@@ -1211,6 +1285,7 @@ html:not(.theme-dark) .icon-action.danger-action{
 html:not(.theme-dark) .media-dialog-head,
 html:not(.theme-dark) .media-dialog .media-card,
 html:not(.theme-dark) .week-clinical,
+html:not(.theme-dark) .week-notes,
 html:not(.theme-dark) .media-zoom-tools,
 html:not(.theme-dark) .media-image-tools,
 html:not(.theme-dark) .notice,
