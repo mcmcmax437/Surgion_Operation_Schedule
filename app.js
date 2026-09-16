@@ -539,9 +539,9 @@ function operationRowHtml(item) {
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
       <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
       <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
-      <td class="col-notes" data-label="Примітки">${notesText ? escapeHtml(notesText) : "—"}</td>
       <td class="col-blood" data-label="Кров">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
       <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
+      <td class="col-notes" data-label="Примітки">${notesText ? escapeHtml(notesText) : "—"}</td>
       <td class="col-files" data-label="Файли"><span class="attachments-count">${item.attachments?.length || 0}</span></td>
       <td class="col-actions" data-label="Дії">
         <div class="row-actions">
@@ -579,10 +579,10 @@ function mobileCardHtml(item) {
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
         <p class="week-diagnosis"><span class="week-field-label">Діагноз</span><span class="week-field-value">${escapeHtml(diagnosisText)}</span></p>
       </div>
-      <p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${notesText ? escapeHtml(notesText) : "—"}</span></p>
       <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
       <p class="week-status">${statusBadgeHtml(item)}</p>
+      <p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${notesText ? escapeHtml(notesText) : "—"}</span></p>
       <p class="${dangerClass} week-infection">${escapeHtml(danger)}</p>
       <div class="row-actions">
         <button class="icon-action" data-action="view" data-id="${item.id}" type="button" title="Медіа" aria-label="Медіа">

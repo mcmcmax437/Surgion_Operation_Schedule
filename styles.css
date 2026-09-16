@@ -138,9 +138,9 @@
       "when when"
       "diagnosis diagnosis"
       "procedure procedure"
-      "notes notes"
       "team team"
       "anes anes"
+      "notes notes"
       "files files"
       "actions actions";
     gap:10px;
@@ -283,6 +283,7 @@
       "procedure procedure"
       "team team"
       "anes anes"
+      "notes notes"
       "actions actions" !important;
   }
   .col-toggle{grid-area:toggle}
@@ -327,6 +328,7 @@
       "procedure procedure"
       "team team"
       "anes anes"
+      "notes notes"
       "actions actions" !important;
   }
   .col-patient{grid-area:patient}
@@ -1115,9 +1117,9 @@ button:active:not(:disabled),
   display:inline-flex;align-items:center;margin-left:6px;padding:4px 10px;
   border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.04em;line-height:1.35
 }
-.flag-zsu{background:#3f6212;color:#ecfccb}
+.flag-zsu{background:#1d4ed8;color:#fde047}
 .flag-vip{background:#a16207;color:#fef9c3}
-.theme-dark .flag-zsu{background:#365314;color:#d9f99d}
+.theme-dark .flag-zsu{background:#1e40af;color:#fde047}
 .theme-dark .flag-vip{background:#854d0e;color:#fde68a}
 .patient .flag-chip,
 .week-card-top .flag-chip,
