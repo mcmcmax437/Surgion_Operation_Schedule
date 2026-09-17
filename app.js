@@ -867,32 +867,133 @@ function renderAttachmentsPanel(existing = []) {
 
 let currentFormAttachments = [];
 let pendingFormFiles = [];
+let editingUpdatedAt = null;
 const MAX_PENDING_FILES = 12;
+const IMAGE_MAX_EDGE = 2048;
+const IMAGE_JPEG_QUALITY = 0.82;
+const IMAGE_SKIP_IF_UNDER_BYTES = 450 * 1024;
 
 function fileKey(file) {
   return `${file.name}::${file.size}::${file.lastModified}`;
 }
 
-function addPendingFiles(fileList) {
+function isImageFile(file) {
+  const type = String(file.type || "").toLowerCase();
+  const name = String(file.name || "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+  return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
+}
+
+function shouldOptimizeImage(file) {
+  const type = String(file.type || "").toLowerCase();
+  const name = String(file.name || "").toLowerCase();
+  // Keep animated GIF / HEIC as-is (HEIC may not decode in all browsers).
+  if (type === "image/gif" || /\.gif$/i.test(name)) return false;
+  if (type.includes("heic") || type.includes("heif") || /\.(heic|heif)$/i.test(name)) return false;
+  return isImageFile(file);
+}
+
+function loadImageElement(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("image load failed"));
+    };
+    img.src = url;
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
+
+async function optimizeImageFile(file) {
+  if (!shouldOptimizeImage(file)) return file;
+  try {
+    const img = await loadImageElement(file);
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+    if (!srcW || !srcH) return file;
+
+    const longest = Math.max(srcW, srcH);
+    const needsResize = longest > IMAGE_MAX_EDGE;
+    const needsRecompress = file.size > IMAGE_SKIP_IF_UNDER_BYTES;
+    if (!needsResize && !needsRecompress) return file;
+
+    const scale = needsResize ? IMAGE_MAX_EDGE / longest : 1;
+    const width = Math.max(1, Math.round(srcW * scale));
+    const height = Math.max(1, Math.round(srcH * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return file;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const preferWebp = typeof canvas.toBlob === "function";
+    let blob = preferWebp
+      ? await canvasToBlob(canvas, "image/webp", IMAGE_JPEG_QUALITY)
+      : null;
+    let outType = "image/webp";
+    if (!blob || blob.size === 0) {
+      blob = await canvasToBlob(canvas, "image/jpeg", IMAGE_JPEG_QUALITY);
+      outType = "image/jpeg";
+    }
+    if (!blob || blob.size === 0) return file;
+    // Keep original if compression somehow made it larger.
+    if (blob.size >= file.size && !needsResize) return file;
+
+    const base = String(file.name || "image").replace(/\.[^.]+$/, "") || "image";
+    const ext = outType === "image/webp" ? ".webp" : ".jpg";
+    return new File([blob], `${base}${ext}`, {
+      type: outType,
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  }
+}
+
+async function addPendingFiles(fileList) {
   const incoming = [...(fileList || [])];
-  for (const file of incoming) {
-    const type = String(file.type || "").toLowerCase();
-    const name = String(file.name || "").toLowerCase();
+  const input = $("#attachments");
+  if (input) input.value = "";
+  if (!incoming.length) return;
+
+  const hint = $("#attachmentsPanelHint");
+  if (hint) hint.textContent = "Оптимізація зображень…";
+
+  for (const raw of incoming) {
+    const type = String(raw.type || "").toLowerCase();
+    const name = String(raw.name || "").toLowerCase();
     const allowed = type.startsWith("image/") || type.startsWith("video/")
       || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
     if (!allowed) {
-      alert(`Файл «${file.name}» пропущено. Дозволені лише зображення та відео.`);
+      alert(`Файл «${raw.name}» пропущено. Дозволені лише зображення та відео.`);
       continue;
     }
-    if (pendingFormFiles.some((item) => fileKey(item) === fileKey(file))) continue;
     if (pendingFormFiles.length >= MAX_PENDING_FILES) {
       alert(`Можна додати максимум ${MAX_PENDING_FILES} нових файлів за раз.`);
       break;
     }
+
+    const file = await optimizeImageFile(raw);
+    if (pendingFormFiles.some((item) => fileKey(item) === fileKey(file) || fileKey(item) === fileKey(raw))) {
+      continue;
+    }
     pendingFormFiles.push(file);
   }
-  const input = $("#attachments");
-  if (input) input.value = "";
+
   renderAttachmentsPanel(currentFormAttachments);
 }
 
@@ -926,6 +1027,7 @@ async function removeSavedAttachment(attachmentId) {
 
 function resetForm() {
   editingId = null;
+  editingUpdatedAt = null;
   currentFormAttachments = [];
   pendingFormFiles = [];
   $("#operationForm").reset();
@@ -954,6 +1056,7 @@ function openForm(id = null) {
     const item = findOperation(id);
     if (!item) return;
     editingId = id;
+    editingUpdatedAt = item.updatedAt || null;
     $("#dialogTitle").textContent = "Редагування операції";
     if ($("#deleteOperation")) $("#deleteOperation").hidden = false;
 
@@ -1005,6 +1108,9 @@ async function saveOperation(event) {
     status: normalizeOperationStatus($("#operationStatus")?.value),
     notes: $("#notes").value.trim(),
   };
+  if (editingId && editingUpdatedAt) {
+    data.expectedUpdatedAt = editingUpdatedAt;
+  }
 
   if (!data.patient || !data.procedure) {
     alert("Заповніть ПІБ пацієнта та вид втручання.");
@@ -1072,7 +1178,14 @@ async function saveOperation(event) {
     $("#operationDialog").close();
     await refresh();
   } catch (error) {
-    alert(error.message || "Не вдалося зберегти операцію.");
+    const message = String(error?.message || "");
+    if (/конфлікт|змінив інший|оновить|409/i.test(message)) {
+      alert(message);
+      await refresh();
+      if (editingId) openForm(editingId);
+    } else {
+      alert(message || "Не вдалося зберегти операцію.");
+    }
   } finally {
     if (saveButton) saveButton.disabled = false;
     if (progress) progress.hidden = true;

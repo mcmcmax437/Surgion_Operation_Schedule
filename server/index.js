@@ -742,6 +742,13 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
     return res.status(400).json({ error: "patient and procedure are required" });
   }
 
+  const expectedRaw = req.body?.expectedUpdatedAt;
+  const expectedUpdatedAt = expectedRaw
+    ? new Date(expectedRaw)
+    : null;
+  const hasExpected = expectedRaw
+    && !Number.isNaN(expectedUpdatedAt?.getTime?.() ?? Number.NaN);
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -749,6 +756,19 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
     if (!before) {
       await connection.rollback();
       return res.status(404).json({ error: "Not found" });
+    }
+
+    if (hasExpected) {
+      const currentUpdated = before.updatedAt ? new Date(before.updatedAt).getTime() : null;
+      const expectedMs = expectedUpdatedAt.getTime();
+      if (currentUpdated != null && Math.abs(currentUpdated - expectedMs) > 1000) {
+        await connection.rollback();
+        return res.status(409).json({
+          error: "Операцію вже змінив інший користувач. Оновіть сторінку й збережіть ще раз.",
+          conflict: true,
+          updatedAt: before.updatedAt,
+        });
+      }
     }
 
     const now = new Date();
