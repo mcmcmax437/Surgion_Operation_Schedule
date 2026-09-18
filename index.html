@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260918e" />
+    <link rel="stylesheet" href="styles.css?v=20260918f" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -75,13 +75,27 @@
         position:sticky;
         bottom:0;
         margin:0;
-        padding:12px 18px calc(12px + env(safe-area-inset-bottom,0));
+        padding:10px 16px calc(10px + env(safe-area-inset-bottom,0));
         border-top:1px solid #e2e8f0;
         background:#fff;
-        gap:8px;
+        gap:10px;
         z-index:2;
+        display:flex;
+        flex-direction:row;
+        justify-content:flex-end;
+        align-items:center;
+        flex-wrap:nowrap;
       }
       .theme-dark .operation-dialog .dialog-actions{background:#1f2937;border-color:#374151}
+      .dialog-actions-icons{display:flex!important;flex-direction:row!important;grid-template-columns:none!important}
+      .dialog-icon-btn{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px #17365d22}
+      .dialog-icon-btn.primary{background:#17365d;color:#fff}
+      .dialog-icon-btn.secondary{background:#e8eef5;color:#334e68;border:1px solid #cbd5e1}
+      .dialog-icon-btn.danger{background:#fdecec;color:#b42318;margin-right:auto;border:1px solid #f3c1c1}
+      .dialog-icon-btn[hidden]{display:none!important}
+      .theme-dark .dialog-icon-btn.primary{background:#47759b}
+      .theme-dark .dialog-icon-btn.secondary{background:#243b53;color:#e5e7eb;border-color:#4b5563}
+      .theme-dark .dialog-icon-btn.danger{background:#7f1d1d;color:#fecaca;border-color:#991b1b}
       html.dialog-open,html.dialog-open body{overflow:hidden!important;overscroll-behavior:none}
       html.dialog-open body{position:fixed;left:0;right:0;width:100%}
 
@@ -107,7 +121,34 @@
       .theme-dark .stats-metric{background:#1f2937;border-color:#4b5563}
       .theme-dark .stats-metric-label{color:#94a3b8}
       .theme-dark .stats-metric strong{color:#dbeafe}
-      @media(max-width:760px){.stats-summary{grid-template-columns:1fr}.stats-filters{flex-direction:column;align-items:stretch}}
+      .stats-heatmap-card{margin:0 0 20px;padding:16px;border:1px solid #1f2937;border-radius:16px;background:#0b1220;color:#e5e7eb}
+      .stats-heatmap-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:0 0 14px;flex-wrap:wrap}
+      .stats-heatmap-head h3{margin:0;color:#fff;font-size:18px}
+      .stats-heatmap-head p{margin:4px 0 0;color:#94a3b8;font-size:13px}
+      .stats-year-label{display:grid;gap:4px;color:#94a3b8;font-size:12px;font-weight:700}
+      .stats-year-label select{min-height:36px;border-radius:8px;border:1px solid #334155;background:#111827;color:#e5e7eb;padding:6px 10px;font:inherit}
+      .stats-heatmap-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+      .stats-heatmap{min-width:680px}
+      .stats-heatmap-months{display:grid;grid-auto-flow:column;grid-auto-columns:16px;gap:3px;margin:0 0 6px 26px;color:#94a3b8;font-size:11px;font-weight:700;height:14px}
+      .stats-heatmap-months span{white-space:nowrap;overflow:visible}
+      .stats-heatmap-body{display:grid;grid-template-columns:22px 1fr;gap:6px}
+      .stats-heatmap-dows{display:grid;grid-template-rows:repeat(7,13px);gap:3px;color:#94a3b8;font-size:10px;font-weight:700;align-items:center}
+      .stats-heatmap-grid{display:grid;grid-auto-flow:column;grid-auto-columns:13px;grid-template-rows:repeat(7,13px);gap:3px}
+      .heat-day{width:13px;height:13px;border-radius:3px;background:#1f2937}
+      .heat-day.heat-1{background:#0e4429}.heat-day.heat-2{background:#006d32}.heat-day.heat-3{background:#26a641}.heat-day.heat-4{background:#39d353}
+      .heat-day.is-out{opacity:.22}
+      .stats-heatmap-legend{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:12px;color:#94a3b8;font-size:12px}
+      .heat-swatch{width:12px;height:12px;border-radius:2px;display:inline-block;background:#1f2937}
+      .heat-swatch.heat-1{background:#0e4429}.heat-swatch.heat-2{background:#006d32}.heat-swatch.heat-3{background:#26a641}.heat-swatch.heat-4{background:#39d353}
+      .stats-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+      .stats-panel .logs-title{margin:10px 14px 6px}
+      @media(max-width:760px){
+        .stats-summary{grid-template-columns:1fr 1fr}
+        .stats-panels{grid-template-columns:1fr}
+        .stats-filters{flex-direction:column;align-items:stretch}
+        .dialog-actions.dialog-actions-icons{display:flex!important;grid-template-columns:none!important}
+        .dialog-actions.dialog-actions-icons button{width:44px!important}
+      }
       .staff-view{padding:4px 0 24px}.section-heading{margin:0 0 18px}.section-heading h2{margin:3px 0 6px;color:#17365d}.section-heading p:not(.eyebrow){margin:0;color:#64748b}
       .staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.staff-card{padding:20px;border:1px solid #dbe5ee;border-radius:16px;background:#fff;box-shadow:0 8px 24px #17365d0d}.staff-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.staff-card-head h3{margin:0;color:#17365d}.staff-card-head p{margin:5px 0 0;color:#718096;font-size:13px}.staff-count{display:grid;place-items:center;min-width:32px;height:32px;border-radius:50%;background:#e8f2fa;color:#315b7a;font-weight:800}.staff-list{display:grid;gap:8px;margin:18px 0}.staff-person{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px}.staff-person-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#d9eaf7;color:#17365d;font-size:11px;font-weight:800}.staff-person-name{font-weight:700;color:#334155}.staff-actions{display:flex;gap:5px}.staff-actions button{border:0;background:transparent;color:#47759b;font-size:12px;font-weight:700;cursor:pointer}.staff-actions button:last-child{color:#b42318}.staff-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid #e2e8f0}.staff-form>div{display:flex;gap:8px;justify-content:flex-end}.theme-dark .staff-card{background:#1f2937;border-color:#4b5563}.theme-dark .staff-card-head h3,.theme-dark .section-heading h2{color:#dbeafe}.theme-dark .staff-card-head p,.theme-dark .section-heading p:not(.eyebrow){color:#cbd5e1}.theme-dark .staff-person{border-color:#4b5563;background:#182b3b}.theme-dark .staff-person-name{color:#e5e7eb}.theme-dark .staff-form{border-color:#4b5563}
       .user-status{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:800}
@@ -385,7 +426,7 @@
           <div>
             <p class="eyebrow">Адмін</p>
             <h2>Статистика операцій</h2>
-            <p>Кількість операцій зараховується лише основному хірургу (позиція <strong>1</strong>). Асистенти (позиції <strong>2</strong> і <strong>3</strong>) у цю статистику не входять.</p>
+            <p>Операції зараховуються основному хірургу (позиція <strong>1</strong>). Асистенти (2–3) показані окремо. Календар — кількість операцій за день.</p>
           </div>
           <button class="secondary" id="refreshStats" type="button">Оновити</button>
         </div>
@@ -397,26 +438,115 @@
             <button class="secondary" id="statsReset" type="button">Скинути</button>
           </div>
         </form>
+
         <div class="stats-summary" aria-label="Підсумок">
           <div class="stats-metric"><span class="stats-metric-label">Усього операцій</span><strong id="statsTotal">0</strong></div>
+          <div class="stats-metric"><span class="stats-metric-label">Унікальні пацієнти</span><strong id="statsUniquePatients">0</strong></div>
+          <div class="stats-metric"><span class="stats-metric-label">Середній вік</span><strong id="statsAvgAge">—</strong></div>
           <div class="stats-metric"><span class="stats-metric-label">З основним хірургом</span><strong id="statsWithPrimary">0</strong></div>
           <div class="stats-metric"><span class="stats-metric-label">Без бригади</span><strong id="statsWithoutPrimary">0</strong></div>
+          <div class="stats-metric"><span class="stats-metric-label">ЗСУ / VIP</span><strong id="statsFlags">0 / 0</strong></div>
         </div>
-        <section class="table-card">
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Хірург (основний)</th>
-                  <th>Операцій</th>
-                </tr>
-              </thead>
-              <tbody id="statsBody"></tbody>
-            </table>
+
+        <section class="stats-heatmap-card" aria-label="Календар операцій">
+          <div class="stats-heatmap-head">
+            <div>
+              <h3>Активність за рік</h3>
+              <p id="statsHeatmapMeta">Операцій на день</p>
+            </div>
+            <label class="stats-year-label">Рік
+              <select id="statsYear"></select>
+            </label>
           </div>
-          <div class="empty" id="statsEmpty" hidden>Немає даних для статистики.</div>
+          <div class="stats-heatmap-scroll">
+            <div id="statsHeatmap" class="stats-heatmap"></div>
+          </div>
+          <div class="stats-heatmap-legend" aria-hidden="true">
+            <span>Менше</span>
+            <span class="heat-swatch heat-0"></span>
+            <span class="heat-swatch heat-1"></span>
+            <span class="heat-swatch heat-2"></span>
+            <span class="heat-swatch heat-3"></span>
+            <span class="heat-swatch heat-4"></span>
+            <span>Більше</span>
+          </div>
         </section>
+
+        <div class="stats-panels">
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Хірурги (основні)</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>#</th><th>Хірург</th><th>Операцій</th></tr></thead>
+                <tbody id="statsBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Асистенти (2–3)</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>#</th><th>Хірург</th><th>Участей</th></tr></thead>
+                <tbody id="statsAssistBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Відділення</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Відділення</th><th>Операцій</th></tr></thead>
+                <tbody id="statsDeptBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Статуси</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Статус</th><th>Кількість</th></tr></thead>
+                <tbody id="statsStatusBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Група крові</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Група</th><th>Пацієнтів</th></tr></thead>
+                <tbody id="statsBloodBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Вік пацієнтів</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Діапазон</th><th>Кількість</th></tr></thead>
+                <tbody id="statsAgeBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Топ втручань</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>#</th><th>Втручання</th><th>Кількість</th></tr></thead>
+                <tbody id="statsProcedureBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="table-card stats-panel">
+            <h3 class="logs-title">Інфекційні маркери</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Маркер</th><th>Кількість</th></tr></thead>
+                <tbody id="statsInfectionBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <div class="empty" id="statsEmpty" hidden>Немає даних для статистики.</div>
       </section>
     </main>
 
@@ -549,10 +679,16 @@
           </div>
         </div>
         </div>
-        <div class="dialog-actions">
-          <button class="danger" id="deleteOperation" type="button" hidden>Видалити</button>
-          <button class="secondary" id="cancelOperation" type="button">Скасувати</button>
-          <button class="primary" id="saveOperation" type="submit">Зберегти операцію</button>
+        <div class="dialog-actions dialog-actions-icons">
+          <button class="dialog-icon-btn danger" id="deleteOperation" type="button" hidden title="Видалити" aria-label="Видалити">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 7h12v2H6V7zm2 3h8l-1 10H9L8 10zm3-6h2l1 2H10l1-2z"/></svg>
+          </button>
+          <button class="dialog-icon-btn secondary" id="cancelOperation" type="button" title="Скасувати" aria-label="Скасувати">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6.4 5.3 5.3 6.4 10.9 12l-5.6 5.6 1.1 1.1L12 13.1l5.6 5.6 1.1-1.1L13.1 12l5.6-5.6-1.1-1.1L12 10.9 6.4 5.3z"/></svg>
+          </button>
+          <button class="dialog-icon-btn primary" id="saveOperation" type="submit" title="Зберегти" aria-label="Зберегти операцію">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8.2-8.2 1.4 1.4-9.6 9.6z"/></svg>
+          </button>
         </div>
       </form>
     </dialog>
@@ -597,7 +733,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260918e"></script>
-    <script src="app.js?v=20260918e"></script>
+    <script src="api.js?v=20260918f"></script>
+    <script src="app.js?v=20260918f"></script>
   </body>
 </html>

@@ -71,13 +71,47 @@ dialog form{padding:25px}
   position:sticky;
   bottom:0;
   margin:0;
-  padding:12px 22px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding:10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top:1px solid #e2e8f0;
   background:#fff;
-  gap:8px;
+  gap:10px;
   z-index:2;
+  display:flex;
+  flex-direction:row;
+  justify-content:flex-end;
+  align-items:center;
+  flex-wrap:nowrap;
 }
 .theme-dark .operation-dialog .dialog-actions{background:#1f2937;border-color:#374151}
+.dialog-actions-icons{display:flex!important;flex-direction:row!important;grid-template-columns:none!important}
+.dialog-icon-btn{
+  width:44px;
+  height:44px;
+  min-width:44px;
+  min-height:44px;
+  padding:0;
+  border:0;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 2px 8px #17365d22;
+}
+.dialog-icon-btn.primary{background:#17365d;color:#fff}
+.dialog-icon-btn.secondary{background:#e8eef5;color:#334e68;border:1px solid #cbd5e1}
+.dialog-icon-btn.danger{background:#fdecec;color:#b42318;margin-right:auto;border:1px solid #f3c1c1}
+.dialog-icon-btn[hidden]{display:none!important}
+.theme-dark .dialog-icon-btn.primary{background:#47759b}
+.theme-dark .dialog-icon-btn.secondary{background:#243b53;color:#e5e7eb;border-color:#4b5563}
+.theme-dark .dialog-icon-btn.danger{background:#7f1d1d;color:#fecaca;border-color:#991b1b}
+@media(max-width:760px){
+  .dialog-actions.dialog-actions-icons{
+    display:flex!important;
+    grid-template-columns:none!important;
+  }
+  .dialog-actions.dialog-actions-icons button{width:44px!important}
+}
 html.dialog-open,
 html.dialog-open body{
   overflow:hidden!important;

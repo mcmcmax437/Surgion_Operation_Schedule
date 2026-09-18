@@ -1968,33 +1968,162 @@ async function loadLogs() {
   }
 }
 
+function statsCountRows(rows, emptyLabel = "Немає даних.", { shortName = true } = {}) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return `<tr><td colspan="3">${escapeHtml(emptyLabel)}</td></tr>`;
+  return list.map((row, index) => {
+    const label = shortName ? (formatShortName(row.name) || row.name || "—") : (row.name || "—");
+    return `
+    <tr>
+      <td data-label="#">${index + 1}</td>
+      <td data-label="Назва">${escapeHtml(label)}</td>
+      <td data-label="Кількість"><strong>${Number(row.count) || 0}</strong></td>
+    </tr>`;
+  }).join("");
+}
+
+function statsNamedRows(rows, nameLabel = "Назва", emptyLabel = "Немає даних.") {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return `<tr><td colspan="2">${escapeHtml(emptyLabel)}</td></tr>`;
+  return list.map((row) => `
+    <tr>
+      <td data-label="${escapeHtml(nameLabel)}">${escapeHtml(row.name || "—")}</td>
+      <td data-label="Кількість"><strong>${Number(row.count) || 0}</strong></td>
+    </tr>`).join("");
+}
+
+function heatLevel(count, max) {
+  const n = Number(count) || 0;
+  if (n <= 0) return 0;
+  if (!max || max <= 1) return 1;
+  if (n >= max) return 4;
+  const ratio = n / max;
+  if (ratio > 0.75) return 4;
+  if (ratio > 0.5) return 3;
+  if (ratio > 0.25) return 2;
+  return 1;
+}
+
+function ymdFromDate(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function renderStatsHeatmap(byDay, year) {
+  const root = $("#statsHeatmap");
+  if (!root) return;
+  const counts = new Map((byDay || []).map((item) => [item.date, Number(item.count) || 0]));
+  const max = Math.max(0, ...counts.values(), 0);
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31);
+  // Align to Monday-start weeks.
+  const gridStart = new Date(start);
+  const startDow = (gridStart.getDay() + 6) % 7; // Mon=0
+  gridStart.setDate(gridStart.getDate() - startDow);
+  const gridEnd = new Date(end);
+  const endDow = (gridEnd.getDay() + 6) % 7;
+  gridEnd.setDate(gridEnd.getDate() + (6 - endDow));
+
+  const weeks = [];
+  for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor.setDate(cursor.getDate() + 7)) {
+    const week = [];
+    for (let d = 0; d < 7; d += 1) {
+      const day = new Date(cursor);
+      day.setDate(cursor.getDate() + d);
+      const ymd = ymdFromDate(day);
+      const inYear = day.getFullYear() === year;
+      const count = inYear ? (counts.get(ymd) || 0) : 0;
+      week.push({ ymd, count, inYear, level: inYear ? heatLevel(count, max) : 0 });
+    }
+    weeks.push(week);
+  }
+
+  const monthNames = ["січ.", "лют.", "бер.", "квіт.", "трав.", "черв.", "лип.", "серп.", "вер.", "жовт.", "лист.", "груд."];
+  const monthLabels = weeks.map((week, index) => {
+    const firstInYear = week.find((day) => day.inYear);
+    if (!firstInYear) return "";
+    const date = new Date(`${firstInYear.ymd}T12:00:00`);
+    const prev = index > 0 ? weeks[index - 1].find((day) => day.inYear) : null;
+    const prevMonth = prev ? new Date(`${prev.ymd}T12:00:00`).getMonth() : -1;
+    return date.getMonth() !== prevMonth ? monthNames[date.getMonth()] : "";
+  });
+
+  const dowLabels = ["Пн", "", "Ср", "", "Пт", "", ""];
+  root.innerHTML = `
+    <div class="stats-heatmap-months">${monthLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
+    <div class="stats-heatmap-body">
+      <div class="stats-heatmap-dows">${dowLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
+      <div class="stats-heatmap-grid">
+        ${weeks.map((week) => week.map((day) => `
+          <span class="heat-day heat-${day.level}${day.inYear ? "" : " is-out"}" title="${escapeHtml(day.ymd)}: ${day.count}"></span>
+        `).join("")).join("")}
+      </div>
+    </div>
+  `;
+  if ($("#statsHeatmapMeta")) {
+    const yearTotal = [...counts.entries()]
+      .filter(([date]) => date.startsWith(`${year}-`))
+      .reduce((sum, [, count]) => sum + count, 0);
+    $("#statsHeatmapMeta").textContent = `${year}: ${yearTotal} опер. · макс. ${max || 0}/день`;
+  }
+}
+
+function fillStatsYearSelect(availableYears, selectedYear) {
+  const select = $("#statsYear");
+  if (!select) return selectedYear;
+  const years = Array.isArray(availableYears) && availableYears.length
+    ? availableYears
+    : [selectedYear || new Date().getFullYear()];
+  const current = years.includes(selectedYear) ? selectedYear : years[0];
+  select.innerHTML = years.map((year) => (
+    `<option value="${year}" ${year === current ? "selected" : ""}>${year}</option>`
+  )).join("");
+  return current;
+}
+
 async function loadStats() {
   const from = $("#statsFrom")?.value || "";
   const to = $("#statsTo")?.value || "";
+  const year = $("#statsYear")?.value || "";
   const params = new URLSearchParams();
   if (from) params.set("from", from);
   if (to) params.set("to", to);
+  if (year) params.set("year", year);
   const query = params.toString() ? `?${params.toString()}` : "";
   try {
     const data = await api(`/stats${query}`);
-    const rows = Array.isArray(data?.byPrimarySurgeon) ? data.byPrimarySurgeon : [];
     const total = Number(data?.totalOperations) || 0;
     const withPrimary = Number(data?.withPrimarySurgeon) || 0;
     const without = Number(data?.withoutPrimarySurgeon) || 0;
+    const uniquePatients = Number(data?.uniquePatients) || 0;
+    const avgAge = data?.averageAge;
+    const selectedYear = fillStatsYearSelect(data?.availableYears, Number(data?.year) || new Date().getFullYear());
+
     if ($("#statsTotal")) $("#statsTotal").textContent = String(total);
+    if ($("#statsUniquePatients")) $("#statsUniquePatients").textContent = String(uniquePatients);
+    if ($("#statsAvgAge")) {
+      $("#statsAvgAge").textContent = avgAge == null ? "—" : String(avgAge);
+    }
     if ($("#statsWithPrimary")) $("#statsWithPrimary").textContent = String(withPrimary);
     if ($("#statsWithoutPrimary")) $("#statsWithoutPrimary").textContent = String(without);
-    const body = $("#statsBody");
-    if (!body) return;
-    body.innerHTML = rows.length
-      ? rows.map((row, index) => `
-        <tr>
-          <td data-label="#">${index + 1}</td>
-          <td data-label="Хірург">${escapeHtml(formatShortName(row.name))}</td>
-          <td data-label="Операцій (як основний)"><strong>${Number(row.count) || 0}</strong></td>
-        </tr>`).join("")
-      : `<tr><td colspan="3">Немає операцій за обраний період.</td></tr>`;
-    if ($("#statsEmpty")) $("#statsEmpty").hidden = rows.length > 0 || total > 0;
+    if ($("#statsFlags")) {
+      $("#statsFlags").textContent = `${Number(data?.zsuCount) || 0} / ${Number(data?.vipCount) || 0}`;
+    }
+
+    if ($("#statsBody")) $("#statsBody").innerHTML = statsCountRows(data?.byPrimarySurgeon, "Немає основних хірургів.");
+    if ($("#statsAssistBody")) $("#statsAssistBody").innerHTML = statsCountRows(data?.byAssistant, "Немає асистентів.");
+    if ($("#statsDeptBody")) $("#statsDeptBody").innerHTML = statsNamedRows(data?.byDepartment, "Відділення");
+    if ($("#statsStatusBody")) $("#statsStatusBody").innerHTML = statsNamedRows(data?.byStatus, "Статус");
+    if ($("#statsBloodBody")) $("#statsBloodBody").innerHTML = statsNamedRows(data?.byBloodGroup, "Група крові");
+    if ($("#statsAgeBody")) $("#statsAgeBody").innerHTML = statsNamedRows(data?.byAge, "Вік");
+    if ($("#statsProcedureBody")) $("#statsProcedureBody").innerHTML = statsCountRows(data?.byProcedure, "Немає втручань.", { shortName: false });
+    if ($("#statsInfectionBody")) $("#statsInfectionBody").innerHTML = statsNamedRows(data?.byInfection, "Маркер");
+
+    renderStatsHeatmap(data?.byDay || [], selectedYear);
+    if ($("#statsEmpty")) $("#statsEmpty").hidden = total > 0;
   } catch (error) {
     alert(error.message || "Не вдалося завантажити статистику.");
   }
@@ -2212,6 +2341,7 @@ on("#statsReset", "click", () => {
   if ($("#statsTo")) $("#statsTo").value = "";
   loadStats();
 });
+on("#statsYear", "change", () => loadStats());
 on("#closeUserDialog", "click", () => closeUserEditor());
 on("#cancelUserEdit", "click", () => closeUserEditor());
 on("#userForm", "submit", saveUserEdit);
