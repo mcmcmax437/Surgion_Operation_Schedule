@@ -2,7 +2,7 @@
 <html lang="uk">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content" />
     <title>Розклад операцій</title>
     <script>
       (function () {
@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260918a" />
+    <link rel="stylesheet" href="styles.css?v=20260918b" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -56,6 +56,15 @@
       .theme-dark .view-tab.active .tab-count{background:#ffffff2e;color:#fff}
       .icon-button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;line-height:0;flex:0 0 auto}
       dialog form{padding:18px 22px 22px}.dialog-head{margin-bottom:14px}
+      .operation-dialog{padding:0;max-height:min(92dvh,920px);max-height:min(92vh,920px);overflow:hidden;width:min(760px,calc(100% - 20px))}
+      .operation-dialog[open]{display:flex;flex-direction:column}
+      .operation-dialog form{display:flex;flex-direction:column;gap:0;padding:0;min-height:0;max-height:inherit;overflow:hidden;flex:1}
+      .operation-dialog .dialog-head{flex:0 0 auto;margin:0;padding:16px 18px 10px}
+      .operation-dialog .dialog-body{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 18px 12px;touch-action:pan-y}
+      .operation-dialog .dialog-actions{flex:0 0 auto;margin:0;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0));border-top:1px solid #e2e8f0;background:#fff;gap:8px}
+      .theme-dark .operation-dialog .dialog-actions{background:#1f2937;border-color:#374151}
+      html.dialog-open,html.dialog-open body{overflow:hidden!important;overscroll-behavior:none;height:100%;width:100%}
+      html.dialog-open body{position:fixed;left:0;right:0}
       .upload{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:138px;padding:18px;text-align:center;cursor:pointer;border:2px dashed #9fc0d8!important;background:#f4f9fd!important}
       .upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
       .upload-icon{font-size:30px;line-height:1}.upload strong{font-size:15px;color:#17365d}.upload-button{padding:8px 13px;border-radius:8px;background:#17365d;color:#fff;font-size:12px;font-weight:800}
@@ -430,10 +439,11 @@
       </form>
     </dialog>
 
-    <dialog id="operationDialog">
+    <dialog id="operationDialog" class="operation-dialog">
       <form method="post" id="operationForm">
         <div class="dialog-head"><div><p class="eyebrow">Картка операції</p><h2 id="dialogTitle">Нова операція</h2></div><button class="icon-button" id="closeOperation" type="button" aria-label="Закрити"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5.3 5.3 6.4 10.9 12l-5.6 5.6 1.1 1.1L12 13.1l5.6 5.6 1.1-1.1L13.1 12l5.6-5.6-1.1-1.1L12 10.9 6.4 5.3z"/></svg></button></div>
         <input type="hidden" id="operationId" />
+        <div class="dialog-body" id="operationDialogBody">
         <div class="form-grid">
           <label>Відділення *<select id="department" required>
             <option value="dept1">Хірургічне відділення №1</option>
@@ -445,8 +455,8 @@
           <label>Сторона операції
             <select id="operationSide">
               <option value="">Не обрано</option>
-              <option value="справа">Справа</option>
-              <option value="зліва">Зліва</option>
+              <option value="справа">Права</option>
+              <option value="зліва">Ліва</option>
             </select>
           </label>
           <label>Група крові / Rh<select id="bloodGroup"><option value="">Не вказано</option><option>0 (I) Rh+</option><option>0 (I) Rh-</option><option>A (II) Rh+</option><option>A (II) Rh-</option><option>B (III) Rh+</option><option>B (III) Rh-</option><option>AB (IV) Rh+</option><option>AB (IV) Rh-</option></select></label>
@@ -518,6 +528,7 @@
             <div id="uploadProgressBar" class="upload-progress-bar"></div>
           </div>
         </div>
+        </div>
         <div class="dialog-actions">
           <button class="danger" id="deleteOperation" type="button" hidden>Видалити</button>
           <button class="secondary" id="cancelOperation" type="button">Скасувати</button>
@@ -566,7 +577,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260918a"></script>
-    <script src="app.js?v=20260918a"></script>
+    <script src="api.js?v=20260918b"></script>
+    <script src="app.js?v=20260918b"></script>
   </body>
 </html>

@@ -802,6 +802,7 @@ function render() {
 }
 
 function stabilizeScheduleScroll(anchorTop) {
+  if (document.documentElement.classList.contains("dialog-open")) return;
   const dayBar = $("#dayBar");
   if (dayBar && anchorTop != null && scheduleMode === "day") {
     const after = dayBar.getBoundingClientRect().top;
@@ -810,6 +811,70 @@ function stabilizeScheduleScroll(anchorTop) {
   }
   const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
   if (window.scrollY > maxScroll) window.scrollTo(0, maxScroll);
+}
+
+let lockedScrollY = 0;
+let dialogScrollLockCount = 0;
+
+function lockBackgroundScroll() {
+  if (dialogScrollLockCount === 0) {
+    lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.documentElement.classList.add("dialog-open");
+    document.body.style.top = `-${lockedScrollY}px`;
+  }
+  dialogScrollLockCount += 1;
+}
+
+function unlockBackgroundScroll() {
+  if (dialogScrollLockCount === 0) return;
+  dialogScrollLockCount -= 1;
+  if (dialogScrollLockCount > 0) return;
+  document.documentElement.classList.remove("dialog-open");
+  document.body.style.top = "";
+  window.scrollTo(0, lockedScrollY);
+}
+
+function openModalDialog(dialog) {
+  if (!dialog) return;
+  const alreadyOpen = dialog.open;
+  if (!alreadyOpen) lockBackgroundScroll();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeModalDialog(dialog) {
+  if (!dialog?.open) return;
+  dialog.close();
+}
+
+function wireModalScrollLock(dialog) {
+  if (!dialog || dialog.dataset.scrollLockWired === "1") return;
+  dialog.dataset.scrollLockWired = "1";
+  dialog.addEventListener("close", () => {
+    unlockBackgroundScroll();
+  });
+}
+
+function scrollDialogFieldIntoView(target) {
+  const dialog = target?.closest?.("dialog");
+  if (!dialog?.open) return;
+  const body = dialog.querySelector(".dialog-body") || dialog;
+  const run = () => {
+    try {
+      target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    } catch {
+      target.scrollIntoView(true);
+    }
+    // Extra nudge for Chrome Android when the visual viewport shrinks under the keyboard.
+    if (window.visualViewport && body) {
+      const fieldBottom = target.getBoundingClientRect().bottom;
+      const visibleBottom = window.visualViewport.offsetTop + window.visualViewport.height - 12;
+      if (fieldBottom > visibleBottom) {
+        body.scrollTop += fieldBottom - visibleBottom;
+      }
+    }
+  };
+  requestAnimationFrame(() => setTimeout(run, 50));
+  setTimeout(run, 280);
 }
 
 function shiftSelectedDay(delta) {
@@ -1129,15 +1194,21 @@ function openForm(id = null) {
     });
     setSelectedInfections(item.infections || []);
     setSelectedPatientFlags(item.patientFlags || []);
-    renderPicker("teamPicker", staff.team, namesForOperation(item, "teamMembers", "team"));
-    renderPicker("anesthesiologistPicker", staff.anesthesiologists, namesForOperation(item, "anesthesiologists", "anesthesiologist"));
+    const teamSelected = Array.isArray(item.teamMembers) && item.teamMembers.length
+      ? item.teamMembers
+      : (item.team ? [item.team] : []);
+    const anesSelected = Array.isArray(item.anesthesiologists) && item.anesthesiologists.length
+      ? item.anesthesiologists
+      : (item.anesthesiologist ? [item.anesthesiologist] : []);
+    renderPicker("teamPicker", staff.team, teamSelected);
+    renderPicker("anesthesiologistPicker", staff.anesthesiologists, anesSelected);
     currentFormAttachments = item.attachments || [];
     renderAttachmentsPanel(currentFormAttachments);
   } else {
     renderAttachmentsPanel([]);
   }
 
-  $("#operationDialog").showModal();
+  openModalDialog($("#operationDialog"));
 }
 
 async function saveOperation(event) {
@@ -1226,7 +1297,7 @@ async function saveOperation(event) {
       setProgress(100, "Готово");
     }
 
-    $("#operationDialog").close();
+    closeModalDialog($("#operationDialog"));
     await refresh();
   } catch (error) {
     const message = String(error?.message || "");
@@ -1316,7 +1387,7 @@ async function deleteOperation(id) {
   if (!confirm(`Видалити операцію «${item.patient}» (${item.id})?`)) return;
   try {
     await api(`/operations/${id}`, { method: "DELETE" });
-    if (editingId === id) $("#operationDialog")?.close();
+    if (editingId === id) closeModalDialog($("#operationDialog"));
     await refresh();
   } catch (error) {
     alert(error.message || "Не вдалося видалити операцію.");
@@ -1353,7 +1424,7 @@ function closeMediaDialog() {
   updateMediaZoomUi();
   syncMediaFullscreenUi();
   mediaOperationId = null;
-  dialog?.close();
+  closeModalDialog(dialog);
 }
 
 function updateMediaNavState() {
@@ -1590,13 +1661,13 @@ function enterPseudoFullscreen() {
   bindMediaPinchTarget(stage);
   bindMediaPinchTarget(fsImg);
   document.body.classList.add("media-fs-open");
-  if (!overlay.open) overlay.showModal();
+  openModalDialog(overlay);
   syncMediaFullscreenUi();
 }
 
 function exitMediaFullscreen(silent = false) {
   const overlay = $("#mediaFsOverlay");
-  if (overlay?.open) overlay.close();
+  closeModalDialog(overlay);
   const fsImg = $("#mediaFsImage");
   if (fsImg) {
     fsImg.removeAttribute("src");
@@ -1764,7 +1835,7 @@ async function viewOperation(id) {
   if ($("#mediaPrev")) $("#mediaPrev").hidden = true;
   if ($("#mediaNext")) $("#mediaNext").hidden = true;
   if ($("#mediaDelete")) $("#mediaDelete").hidden = true;
-  dialog.showModal();
+  openModalDialog(dialog);
 
   const files = (item.attachments || []).map((metadata) => ({
     metadata: { ...metadata, name: decodeFileName(metadata.name) },
@@ -1939,12 +2010,12 @@ function openUserEditor(user) {
   if ($("#userStatus")) $("#userStatus").value = user.status === "disabled" ? "disabled" : "active";
   if ($("#userPassword")) $("#userPassword").value = "";
   fillUserMeta(user);
-  $("#userDialog")?.showModal();
+  openModalDialog($("#userDialog"));
 }
 
 function closeUserEditor() {
   editingUserId = null;
-  $("#userDialog")?.close();
+  closeModalDialog($("#userDialog"));
 }
 
 async function saveUserEdit(event) {
@@ -2148,8 +2219,8 @@ document.addEventListener("click", (event) => {
   defaultDepartment = addBtn.dataset.addDept === "dept2" ? "dept2" : "dept1";
   openForm();
 });
-on("#closeOperation", "click", () => $("#operationDialog")?.close());
-on("#cancelOperation", "click", () => $("#operationDialog")?.close());
+on("#closeOperation", "click", () => closeModalDialog($("#operationDialog")));
+on("#cancelOperation", "click", () => closeModalDialog($("#operationDialog")));
 on("#attachments", "change", (event) => addPendingFiles(event.target.files));
 on("#attachmentsPanelList", "click", (event) => {
   const saved = event.target.closest("[data-remove-saved]");
@@ -2333,6 +2404,28 @@ on("#refreshLogs", "click", () => loadLogs());
 
 setTheme(localStorage.getItem("surgery-theme") || "light", { animate: false });
 showView("day");
+
+["operationDialog", "userDialog", "mediaDialog", "mediaFsOverlay"].forEach((id) => {
+  wireModalScrollLock($(`#${id}`));
+});
+
+document.addEventListener("focusin", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.closest("#operationDialog, #userDialog")) return;
+  if (!/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+  scrollDialogFieldIntoView(target);
+});
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) return;
+    if (!active.closest("#operationDialog[open], #userDialog[open]")) return;
+    if (!/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+    scrollDialogFieldIntoView(active);
+  });
+}
 
 (async function boot() {
   try {
