@@ -107,7 +107,7 @@ function mapAuthError(err, fallback) {
   ) {
     return "API недоступне. Перевірте nginx /api/ і pm2 (surgion-schedule-api).";
   }
-  if (message.includes("тимчасово недоступний")) return message;
+  if (message.includes("Забагато невдалих") || message.includes("тимчасово недоступний")) return message;
   if (message && !message.startsWith("API error")) return message;
   return fallback;
 }
