@@ -836,14 +836,35 @@ function unlockBackgroundScroll() {
 
 function openModalDialog(dialog) {
   if (!dialog) return;
-  const alreadyOpen = dialog.open;
+  const alreadyOpen = Boolean(dialog.open);
   if (!alreadyOpen) lockBackgroundScroll();
-  if (!dialog.open) dialog.showModal();
+  try {
+    if (!dialog.open) dialog.showModal();
+  } catch (error) {
+    console.error("showModal failed:", error);
+    if (!alreadyOpen) unlockBackgroundScroll();
+    // Fallback for rare browsers without modal dialog support.
+    try {
+      dialog.setAttribute("open", "");
+      dialog.style.display = "block";
+    } catch {
+      alert("Не вдалося відкрити форму. Оновіть сторінку.");
+    }
+  }
 }
 
 function closeModalDialog(dialog) {
-  if (!dialog?.open) return;
-  dialog.close();
+  if (!dialog) return;
+  if (dialog.open) {
+    dialog.close();
+    return;
+  }
+  // Fallback path if dialog was opened without showModal().
+  if (dialog.hasAttribute("open")) {
+    dialog.removeAttribute("open");
+    dialog.style.display = "";
+    unlockBackgroundScroll();
+  }
 }
 
 function wireModalScrollLock(dialog) {
@@ -2373,11 +2394,15 @@ document.addEventListener("keydown", (event) => {
 });
 function handleOperationRowClick(event) {
   const button = event.target.closest("button");
-  if (!button) return;
-  if (button.dataset.action === "toggle") toggleOperation(button.dataset.id);
-  if (button.dataset.action === "edit") openForm(button.dataset.id);
-  if (button.dataset.action === "view") viewOperation(button.dataset.id);
-  if (button.dataset.action === "delete") deleteOperation(button.dataset.id);
+  if (button) {
+    if (button.dataset.action === "toggle") toggleOperation(button.dataset.id);
+    if (button.dataset.action === "edit") openForm(button.dataset.id);
+    if (button.dataset.action === "view") viewOperation(button.dataset.id);
+    if (button.dataset.action === "delete") deleteOperation(button.dataset.id);
+    return;
+  }
+  const card = event.target.closest("article.week-card[data-id]");
+  if (card?.dataset.id) openForm(card.dataset.id);
 }
 on("#dept1Body", "click", handleOperationRowClick);
 on("#dept2Body", "click", handleOperationRowClick);
@@ -2426,26 +2451,6 @@ if (window.visualViewport) {
     scrollDialogFieldIntoView(active);
   });
 }
-
-document.addEventListener("touchmove", (event) => {
-  if (!document.documentElement.classList.contains("dialog-open")) return;
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    event.preventDefault();
-    return;
-  }
-  const scrollable = target.closest(
-    ".dialog-body, .picker-scroll, .procedure-suggest, .media-dialog-body, .media-viewport, .table-scroll, textarea",
-  );
-  if (!scrollable) {
-    event.preventDefault();
-    return;
-  }
-  // Allow scroll only when the region can actually scroll.
-  if (scrollable.scrollHeight <= scrollable.clientHeight + 1 && scrollable.tagName !== "TEXTAREA") {
-    event.preventDefault();
-  }
-}, { passive: false });
 
 (async function boot() {
   try {
