@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260918b" />
+    <link rel="stylesheet" href="styles.css?v=20260918c" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -318,7 +318,7 @@
         <div class="section-heading"><div><p class="eyebrow">Налаштування списків</p><h2>Лікарі</h2><p>Додавайте, редагуйте або видаляйте лікарів, яких можна призначати на операції.</p></div></div>
         <div class="staff-grid">
           <article class="staff-card">
-            <div class="staff-card-head"><div><h3>Операційна бригада</h3><p>На одну операцію — максимум 2 хірурги (1 — основний, 2 — асистент).</p></div><span class="staff-count" id="teamCount">0</span></div>
+            <div class="staff-card-head"><div><h3>Операційна бригада</h3><p>На одну операцію — максимум 3 хірурги (1 — основний, 2–3 — асистенти).</p></div><span class="staff-count" id="teamCount">0</span></div>
             <div id="teamStaffList" class="staff-list"></div>
             <form class="staff-form" id="teamStaffForm"><input type="hidden" id="teamEditIndex" value="" /><input id="teamNameInput" required placeholder="Прізвище І.Б." /><div><button class="secondary" id="teamCancelEdit" type="button" hidden>Скасувати</button><button class="primary" type="submit" id="teamSaveButton">+ Додати людину</button></div></form>
           </article>
@@ -474,7 +474,7 @@
             <legend>Операційна бригада</legend>
             <input class="picker-search" id="teamPickerSearch" type="search" placeholder="Пошук лікаря…" />
             <div id="teamPicker" class="picker picker-scroll"></div>
-            <small class="picker-help">Оберіть до 2 хірургів: <strong>1</strong> — основний, <strong>2</strong> — асистент. Порядок = порядок вибору.</small>
+            <small class="picker-help">Оберіть до 3 хірургів: <strong>1</strong> — основний, <strong>2</strong> і <strong>3</strong> — асистенти. Порядок = порядок вибору.</small>
           </fieldset>
           <label class="wide">Діагноз<input id="diagnosis" placeholder="Основний діагноз" /></label>
           <label class="wide procedure-field">Вид хірургічного втручання
@@ -577,7 +577,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260918b"></script>
-    <script src="app.js?v=20260918b"></script>
+    <script src="api.js?v=20260918c"></script>
+    <script src="app.js?v=20260918c"></script>
   </body>
 </html>

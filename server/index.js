@@ -241,7 +241,7 @@ function bodyToOperation(body) {
     bloodGroup: body.bloodGroup || null,
     diagnosis: String(body.diagnosis || "").trim(),
     procedure: String(body.procedure || "").trim(),
-    teamMembers: Array.isArray(teamMembers) ? teamMembers.slice(0, 2) : [],
+    teamMembers: Array.isArray(teamMembers) ? teamMembers.slice(0, 3) : [],
     anesthesiologists: Array.isArray(anesthesiologists) ? anesthesiologists.slice(0, 1) : [],
     infections,
     patientFlags,

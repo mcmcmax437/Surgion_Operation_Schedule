@@ -49,7 +49,7 @@ const OPERATION_STATUSES = [
   { value: "Потребує дообстеження", label: "Потребує дообстеження", css: "status-check" },
   { value: "Відміна", label: "Відміна", css: "status-cancel" },
 ];
-const MAX_SURGEONS = 2;
+const MAX_SURGEONS = 3;
 const MAX_ANESTHESIOLOGISTS = 1;
 const PICKER_LIMITS = { teamPicker: MAX_SURGEONS, anesthesiologistPicker: MAX_ANESTHESIOLOGISTS };
 const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
@@ -2280,7 +2280,7 @@ document.addEventListener("change", (event) => {
       }
       if (teamSelectionOrder.length >= MAX_SURGEONS) {
         input.checked = false;
-        alert("Можна обрати максимум 2 хірургів: 1 — основний, 2 — асистент.");
+        alert("Можна обрати максимум 3 хірургів: 1 — основний, 2–3 — асистенти.");
         return;
       }
       teamSelectionOrder.push(name);
@@ -2426,6 +2426,26 @@ if (window.visualViewport) {
     scrollDialogFieldIntoView(active);
   });
 }
+
+document.addEventListener("touchmove", (event) => {
+  if (!document.documentElement.classList.contains("dialog-open")) return;
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    event.preventDefault();
+    return;
+  }
+  const scrollable = target.closest(
+    ".dialog-body, .picker-scroll, .procedure-suggest, .media-dialog-body, .media-viewport, .table-scroll, textarea",
+  );
+  if (!scrollable) {
+    event.preventDefault();
+    return;
+  }
+  // Allow scroll only when the region can actually scroll.
+  if (scrollable.scrollHeight <= scrollable.clientHeight + 1 && scrollable.tagName !== "TEXTAREA") {
+    event.preventDefault();
+  }
+}, { passive: false });
 
 (async function boot() {
   try {
