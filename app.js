@@ -397,19 +397,66 @@ function renderPersonChips(names, { ranked = false } = {}) {
 }
 
 function setTeamSelectionOrder(names = []) {
+  const options = getPickerOptions("teamPicker");
   const seen = new Set();
   teamSelectionOrder = [];
   for (const name of names) {
-    const value = String(name || "").trim();
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    teamSelectionOrder.push(value);
+    const resolved = resolveTeamOptionName(name, options);
+    if (!resolved || seen.has(resolved)) continue;
+    seen.add(resolved);
+    teamSelectionOrder.push(resolved);
     if (teamSelectionOrder.length >= MAX_SURGEONS) break;
   }
 }
 
+function getPickerOptions(containerId) {
+  const container = $(`#${containerId}`);
+  if (!container) return [];
+  try {
+    const parsed = JSON.parse(container.dataset.options || "[]");
+    return Array.isArray(parsed) ? parsed.map((name) => String(name || "").trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function resolveTeamOptionName(name, options = getPickerOptions("teamPicker")) {
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  if (options.includes(raw)) return raw;
+  const shortRaw = formatShortName(raw);
+  const match = options.find((opt) => (
+    opt === raw
+    || opt === shortRaw
+    || formatShortName(opt) === raw
+    || formatShortName(opt) === shortRaw
+  ));
+  return match || (options.length ? "" : raw);
+}
+
+function compactTeamSelectionOrder() {
+  setTeamSelectionOrder(teamSelectionOrder);
+}
+
 function selectedTeamMembers() {
+  compactTeamSelectionOrder();
   return teamSelectionOrder.slice(0, MAX_SURGEONS);
+}
+
+function applyTeamPickerChange(name, checked) {
+  const options = getPickerOptions("teamPicker");
+  const resolved = resolveTeamOptionName(name, options);
+  compactTeamSelectionOrder();
+  if (!resolved) return true;
+  if (checked) {
+    if (teamSelectionOrder.includes(resolved)) return true;
+    if (teamSelectionOrder.length >= MAX_SURGEONS) return false;
+    teamSelectionOrder.push(resolved);
+    return true;
+  }
+  teamSelectionOrder = teamSelectionOrder.filter((item) => item !== resolved);
+  compactTeamSelectionOrder();
+  return true;
 }
 
 function renderPicker(containerId, options, selected = []) {
@@ -419,26 +466,21 @@ function renderPicker(containerId, options, selected = []) {
   if (containerId === "teamPicker") {
     setTeamSelectionOrder(selected);
   }
-  paintPicker(containerId, selected);
+  paintPicker(containerId);
 }
 
 function paintPicker(containerId, selected = null) {
   const container = $(`#${containerId}`);
   if (!container) return;
-  let options = [];
-  try {
-    options = JSON.parse(container.dataset.options || "[]");
-  } catch {
-    options = [];
-  }
+  const options = getPickerOptions(containerId);
   const isTeam = containerId === "teamPicker";
-  const checked = isTeam
-    ? (selected != null ? [...selected] : selectedTeamMembers())
-    : (selected ?? selectedPickerValues(containerId));
-  if (isTeam && selected != null) {
-    setTeamSelectionOrder(checked);
+  if (isTeam) {
+    if (selected != null) setTeamSelectionOrder(selected);
+    else compactTeamSelectionOrder();
   }
-  const order = isTeam ? selectedTeamMembers() : checked;
+  const order = isTeam
+    ? selectedTeamMembers()
+    : (selected ?? selectedPickerValues(containerId));
   const searchInput = $(`#${containerId}Search`);
   const term = (searchInput?.value || "").trim().toLowerCase();
   const filtered = term
@@ -448,6 +490,7 @@ function paintPicker(containerId, selected = null) {
   container.innerHTML = filtered.length
     ? filtered.map((name) => {
       const isChecked = order.includes(name);
+      // Ranks always compact to 1..n from current selection order (no gaps).
       const rank = isTeam && isChecked ? order.indexOf(name) + 1 : 0;
       const rankHtml = isTeam
         ? `<span class="picker-rank${rank ? " is-on" : ""}" aria-hidden="true">${rank || ""}</span>`
@@ -455,7 +498,7 @@ function paintPicker(containerId, selected = null) {
       return `
       <label class="picker-option${isTeam ? " picker-option-ranked" : ""}${isChecked ? " is-checked" : ""}">
         ${rankHtml}
-        <input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${isChecked ? "checked" : ""} />
+        <input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" data-team-name="${escapeHtml(name)}" ${isChecked ? "checked" : ""} />
         <span>${escapeHtml(formatShortName(name))}</span>
       </label>`;
     }).join("")
@@ -2293,20 +2336,12 @@ document.addEventListener("change", (event) => {
   if (!max) return;
 
   if (pickerId === "teamPicker") {
-    const name = input.value;
-    if (input.checked) {
-      if (teamSelectionOrder.includes(name)) {
-        paintPicker("teamPicker");
-        return;
-      }
-      if (teamSelectionOrder.length >= MAX_SURGEONS) {
-        input.checked = false;
-        alert("Можна обрати максимум 3 хірургів: 1 — основний, 2–3 — асистенти.");
-        return;
-      }
-      teamSelectionOrder.push(name);
-    } else {
-      teamSelectionOrder = teamSelectionOrder.filter((item) => item !== name);
+    const name = input.getAttribute("data-team-name") || input.value;
+    const ok = applyTeamPickerChange(name, input.checked);
+    if (!ok) {
+      input.checked = false;
+      alert("Можна обрати максимум 3 хірургів: 1 — основний, 2–3 — асистенти.");
+      return;
     }
     paintPicker("teamPicker");
     return;
@@ -2430,8 +2465,17 @@ on("#refreshLogs", "click", () => loadLogs());
 setTheme(localStorage.getItem("surgery-theme") || "light", { animate: false });
 showView("day");
 
+// Clear any stuck lock from a previous failed modal open (Chrome mobile).
+document.documentElement.classList.remove("dialog-open");
+document.body.style.top = "";
+dialogScrollLockCount = 0;
+
 ["operationDialog", "userDialog", "mediaDialog", "mediaFsOverlay"].forEach((id) => {
-  wireModalScrollLock($(`#${id}`));
+  const dialog = $(`#${id}`);
+  if (dialog?.open) {
+    try { dialog.close(); } catch { /* ignore */ }
+  }
+  wireModalScrollLock(dialog);
 });
 
 document.addEventListener("focusin", (event) => {
