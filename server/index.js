@@ -1111,10 +1111,36 @@ function isYmd(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 }
 
+function bumpCount(map, key, by = 1) {
+  const name = String(key || "").trim() || "—";
+  map.set(name, (map.get(name) || 0) + by);
+}
+
+function sortedCountEntries(map) {
+  return [...map.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "uk"));
+}
+
+function ageBucket(age) {
+  if (!Number.isFinite(age)) return null;
+  if (age < 18) return "0–17";
+  if (age < 30) return "18–29";
+  if (age < 45) return "30–44";
+  if (age < 60) return "45–59";
+  if (age < 75) return "60–74";
+  return "75+";
+}
+
 app.get("/api/stats", auth, requireAdmin, async (req, res) => {
   try {
     const from = isYmd(req.query.from) ? String(req.query.from) : null;
     const to = isYmd(req.query.to) ? String(req.query.to) : null;
+    const yearRaw = Number(req.query.year);
+    const year = Number.isFinite(yearRaw) && yearRaw >= 2000 && yearRaw <= 2100
+      ? Math.round(yearRaw)
+      : null;
+
     const clauses = [];
     const params = {};
     if (from) {
@@ -1127,38 +1153,126 @@ app.get("/api/stats", auth, requireAdmin, async (req, res) => {
     }
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     const [rows] = await pool.query(
-      `SELECT team_members, date FROM operations ${where}`,
+      `SELECT date, department, patient, patient_age, blood_group, diagnosis, \`procedure\`,
+              team_members, anesthesiologists, infections, patient_flags, status
+       FROM operations ${where}`,
       params,
     );
 
-    const counts = new Map();
+    const primaryCounts = new Map();
+    const assistantCounts = new Map();
+    const anesCounts = new Map();
+    const deptCounts = new Map();
+    const statusCounts = new Map();
+    const bloodCounts = new Map();
+    const ageCounts = new Map();
+    const procedureCounts = new Map();
+    const infectionCounts = new Map();
+    const dayCounts = new Map();
+    const patients = new Set();
     let withPrimarySurgeon = 0;
     let withoutPrimarySurgeon = 0;
+    let zsuCount = 0;
+    let vipCount = 0;
+    let ageSum = 0;
+    let ageN = 0;
+    let ageMin = null;
+    let ageMax = null;
+    const years = new Set();
+
     for (const row of rows) {
       const team = parseJson(row.team_members, []);
-      const primary = Array.isArray(team) && team.length
-        ? String(team[0] || "").trim()
-        : "";
+      const anes = parseJson(row.anesthesiologists, []);
+      const infections = parseJson(row.infections, []);
+      const flags = parseJson(row.patient_flags, []);
+      const primary = Array.isArray(team) && team.length ? String(team[0] || "").trim() : "";
+      const date = row.date ? String(row.date).slice(0, 10) : "";
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        bumpCount(dayCounts, date);
+        years.add(Number(date.slice(0, 4)));
+      }
+
+      if (row.patient) patients.add(String(row.patient).trim());
+      bumpCount(deptCounts, row.department === "dept2" ? "Хірургічне відділення №2" : "Хірургічне відділення №1");
+      bumpCount(statusCounts, row.status || "Очікує огляду");
+      if (row.blood_group) bumpCount(bloodCounts, row.blood_group);
+      if (row.procedure) bumpCount(procedureCounts, String(row.procedure).trim());
+
+      const age = row.patient_age == null || row.patient_age === "" ? null : Number(row.patient_age);
+      if (Number.isFinite(age) && age >= 0) {
+        ageSum += age;
+        ageN += 1;
+        ageMin = ageMin == null ? age : Math.min(ageMin, age);
+        ageMax = ageMax == null ? age : Math.max(ageMax, age);
+        const bucket = ageBucket(age);
+        if (bucket) bumpCount(ageCounts, bucket);
+      }
+
+      if (Array.isArray(infections)) {
+        for (const item of infections) bumpCount(infectionCounts, item);
+      }
+      if (Array.isArray(flags)) {
+        if (flags.includes("zsu")) zsuCount += 1;
+        if (flags.includes("vip")) vipCount += 1;
+      }
+
       if (!primary) {
         withoutPrimarySurgeon += 1;
-        continue;
+      } else {
+        withPrimarySurgeon += 1;
+        bumpCount(primaryCounts, primary);
       }
-      withPrimarySurgeon += 1;
-      counts.set(primary, (counts.get(primary) || 0) + 1);
+      if (Array.isArray(team)) {
+        for (const member of team.slice(1, 3)) {
+          const name = String(member || "").trim();
+          if (name) bumpCount(assistantCounts, name);
+        }
+      }
+      if (Array.isArray(anes)) {
+        for (const member of anes) {
+          const name = String(member || "").trim();
+          if (name) bumpCount(anesCounts, name);
+        }
+      }
     }
 
-    const byPrimarySurgeon = [...counts.entries()]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "uk"));
+    const heatmapYear = year
+      || (years.size ? Math.max(...years) : new Date().getFullYear());
+    const byDay = [...dayCounts.entries()]
+      .filter(([date]) => date.startsWith(`${heatmapYear}-`))
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const ageOrder = ["0–17", "18–29", "30–44", "45–59", "60–74", "75+"];
+    const byAge = ageOrder
+      .filter((name) => ageCounts.has(name))
+      .map((name) => ({ name, count: ageCounts.get(name) }));
 
     res.json({
       from,
       to,
+      year: heatmapYear,
+      availableYears: [...years].sort((a, b) => b - a),
       totalOperations: rows.length,
+      uniquePatients: patients.size,
       withPrimarySurgeon,
       withoutPrimarySurgeon,
-      rule: "Counted only for surgeon in position 1 (primary). Position 2 is assistant and is not counted.",
-      byPrimarySurgeon,
+      averageAge: ageN ? Math.round((ageSum / ageN) * 10) / 10 : null,
+      ageMin,
+      ageMax,
+      zsuCount,
+      vipCount,
+      rule: "Primary surgeon stats use teamMembers[0]. Assistants are positions 2–3.",
+      byPrimarySurgeon: sortedCountEntries(primaryCounts),
+      byAssistant: sortedCountEntries(assistantCounts),
+      byAnesthesiologist: sortedCountEntries(anesCounts),
+      byDepartment: sortedCountEntries(deptCounts),
+      byStatus: sortedCountEntries(statusCounts),
+      byBloodGroup: sortedCountEntries(bloodCounts),
+      byAge,
+      byProcedure: sortedCountEntries(procedureCounts).slice(0, 20),
+      byInfection: sortedCountEntries(infectionCounts),
+      byDay,
     });
   } catch (error) {
     console.error("stats failed:", error);
