@@ -49,11 +49,13 @@ const OPERATION_STATUSES = [
   { value: "Потребує дообстеження", label: "Потребує дообстеження", css: "status-check" },
   { value: "Відміна", label: "Відміна", css: "status-cancel" },
 ];
-const MAX_SURGEONS = 3;
+const MAX_SURGEONS = 2;
 const MAX_ANESTHESIOLOGISTS = 1;
 const PICKER_LIMITS = { teamPicker: MAX_SURGEONS, anesthesiologistPicker: MAX_ANESTHESIOLOGISTS };
 const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 let defaultDepartment = localStorage.getItem("surgery-dept") === "dept2" ? "dept2" : "dept1";
+/** Selection order for surgeons: index 0 = primary (1), index 1 = assistant (2). */
+let teamSelectionOrder = [];
 
 function addDaysYmd(ymd, days) {
   const [year, month, day] = String(ymd).split("-").map(Number);
@@ -379,15 +381,44 @@ function namesForOperation(item, field, fallback) {
   return names.map(formatShortName);
 }
 
-function renderPersonChips(names) {
+function rankedTeamLabel(names) {
+  if (!names.length) return escapeHtml("Не призначено");
+  return names
+    .map((name, index) => `${index + 1}. ${escapeHtml(formatShortName(name))}`)
+    .join(", ");
+}
+
+function renderPersonChips(names, { ranked = false } = {}) {
   if (!names.length) return '<span class="sub">Не призначено</span>';
-  return `<div class="people-chips">${names.map((name) => `<span class="person-chip">${escapeHtml(formatShortName(name))}</span>`).join("")}</div>`;
+  return `<div class="people-chips">${names.map((name, index) => {
+    const rank = ranked ? `<span class="person-rank" title="${index === 0 ? "Основний хірург" : "Асистент"}">${index + 1}</span>` : "";
+    return `<span class="person-chip">${rank}${escapeHtml(formatShortName(name))}</span>`;
+  }).join("")}</div>`;
+}
+
+function setTeamSelectionOrder(names = []) {
+  const seen = new Set();
+  teamSelectionOrder = [];
+  for (const name of names) {
+    const value = String(name || "").trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    teamSelectionOrder.push(value);
+    if (teamSelectionOrder.length >= MAX_SURGEONS) break;
+  }
+}
+
+function selectedTeamMembers() {
+  return teamSelectionOrder.slice(0, MAX_SURGEONS);
 }
 
 function renderPicker(containerId, options, selected = []) {
   const container = $(`#${containerId}`);
   if (!container) return;
   container.dataset.options = JSON.stringify(options || []);
+  if (containerId === "teamPicker") {
+    setTeamSelectionOrder(selected);
+  }
   paintPicker(containerId, selected);
 }
 
@@ -400,7 +431,14 @@ function paintPicker(containerId, selected = null) {
   } catch {
     options = [];
   }
-  const checked = selected ?? selectedPickerValues(containerId);
+  const isTeam = containerId === "teamPicker";
+  const checked = isTeam
+    ? (selected != null ? [...selected] : selectedTeamMembers())
+    : (selected ?? selectedPickerValues(containerId));
+  if (isTeam && selected != null) {
+    setTeamSelectionOrder(checked);
+  }
+  const order = isTeam ? selectedTeamMembers() : checked;
   const searchInput = $(`#${containerId}Search`);
   const term = (searchInput?.value || "").trim().toLowerCase();
   const filtered = term
@@ -408,15 +446,24 @@ function paintPicker(containerId, selected = null) {
     : options;
 
   container.innerHTML = filtered.length
-    ? filtered.map((name) => `
-      <label class="picker-option">
-        <input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${checked.includes(name) ? "checked" : ""} />
+    ? filtered.map((name) => {
+      const isChecked = order.includes(name);
+      const rank = isTeam && isChecked ? order.indexOf(name) + 1 : 0;
+      const rankHtml = isTeam
+        ? `<span class="picker-rank${rank ? " is-on" : ""}" aria-hidden="true">${rank || ""}</span>`
+        : "";
+      return `
+      <label class="picker-option${isTeam ? " picker-option-ranked" : ""}${isChecked ? " is-checked" : ""}">
+        ${rankHtml}
+        <input type="checkbox" value="${escapeHtml(name)}" data-picker="${containerId}" ${isChecked ? "checked" : ""} />
         <span>${escapeHtml(formatShortName(name))}</span>
-      </label>`).join("")
+      </label>`;
+    }).join("")
     : `<div class="picker-empty">Нікого не знайдено</div>`;
 }
 
 function selectedPickerValues(containerId) {
+  if (containerId === "teamPicker") return selectedTeamMembers();
   return [...document.querySelectorAll(`#${containerId} input:checked`)].map((input) => input.value);
 }
 
@@ -449,7 +496,7 @@ function applyScheduleMode() {
 }
 
 function showView(view) {
-  if ((view === "logs" || view === "staff" || view === "users") && !canViewLogs) {
+  if ((view === "logs" || view === "staff" || view === "users" || view === "stats") && !canViewLogs) {
     view = "day";
   }
   if (view === "day" || view === "week" || view === "plan") {
@@ -460,22 +507,25 @@ function showView(view) {
   if ($("#scheduleView")) $("#scheduleView").hidden = view !== "schedule";
   if ($("#staffView")) $("#staffView").hidden = view !== "staff";
   if ($("#usersView")) $("#usersView").hidden = view !== "users";
+  if ($("#statsView")) $("#statsView").hidden = view !== "stats";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
   if ($("#dayTab")) $("#dayTab").classList.toggle("active", view === "schedule" && scheduleMode === "day");
   if ($("#weekTab")) $("#weekTab").classList.toggle("active", view === "schedule" && scheduleMode === "week");
   if ($("#planTab")) $("#planTab").classList.toggle("active", view === "schedule" && scheduleMode === "plan");
   if ($("#staffTab")) $("#staffTab").classList.toggle("active", view === "staff");
   if ($("#usersTab")) $("#usersTab").classList.toggle("active", view === "users");
+  if ($("#statsTab")) $("#statsTab").classList.toggle("active", view === "stats");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
   applyScheduleMode();
   if (view === "schedule") render();
   if (view === "logs") loadLogs();
   if (view === "users") loadUsers();
+  if (view === "stats") loadStats();
 }
 
 function applyAdminVisibility(allowed) {
   canViewLogs = Boolean(allowed);
-  ["logsTab", "staffTab", "usersTab"].forEach((id) => {
+  ["logsTab", "staffTab", "usersTab", "statsTab"].forEach((id) => {
     const tab = $(`#${id}`);
     if (!tab) return;
     tab.hidden = !canViewLogs;
@@ -483,7 +533,7 @@ function applyAdminVisibility(allowed) {
     tab.style.display = canViewLogs ? "" : "none";
   });
   document.querySelector(".view-tabs")?.classList.toggle("is-admin", canViewLogs);
-  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users")) {
+  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users" || currentView === "stats")) {
     showView("day");
   }
 }
@@ -620,7 +670,7 @@ function operationRowHtml(item) {
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
       <td class="col-diagnosis" data-label="Діагноз">${escapeHtml(item.diagnosis || "—")}</td>
       <td class="col-procedure" data-label="Втручання">${escapeHtml(item.procedure || "—")}</td>
-      <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"))}</td>
+      <td class="col-team" data-label="Операційна бригада">${renderPersonChips(namesForOperation(item, "teamMembers", "team"), { ranked: true })}</td>
       <td class="col-anes" data-label="Анестезіологи">${renderPersonChips(namesForOperation(item, "anesthesiologists", "anesthesiologist"))}</td>
       <td class="col-blood" data-label="Група крові">${bloodBadgeHtml(item)}${patientFlagsHtml(item)}</td>
       <td class="col-status" data-label="Статус">${statusBadgeHtml(item)}</td>
@@ -662,7 +712,7 @@ function mobileCardHtml(item) {
         <p class="week-procedure"><span class="week-field-label">Втручання</span><span class="week-field-value">${escapeHtml(item.procedure || "—")}</span></p>
         <p class="week-diagnosis"><span class="week-field-label">Діагноз</span><span class="week-field-value">${escapeHtml(diagnosisText)}</span></p>
       </div>
-      <p class="week-people"><span>Бригада:</span> ${escapeHtml(namesForOperation(item, "teamMembers", "team").join(", ") || "Не призначено")}</p>
+      <p class="week-people"><span>Бригада:</span> ${rankedTeamLabel(namesForOperation(item, "teamMembers", "team"))}</p>
       <p class="week-people"><span>Анестезіолог:</span> ${escapeHtml(namesForOperation(item, "anesthesiologists", "anesthesiologist").join(", ") || "Не призначено")}</p>
       <p class="week-status">${statusBadgeHtml(item)}</p>
       ${notesText ? `<p class="week-notes"><span class="week-field-label">Примітки</span><span class="week-field-value">${escapeHtml(notesText)}</span></p>` : ""}
@@ -1045,7 +1095,8 @@ function resetForm() {
   renderAttachmentsPanel([]);
   const progress = $("#uploadProgress");
   if (progress) progress.hidden = true;
-  renderPicker("teamPicker", staff.team);
+  setTeamSelectionOrder([]);
+  renderPicker("teamPicker", staff.team, []);
   renderPicker("anesthesiologistPicker", staff.anesthesiologists);
 }
 
@@ -1099,7 +1150,7 @@ async function saveOperation(event) {
     patient: formatShortName($("#patientName").value),
     patientAge: $("#patientAge")?.value || "",
     bloodGroup: $("#bloodGroup").value,
-    teamMembers: selectedPickerValues("teamPicker").slice(0, MAX_SURGEONS),
+    teamMembers: selectedTeamMembers(),
     diagnosis: $("#diagnosis").value.trim(),
     procedure: formatProcedureWithSide($("#procedure").value.trim(), $("#operationSide")?.value),
     anesthesiologists: selectedPickerValues("anesthesiologistPicker").slice(0, MAX_ANESTHESIOLOGISTS),
@@ -1782,6 +1833,38 @@ async function loadLogs() {
   }
 }
 
+async function loadStats() {
+  const from = $("#statsFrom")?.value || "";
+  const to = $("#statsTo")?.value || "";
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  try {
+    const data = await api(`/stats${query}`);
+    const rows = Array.isArray(data?.byPrimarySurgeon) ? data.byPrimarySurgeon : [];
+    const total = Number(data?.totalOperations) || 0;
+    const withPrimary = Number(data?.withPrimarySurgeon) || 0;
+    const without = Number(data?.withoutPrimarySurgeon) || 0;
+    if ($("#statsTotal")) $("#statsTotal").textContent = String(total);
+    if ($("#statsWithPrimary")) $("#statsWithPrimary").textContent = String(withPrimary);
+    if ($("#statsWithoutPrimary")) $("#statsWithoutPrimary").textContent = String(without);
+    const body = $("#statsBody");
+    if (!body) return;
+    body.innerHTML = rows.length
+      ? rows.map((row, index) => `
+        <tr>
+          <td data-label="#">${index + 1}</td>
+          <td data-label="Хірург">${escapeHtml(formatShortName(row.name))}</td>
+          <td data-label="Операцій (як основний)"><strong>${Number(row.count) || 0}</strong></td>
+        </tr>`).join("")
+      : `<tr><td colspan="3">Немає операцій за обраний період.</td></tr>`;
+    if ($("#statsEmpty")) $("#statsEmpty").hidden = rows.length > 0 || total > 0;
+  } catch (error) {
+    alert(error.message || "Не вдалося завантажити статистику.");
+  }
+}
+
 function userRoleLabel(role) {
   return role === "admin" ? "Адмін" : "Лікар";
 }
@@ -1981,8 +2064,19 @@ on("#weekTab", "click", () => showView("week"));
 on("#planTab", "click", () => showView("plan"));
 on("#staffTab", "click", () => showView("staff"));
 on("#usersTab", "click", () => showView("users"));
+on("#statsTab", "click", () => showView("stats"));
 on("#logsTab", "click", () => showView("logs"));
 on("#refreshUsers", "click", () => loadUsers());
+on("#refreshStats", "click", () => loadStats());
+on("#statsFilterForm", "submit", (event) => {
+  event.preventDefault();
+  loadStats();
+});
+on("#statsReset", "click", () => {
+  if ($("#statsFrom")) $("#statsFrom").value = "";
+  if ($("#statsTo")) $("#statsTo").value = "";
+  loadStats();
+});
 on("#closeUserDialog", "click", () => closeUserEditor());
 on("#cancelUserEdit", "click", () => closeUserEditor());
 on("#userForm", "submit", saveUserEdit);
@@ -2105,16 +2199,41 @@ document.addEventListener("change", (event) => {
   const pickerId = input.dataset.picker;
   const max = PICKER_LIMITS[pickerId];
   if (!max) return;
+
+  if (pickerId === "teamPicker") {
+    const name = input.value;
+    if (input.checked) {
+      if (teamSelectionOrder.includes(name)) {
+        paintPicker("teamPicker");
+        return;
+      }
+      if (teamSelectionOrder.length >= MAX_SURGEONS) {
+        input.checked = false;
+        alert("Можна обрати максимум 2 хірургів: 1 — основний, 2 — асистент.");
+        return;
+      }
+      teamSelectionOrder.push(name);
+    } else {
+      teamSelectionOrder = teamSelectionOrder.filter((item) => item !== name);
+    }
+    paintPicker("teamPicker");
+    return;
+  }
+
   const selected = selectedPickerValues(pickerId);
-  if (selected.length <= max) return;
+  if (selected.length <= max) {
+    paintPicker(pickerId);
+    return;
+  }
   if (max === 1) {
     document.querySelectorAll(`#${pickerId} input[type="checkbox"]`).forEach((box) => {
       if (box !== input) box.checked = false;
     });
+    paintPicker(pickerId);
     return;
   }
   input.checked = false;
-  alert(pickerId === "teamPicker" ? "Можна обрати максимум 3 хірургів." : "Можна обрати максимум 1 анестезіолога.");
+  alert("Можна обрати максимум 1 анестезіолога.");
 });
 on("#deleteOperation", "click", () => {
   if (editingId) deleteOperation(editingId);

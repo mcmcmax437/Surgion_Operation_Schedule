@@ -89,6 +89,68 @@ if (!process.env.MYSQL_USER || !process.env.MYSQL_DATABASE) {
   process.exit(1);
 }
 
+/** In-memory login brute-force protection (per process). */
+const LOGIN_MAX_ATTEMPTS = Number(process.env.LOGIN_MAX_ATTEMPTS || 5);
+const LOGIN_WINDOW_MS = Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000);
+const LOGIN_LOCK_MS = Number(process.env.LOGIN_LOCK_MS || 15 * 60 * 1000);
+const loginAttempts = new Map();
+
+function loginAttemptKey(ip, email = "") {
+  return `${String(ip || "unknown")}|${normalizeEmail(email || "")}`;
+}
+
+function getLoginAttempt(ip, email = "") {
+  const key = loginAttemptKey(ip, email);
+  const entry = loginAttempts.get(key);
+  if (!entry) return null;
+  const now = Date.now();
+  if (entry.lockedUntil && entry.lockedUntil > now) return entry;
+  if (entry.lockedUntil && entry.lockedUntil <= now) {
+    loginAttempts.delete(key);
+    return null;
+  }
+  if (entry.firstAt && now - entry.firstAt > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+function loginThrottleMessage(entry) {
+  const waitMs = Math.max(0, (entry?.lockedUntil || 0) - Date.now());
+  const mins = Math.max(1, Math.ceil(waitMs / 60000));
+  return `Забагато невдалих спроб входу. Спробуйте знову через ${mins} хв.`;
+}
+
+function assertLoginAllowed(ip, email = "") {
+  const entry = getLoginAttempt(ip, email);
+  if (entry?.lockedUntil && entry.lockedUntil > Date.now()) {
+    return loginThrottleMessage(entry);
+  }
+  return null;
+}
+
+function recordLoginFailure(ip, email = "") {
+  const key = loginAttemptKey(ip, email);
+  const now = Date.now();
+  let entry = loginAttempts.get(key);
+  if (!entry || (entry.firstAt && now - entry.firstAt > LOGIN_WINDOW_MS) || (entry.lockedUntil && entry.lockedUntil <= now)) {
+    entry = { count: 0, firstAt: now, lockedUntil: 0 };
+  }
+  entry.count += 1;
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+    entry.lockedUntil = now + LOGIN_LOCK_MS;
+    entry.count = 0;
+    entry.firstAt = now;
+  }
+  loginAttempts.set(key, entry);
+  return entry;
+}
+
+function clearLoginFailures(ip, email = "") {
+  loginAttempts.delete(loginAttemptKey(ip, email));
+}
+
 fs.mkdirSync(uploadsDir, { recursive: true });
 
 const pool = createPool();
@@ -179,7 +241,7 @@ function bodyToOperation(body) {
     bloodGroup: body.bloodGroup || null,
     diagnosis: String(body.diagnosis || "").trim(),
     procedure: String(body.procedure || "").trim(),
-    teamMembers: Array.isArray(teamMembers) ? teamMembers.slice(0, 3) : [],
+    teamMembers: Array.isArray(teamMembers) ? teamMembers.slice(0, 2) : [],
     anesthesiologists: Array.isArray(anesthesiologists) ? anesthesiologists.slice(0, 1) : [],
     infections,
     patientFlags,
@@ -489,19 +551,35 @@ app.post("/api/login", async (req, res) => {
   try {
     // Account login (doctors / admin).
     if (email) {
+      const throttleError = assertLoginAllowed(ip, email) || assertLoginAllowed(ip, "");
+      if (throttleError) {
+        await logAccess(pool, {
+          event: "login_blocked",
+          ip,
+          userAgent: ua,
+          details: { email, method: "password", reason: "brute_force" },
+        }).catch(() => {});
+        return res.status(429).json({ error: throttleError });
+      }
       if (!isValidEmail(email) || !password) {
         return res.status(400).json({ error: "Вкажіть email і пароль." });
       }
       const user = await findUserByEmail(pool, email);
       if (!user || user.status !== "active" || !user.password_hash) {
+        recordLoginFailure(ip, email);
+        recordLoginFailure(ip, "");
         await logAccess(pool, { event: "login_fail", ip, userAgent: ua, details: { email, method: "password" } }).catch(() => {});
         return res.status(401).json({ error: "Невірний email або пароль." });
       }
       const ok = await verifyPassword(password, user.password_hash);
       if (!ok) {
+        recordLoginFailure(ip, email);
+        recordLoginFailure(ip, "");
         await logAccess(pool, { event: "login_fail", ip, userAgent: ua, details: { email, method: "password" } }).catch(() => {});
         return res.status(401).json({ error: "Невірний email або пароль." });
       }
+      clearLoginFailures(ip, email);
+      clearLoginFailures(ip, "");
       return issueLoginResponse(res, {
         pool,
         user,
@@ -513,7 +591,18 @@ app.post("/api/login", async (req, res) => {
     }
 
     // Legacy shared department password (optional).
+    const sharedThrottle = assertLoginAllowed(ip, "");
+    if (sharedThrottle) {
+      await logAccess(pool, {
+        event: "login_blocked",
+        ip,
+        userAgent: ua,
+        details: { method: "shared", reason: "brute_force" },
+      }).catch(() => {});
+      return res.status(429).json({ error: sharedThrottle });
+    }
     if (!hasSharedPassword || password !== ACCESS_PASSWORD) {
+      recordLoginFailure(ip, "");
       try {
         await logAccess(pool, {
           event: "login_fail",
@@ -527,6 +616,7 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid password" });
     }
 
+    clearLoginFailures(ip, "");
     return issueLoginResponse(res, {
       pool,
       user: null,
@@ -1016,6 +1106,65 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
+
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+app.get("/api/stats", auth, requireAdmin, async (req, res) => {
+  try {
+    const from = isYmd(req.query.from) ? String(req.query.from) : null;
+    const to = isYmd(req.query.to) ? String(req.query.to) : null;
+    const clauses = [];
+    const params = {};
+    if (from) {
+      clauses.push("date >= :from");
+      params.from = from;
+    }
+    if (to) {
+      clauses.push("date <= :to");
+      params.to = to;
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const [rows] = await pool.query(
+      `SELECT team_members, date FROM operations ${where}`,
+      params,
+    );
+
+    const counts = new Map();
+    let withPrimarySurgeon = 0;
+    let withoutPrimarySurgeon = 0;
+    for (const row of rows) {
+      const team = parseJson(row.team_members, []);
+      const primary = Array.isArray(team) && team.length
+        ? String(team[0] || "").trim()
+        : "";
+      if (!primary) {
+        withoutPrimarySurgeon += 1;
+        continue;
+      }
+      withPrimarySurgeon += 1;
+      counts.set(primary, (counts.get(primary) || 0) + 1);
+    }
+
+    const byPrimarySurgeon = [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "uk"));
+
+    res.json({
+      from,
+      to,
+      totalOperations: rows.length,
+      withPrimarySurgeon,
+      withoutPrimarySurgeon,
+      rule: "Counted only for surgeon in position 1 (primary). Position 2 is assistant and is not counted.",
+      byPrimarySurgeon,
+    });
+  } catch (error) {
+    console.error("stats failed:", error);
+    res.status(500).json({ error: "Не вдалося завантажити статистику." });
+  }
+});
 
 app.get("/api/users", auth, requireAdmin, async (_req, res) => {
   try {
