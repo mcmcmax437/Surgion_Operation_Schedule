@@ -1107,8 +1107,17 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-function isYmd(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+function toStatsYmd(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return [
+      value.getFullYear(),
+      String(value.getMonth() + 1).padStart(2, "0"),
+      String(value.getDate()).padStart(2, "0"),
+    ].join("-");
+  }
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
 }
 
 function bumpCount(map, key, by = 1) {

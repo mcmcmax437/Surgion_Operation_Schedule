@@ -1036,7 +1036,7 @@ function renderAttachmentsPanel(existing = []) {
   if (pending.length && existing.length) {
     hint.textContent = `${existing.length} на сервері · ${pending.length} нових буде завантажено після збереження`;
   } else if (pending.length) {
-    hint.textContent = `${pending.length} файл(ів) буде завантажено після натискання «Зберегти операцію»`;
+    hint.textContent = `${pending.length} файл(ів) буде завантажено після збереження`;
   } else if (existing.length) {
     hint.textContent = `${existing.length} файл(ів) уже збережено. ✕ видаляє файл з сервера.`;
   } else {
@@ -2004,61 +2004,90 @@ function heatLevel(count, max) {
   return 1;
 }
 
-function ymdFromDate(date) {
+function ymdFromParts(year, monthIndex, day) {
   return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
+    year,
+    String(monthIndex + 1).padStart(2, "0"),
+    String(day).padStart(2, "0"),
   ].join("-");
+}
+
+function parseYmdLocal(ymd) {
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
 function renderStatsHeatmap(byDay, year) {
   const root = $("#statsHeatmap");
   if (!root) return;
-  const counts = new Map((byDay || []).map((item) => [item.date, Number(item.count) || 0]));
-  const max = Math.max(0, ...counts.values(), 0);
-  const start = new Date(year, 0, 1);
-  const end = new Date(year, 11, 31);
-  // Align to Monday-start weeks.
-  const gridStart = new Date(start);
-  const startDow = (gridStart.getDay() + 6) % 7; // Mon=0
-  gridStart.setDate(gridStart.getDate() - startDow);
-  const gridEnd = new Date(end);
-  const endDow = (gridEnd.getDay() + 6) % 7;
-  gridEnd.setDate(gridEnd.getDate() + (6 - endDow));
+  const counts = new Map((byDay || []).map((item) => [String(item.date).slice(0, 10), Number(item.count) || 0]));
+  const values = [...counts.values()];
+  const peak = values.length ? Math.max(...values) : 0;
+
+  // Build Mon-start week columns covering the full calendar year (incl. December).
+  const jan1 = new Date(year, 0, 1, 12, 0, 0, 0);
+  const dec31 = new Date(year, 11, 31, 12, 0, 0, 0);
+  const gridStart = new Date(jan1);
+  gridStart.setDate(jan1.getDate() - ((jan1.getDay() + 6) % 7));
+  const gridEnd = new Date(dec31);
+  gridEnd.setDate(dec31.getDate() + (6 - ((dec31.getDay() + 6) % 7)));
 
   const weeks = [];
-  for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor.setDate(cursor.getDate() + 7)) {
+  for (let cursor = new Date(gridStart); cursor.getTime() <= gridEnd.getTime(); cursor.setDate(cursor.getDate() + 7)) {
     const week = [];
     for (let d = 0; d < 7; d += 1) {
-      const day = new Date(cursor);
-      day.setDate(cursor.getDate() + d);
-      const ymd = ymdFromDate(day);
+      const day = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + d, 12, 0, 0, 0);
+      const ymd = ymdFromParts(day.getFullYear(), day.getMonth(), day.getDate());
       const inYear = day.getFullYear() === year;
       const count = inYear ? (counts.get(ymd) || 0) : 0;
-      week.push({ ymd, count, inYear, level: inYear ? heatLevel(count, max) : 0 });
+      week.push({
+        ymd,
+        count,
+        inYear,
+        level: inYear ? heatLevel(count, peak) : 0,
+      });
     }
     weeks.push(week);
   }
 
   const monthNames = ["січ.", "лют.", "бер.", "квіт.", "трав.", "черв.", "лип.", "серп.", "вер.", "жовт.", "лист.", "груд."];
-  const monthLabels = weeks.map((week, index) => {
-    const firstInYear = week.find((day) => day.inYear);
-    if (!firstInYear) return "";
-    const date = new Date(`${firstInYear.ymd}T12:00:00`);
-    const prev = index > 0 ? weeks[index - 1].find((day) => day.inYear) : null;
-    const prevMonth = prev ? new Date(`${prev.ymd}T12:00:00`).getMonth() : -1;
-    return date.getMonth() !== prevMonth ? monthNames[date.getMonth()] : "";
-  });
+  const monthSpans = [];
+  for (let i = 0; i < weeks.length; ) {
+    const anchor = weeks[i].find((day) => day.inYear) || weeks[i][0];
+    const month = parseYmdLocal(anchor.ymd).getMonth();
+    const yearOf = parseYmdLocal(anchor.ymd).getFullYear();
+    let j = i + 1;
+    while (j < weeks.length) {
+      const next = weeks[j].find((day) => day.inYear) || weeks[j][0];
+      const nextDate = parseYmdLocal(next.ymd);
+      if (nextDate.getFullYear() !== yearOf || nextDate.getMonth() !== month) break;
+      j += 1;
+    }
+    // Only label months that belong to the selected year.
+    if (yearOf === year) {
+      monthSpans.push({
+        label: monthNames[month],
+        start: i + 1,
+        span: Math.max(1, j - i),
+      });
+    }
+    i = j;
+  }
 
-  const dowLabels = ["Пн", "", "Ср", "", "Пт", "", ""];
+  const dowLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+  const weekCount = weeks.length;
+  root.style.setProperty("--heat-weeks", String(weekCount));
   root.innerHTML = `
-    <div class="stats-heatmap-months">${monthLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
+    <div class="stats-heatmap-months" style="grid-template-columns:repeat(${weekCount}, var(--heat-col))">
+      ${monthSpans.map((item) => (
+        `<span style="grid-column:${item.start} / span ${item.span}">${escapeHtml(item.label)}</span>`
+      )).join("")}
+    </div>
     <div class="stats-heatmap-body">
       <div class="stats-heatmap-dows">${dowLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
-      <div class="stats-heatmap-grid">
+      <div class="stats-heatmap-grid" style="grid-template-columns:repeat(${weekCount}, var(--heat-cell))">
         ${weeks.map((week) => week.map((day) => `
-          <span class="heat-day heat-${day.level}${day.inYear ? "" : " is-out"}" title="${escapeHtml(day.ymd)}: ${day.count}"></span>
+          <span class="heat-day heat-${day.level}${day.inYear ? "" : " is-out"}" title="${escapeHtml(day.ymd)}: ${day.count} опер."></span>
         `).join("")).join("")}
       </div>
     </div>
@@ -2067,7 +2096,9 @@ function renderStatsHeatmap(byDay, year) {
     const yearTotal = [...counts.entries()]
       .filter(([date]) => date.startsWith(`${year}-`))
       .reduce((sum, [, count]) => sum + count, 0);
-    $("#statsHeatmapMeta").textContent = `${year}: ${yearTotal} опер. · макс. ${max || 0}/день`;
+    $("#statsHeatmapMeta").textContent = peak > 0
+      ? `${year}: ${yearTotal} операцій · найнасиченіший день: ${peak}`
+      : `${year}: ${yearTotal} операцій`;
   }
 }
 
