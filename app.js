@@ -2017,14 +2017,57 @@ function parseYmdLocal(ymd) {
   return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
+function hideStatsHeatTip() {
+  const tip = $("#statsHeatTip");
+  if (tip) {
+    tip.hidden = true;
+    tip.innerHTML = "";
+  }
+  document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
+}
+
+function operationsCountLabel(count) {
+  const n = Math.abs(Number(count) || 0);
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} операція`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} операції`;
+  return `${n} операцій`;
+}
+
+function showStatsHeatTip(dayEl) {
+  const tip = $("#statsHeatTip");
+  const scroll = dayEl?.closest?.(".stats-heatmap-scroll");
+  if (!tip || !scroll || !dayEl || dayEl.classList.contains("is-out")) return;
+  const ymd = dayEl.getAttribute("data-ymd") || "";
+  const count = Number(dayEl.getAttribute("data-count") || 0);
+  if (!ymd) return;
+
+  document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
+  dayEl.classList.add("is-active");
+
+  tip.innerHTML = `<strong>${escapeHtml(operationsCountLabel(count))}</strong><span>${escapeHtml(formatDayHeading(ymd))}</span>`;
+  tip.hidden = false;
+  tip.classList.remove("is-below");
+
+  const dayRect = dayEl.getBoundingClientRect();
+  const scrollRect = scroll.getBoundingClientRect();
+  const left = dayRect.left - scrollRect.left + scroll.scrollLeft + dayRect.width / 2;
+  const top = dayRect.top - scrollRect.top + scroll.scrollTop;
+  const placeBelow = dayRect.top - scrollRect.top < 44;
+  tip.classList.toggle("is-below", placeBelow);
+  tip.style.left = `${Math.max(72, Math.min(left, scroll.scrollWidth - 72))}px`;
+  tip.style.top = `${Math.max(8, top + (placeBelow ? dayRect.height : 0))}px`;
+}
+
 function renderStatsHeatmap(byDay, year) {
   const root = $("#statsHeatmap");
   if (!root) return;
+  hideStatsHeatTip();
   const counts = new Map((byDay || []).map((item) => [String(item.date).slice(0, 10), Number(item.count) || 0]));
   const values = [...counts.values()];
   const peak = values.length ? Math.max(...values) : 0;
 
-  // Build Mon-start week columns covering the full calendar year (incl. December).
   const jan1 = new Date(year, 0, 1, 12, 0, 0, 0);
   const dec31 = new Date(year, 11, 31, 12, 0, 0, 0);
   const gridStart = new Date(jan1);
@@ -2063,7 +2106,6 @@ function renderStatsHeatmap(byDay, year) {
       if (nextDate.getFullYear() !== yearOf || nextDate.getMonth() !== month) break;
       j += 1;
     }
-    // Only label months that belong to the selected year.
     if (yearOf === year) {
       monthSpans.push({
         label: monthNames[month],
@@ -2086,9 +2128,11 @@ function renderStatsHeatmap(byDay, year) {
     <div class="stats-heatmap-body">
       <div class="stats-heatmap-dows">${dowLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
       <div class="stats-heatmap-grid" style="grid-template-columns:repeat(${weekCount}, var(--heat-cell))">
-        ${weeks.map((week) => week.map((day) => `
-          <span class="heat-day heat-${day.level}${day.inYear ? "" : " is-out"}" title="${escapeHtml(day.ymd)}: ${day.count} опер."></span>
-        `).join("")).join("")}
+        ${weeks.map((week) => week.map((day) => (
+          day.inYear
+            ? `<button type="button" class="heat-day heat-${day.level}" data-ymd="${escapeHtml(day.ymd)}" data-count="${day.count}" aria-label="${escapeHtml(formatDayHeading(day.ymd))}: ${day.count}"></button>`
+            : `<span class="heat-day heat-0 is-out" aria-hidden="true"></span>`
+        )).join("")).join("")}
       </div>
     </div>
   `;
@@ -2100,6 +2144,69 @@ function renderStatsHeatmap(byDay, year) {
       ? `${year}: ${yearTotal} операцій · найнасиченіший день: ${peak}`
       : `${year}: ${yearTotal} операцій`;
   }
+}
+
+function monthStartYmd(ymd = todayYmd()) {
+  return `${String(ymd).slice(0, 7)}-01`;
+}
+
+function yearStartYmd(ymd = todayYmd()) {
+  return `${String(ymd).slice(0, 4)}-01-01`;
+}
+
+function updateStatsPeriodHint() {
+  const hint = $("#statsPeriodHint");
+  if (!hint) return;
+  const from = $("#statsFrom")?.value || "";
+  const to = $("#statsTo")?.value || "";
+  const active = document.querySelector(".stats-chip.is-active")?.dataset.statsPeriod || "all";
+  if (active === "all" && !from && !to) {
+    hint.textContent = "Усі дати в базі";
+    return;
+  }
+  if (from && to) {
+    hint.textContent = `${formatDayMonth(from)} — ${formatDayMonth(to)}`;
+    return;
+  }
+  if (from) {
+    hint.textContent = `Від ${formatDayMonth(from)}`;
+    return;
+  }
+  if (to) {
+    hint.textContent = `До ${formatDayMonth(to)}`;
+    return;
+  }
+  hint.textContent = "Усі дати в базі";
+}
+
+function setStatsPeriod(period) {
+  document.querySelectorAll(".stats-chip[data-stats-period]").forEach((chip) => {
+    chip.classList.toggle("is-active", chip.dataset.statsPeriod === period);
+  });
+  const custom = $("#statsCustomRange");
+  const today = todayYmd();
+  if (period === "custom") {
+    if (custom) custom.hidden = false;
+    updateStatsPeriodHint();
+    return;
+  }
+  if (custom) custom.hidden = true;
+  if (period === "all") {
+    if ($("#statsFrom")) $("#statsFrom").value = "";
+    if ($("#statsTo")) $("#statsTo").value = "";
+  } else if (period === "year") {
+    if ($("#statsFrom")) $("#statsFrom").value = yearStartYmd(today);
+    if ($("#statsTo")) $("#statsTo").value = today;
+    if ($("#statsYear")) $("#statsYear").value = today.slice(0, 4);
+  } else if (period === "month") {
+    if ($("#statsFrom")) $("#statsFrom").value = monthStartYmd(today);
+    if ($("#statsTo")) $("#statsTo").value = today;
+  } else if (period === "30") {
+    if ($("#statsFrom")) $("#statsFrom").value = addDaysYmd(today, -29);
+    if ($("#statsTo")) $("#statsTo").value = today;
+  }
+  updateStatsPeriodHint();
+  loadStats();
 }
 
 function fillStatsYearSelect(availableYears, selectedYear) {
@@ -2162,6 +2269,7 @@ async function loadStats() {
       }
     }
     if ($("#statsEmpty")) $("#statsEmpty").hidden = total > 0;
+    updateStatsPeriodHint();
   } catch (error) {
     console.error("loadStats failed:", error);
     alert(error.message || "Не вдалося завантажити статистику.");
@@ -2373,14 +2481,34 @@ on("#refreshUsers", "click", () => loadUsers());
 on("#refreshStats", "click", () => loadStats());
 on("#statsFilterForm", "submit", (event) => {
   event.preventDefault();
+  document.querySelectorAll(".stats-chip[data-stats-period]").forEach((chip) => {
+    chip.classList.toggle("is-active", chip.dataset.statsPeriod === "custom");
+  });
+  if ($("#statsCustomRange")) $("#statsCustomRange").hidden = false;
+  updateStatsPeriodHint();
   loadStats();
 });
 on("#statsReset", "click", () => {
-  if ($("#statsFrom")) $("#statsFrom").value = "";
-  if ($("#statsTo")) $("#statsTo").value = "";
-  loadStats();
+  setStatsPeriod("all");
 });
 on("#statsYear", "change", () => loadStats());
+document.addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-stats-period]");
+  if (chip) {
+    event.preventDefault();
+    setStatsPeriod(chip.dataset.statsPeriod);
+    return;
+  }
+  const heatDay = event.target.closest(".heat-day[data-ymd]");
+  if (heatDay) {
+    event.preventDefault();
+    showStatsHeatTip(heatDay);
+    return;
+  }
+  if (!event.target.closest("#statsHeatTip") && !event.target.closest(".stats-heatmap-scroll")) {
+    hideStatsHeatTip();
+  }
+});
 on("#closeUserDialog", "click", () => closeUserEditor());
 on("#cancelUserEdit", "click", () => closeUserEditor());
 on("#userForm", "submit", saveUserEdit);
