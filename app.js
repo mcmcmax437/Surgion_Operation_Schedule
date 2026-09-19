@@ -2017,7 +2017,14 @@ function parseYmdLocal(ymd) {
   return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
+const STATS_HEAT_TIP_MS = 3500;
+let statsHeatTipTimer = 0;
+
 function hideStatsHeatTip() {
+  if (statsHeatTipTimer) {
+    window.clearTimeout(statsHeatTipTimer);
+    statsHeatTipTimer = 0;
+  }
   const tip = $("#statsHeatTip");
   if (tip) {
     tip.hidden = true;
@@ -2043,6 +2050,11 @@ function showStatsHeatTip(dayEl) {
   const count = Number(dayEl.getAttribute("data-count") || 0);
   if (!ymd) return;
 
+  if (statsHeatTipTimer) {
+    window.clearTimeout(statsHeatTipTimer);
+    statsHeatTipTimer = 0;
+  }
+
   document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
   dayEl.classList.add("is-active");
 
@@ -2058,6 +2070,11 @@ function showStatsHeatTip(dayEl) {
   tip.classList.toggle("is-below", placeBelow);
   tip.style.left = `${Math.max(72, Math.min(left, scroll.scrollWidth - 72))}px`;
   tip.style.top = `${Math.max(8, top + (placeBelow ? dayRect.height : 0))}px`;
+
+  statsHeatTipTimer = window.setTimeout(() => {
+    statsHeatTipTimer = 0;
+    hideStatsHeatTip();
+  }, STATS_HEAT_TIP_MS);
 }
 
 function renderStatsHeatmap(byDay, year) {
