@@ -107,38 +107,49 @@
       .person-rank{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#17365d;color:#fff;font-size:11px;font-weight:800;line-height:1}
       .theme-dark .person-chip{background:#315b7a;color:#fff}
       .theme-dark .person-rank{background:#9ac3e5;color:#0f172a}
-      .stats-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 0 18px;padding:14px 16px;border:1px solid #dbe5ee;border-radius:12px;background:#f8fbfe}
+      .stats-filters{display:grid;gap:14px;margin:0 0 18px;padding:16px;border:1px solid #dbe5ee;border-radius:16px;background:linear-gradient(180deg,#f8fbfe,#eef5fb)}
+      .stats-filter-top{display:grid;gap:10px}
+      .stats-filter-title{margin:0;color:#17365d;font-size:14px;font-weight:800}
+      .stats-filter-hint{margin:2px 0 0;color:#64748b;font-size:12px;font-weight:600}
+      .stats-period-chips{display:flex;flex-wrap:wrap;gap:8px}
+      .stats-chip{border:1px solid #cbd5e1;background:#fff;color:#334e68;border-radius:999px;padding:8px 14px;min-height:38px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+      .stats-chip.is-active{background:#17365d;border-color:#17365d;color:#fff;box-shadow:0 4px 12px #17365d33}
+      .stats-filter-dates{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}
       .stats-filters label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#52606d}
-      .stats-filters input{min-height:40px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+      .stats-filters input[type=date]{min-height:42px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:12px;font:inherit;background:#fff;color:#1f2937}
       .stats-filters-actions{display:flex;gap:8px;flex-wrap:wrap}
+      .theme-dark .stats-filters{background:linear-gradient(180deg,#1f2937,#182b3b);border-color:#4b5563}
+      .theme-dark .stats-filter-title{color:#dbeafe}
+      .theme-dark .stats-filter-hint{color:#94a3b8}
+      .theme-dark .stats-chip{background:#111827;border-color:#4b5563;color:#e5e7eb}
+      .theme-dark .stats-chip.is-active{background:#47759b;border-color:#47759b;color:#fff}
+      .theme-dark .stats-filters label{color:#cbd5e1}
+      .theme-dark .stats-filters input[type=date]{background:#0f172a;border-color:#4b5563;color:#e5e7eb}
       .stats-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 18px}
       .stats-metric{padding:14px 16px;border:1px solid #dbe5ee;border-radius:12px;background:#fff}
       .stats-metric-label{display:block;margin:0 0 6px;color:#64748b;font-size:12px;font-weight:700}
       .stats-metric strong{font-size:22px;color:#17365d;font-variant-numeric:tabular-nums}
-      .theme-dark .stats-filters{background:#182b3b;border-color:#4b5563}
-      .theme-dark .stats-filters label{color:#cbd5e1}
-      .theme-dark .stats-filters input{background:#111827;border-color:#4b5563;color:#e5e7eb}
       .theme-dark .stats-metric{background:#1f2937;border-color:#4b5563}
       .theme-dark .stats-metric-label{color:#94a3b8}
       .theme-dark .stats-metric strong{color:#dbeafe}
-      .stats-heatmap-card{margin:0 0 20px;padding:16px;border:1px solid #1f2937;border-radius:16px;background:#0b1220;color:#e5e7eb}
+      .stats-heatmap-card{margin:0 0 20px;padding:16px;border:1px solid #1f2937;border-radius:16px;background:#0b1220;color:#e5e7eb;position:relative}
       .stats-heatmap-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:0 0 14px;flex-wrap:wrap}
       .stats-heatmap-head h3{margin:0;color:#fff;font-size:18px}
       .stats-heatmap-head p{margin:4px 0 0;color:#94a3b8;font-size:13px}
-      .stats-year-label{display:grid;gap:4px;color:#94a3b8;font-size:12px;font-weight:700}
-      .stats-year-label select{min-height:36px;border-radius:8px;border:1px solid #334155;background:#111827;color:#e5e7eb;padding:6px 10px;font:inherit}
-      .stats-heatmap-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+      .stats-year-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px 6px 12px;border-radius:999px;background:#111827;border:1px solid #334155;color:#94a3b8;font-size:12px;font-weight:700}
+      .stats-year-pill select{-webkit-appearance:none;appearance:none;border:0;background:transparent;color:#fff;font:inherit;font-size:14px;font-weight:800;padding:2px 18px 2px 0;min-height:28px;background-image:linear-gradient(45deg,transparent 50%,#94a3b8 50%),linear-gradient(135deg,#94a3b8 50%,transparent 50%);background-position:calc(100% - 8px) 11px,calc(100% - 3px) 11px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;cursor:pointer}
+      .stats-heatmap-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 4px 18px;position:relative}
       .stats-heatmap{
-        --heat-cell:12px;
-        --heat-gap:3px;
-        --heat-col:15px;
+        --heat-cell:16px;
+        --heat-gap:4px;
+        --heat-col:20px;
         --heat-weeks:53;
-        min-width:calc(var(--heat-weeks) * var(--heat-col) + 40px);
+        min-width:calc(var(--heat-weeks) * var(--heat-col) + 44px);
       }
       .stats-heatmap-months{
         display:grid;
         gap:0 var(--heat-gap);
-        margin:0 0 6px 34px;
+        margin:0 0 8px 36px;
         color:#94a3b8;
         font-size:11px;
         font-weight:700;
@@ -146,21 +157,52 @@
         align-items:end;
       }
       .stats-heatmap-months span{min-width:0;overflow:hidden;text-overflow:clip;white-space:nowrap}
-      .stats-heatmap-body{display:grid;grid-template-columns:30px 1fr;gap:4px;align-items:start}
+      .stats-heatmap-body{display:grid;grid-template-columns:32px 1fr;gap:6px;align-items:start}
       .stats-heatmap-dows{display:grid;grid-template-rows:repeat(7,var(--heat-cell));gap:var(--heat-gap);color:#94a3b8;font-size:10px;font-weight:700;align-items:center}
       .stats-heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,var(--heat-cell));gap:var(--heat-gap);justify-content:start}
-      .heat-day{width:var(--heat-cell);height:var(--heat-cell);border-radius:2px;background:#1f2937;display:block;flex:0 0 auto}
+      .heat-day{width:var(--heat-cell);height:var(--heat-cell);border-radius:4px;background:#1f2937;display:block;flex:0 0 auto;border:0;padding:0;cursor:pointer;box-sizing:border-box}
       .heat-day.heat-1{background:#0e4429}.heat-day.heat-2{background:#006d32}.heat-day.heat-3{background:#26a641}.heat-day.heat-4{background:#39d353}
-      .heat-day.is-out{opacity:.2}
-      .stats-heatmap-legend{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:12px;color:#94a3b8;font-size:12px}
-      .heat-swatch{width:12px;height:12px;border-radius:2px;display:inline-block;background:#1f2937}
+      .heat-day.is-out{opacity:.2;cursor:default}
+      .heat-day.is-active{outline:2px solid #fff;outline-offset:1px}
+      .stats-heat-tip{
+        position:absolute;
+        z-index:5;
+        min-width:132px;
+        max-width:220px;
+        padding:10px 12px;
+        border-radius:14px;
+        background:#111827;
+        color:#fff;
+        border:1px solid #334155;
+        box-shadow:0 10px 28px #0008;
+        font-size:12px;
+        line-height:1.35;
+        pointer-events:none;
+        transform:translate(-50%, calc(-100% - 10px));
+      }
+      .stats-heat-tip::after{
+        content:"";
+        position:absolute;
+        left:50%;
+        bottom:-6px;
+        width:12px;
+        height:12px;
+        background:#111827;
+        border-right:1px solid #334155;
+        border-bottom:1px solid #334155;
+        transform:translateX(-50%) rotate(45deg);
+      }
+      .stats-heat-tip strong{display:block;font-size:14px;margin-bottom:2px}
+      .stats-heat-tip span{color:#94a3b8}
+      .stats-heatmap-legend{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:8px;color:#94a3b8;font-size:12px}
+      .heat-swatch{width:12px;height:12px;border-radius:3px;display:inline-block;background:#1f2937}
       .heat-swatch.heat-1{background:#0e4429}.heat-swatch.heat-2{background:#006d32}.heat-swatch.heat-3{background:#26a641}.heat-swatch.heat-4{background:#39d353}
       .stats-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
       .stats-panel .logs-title{margin:10px 14px 6px}
       @media(max-width:760px){
         .stats-summary{grid-template-columns:1fr 1fr}
         .stats-panels{grid-template-columns:1fr}
-        .stats-filters{flex-direction:column;align-items:stretch}
+        .stats-filter-dates{grid-template-columns:1fr}
         .dialog-actions.dialog-actions-icons{display:flex!important;grid-template-columns:none!important}
         .dialog-actions.dialog-actions-icons button{width:44px!important}
       }
@@ -446,11 +488,30 @@
           <button class="secondary" id="refreshStats" type="button">Оновити</button>
         </div>
         <form class="stats-filters" id="statsFilterForm">
-          <label>Від<input id="statsFrom" type="date" /></label>
-          <label>До<input id="statsTo" type="date" /></label>
-          <div class="stats-filters-actions">
-            <button class="primary" type="submit">Показати</button>
-            <button class="secondary" id="statsReset" type="button">Скинути</button>
+          <div class="stats-filter-top">
+            <div>
+              <p class="stats-filter-title">Період</p>
+              <p class="stats-filter-hint" id="statsPeriodHint">Усі дати в базі</p>
+            </div>
+            <div class="stats-period-chips" role="group" aria-label="Швидкий період">
+              <button type="button" class="stats-chip is-active" data-stats-period="all">Увесь час</button>
+              <button type="button" class="stats-chip" data-stats-period="year">Цей рік</button>
+              <button type="button" class="stats-chip" data-stats-period="month">Цей місяць</button>
+              <button type="button" class="stats-chip" data-stats-period="30">30 днів</button>
+              <button type="button" class="stats-chip" data-stats-period="custom">Довільний</button>
+            </div>
+          </div>
+          <div class="stats-filter-dates" id="statsCustomRange" hidden>
+            <label>Від
+              <input id="statsFrom" type="date" />
+            </label>
+            <label>До
+              <input id="statsTo" type="date" />
+            </label>
+            <div class="stats-filters-actions">
+              <button class="primary" type="submit">Застосувати</button>
+              <button class="secondary" id="statsReset" type="button">Скинути</button>
+            </div>
           </div>
         </form>
 
@@ -469,12 +530,14 @@
               <h3>Активність за рік</h3>
               <p id="statsHeatmapMeta">Операцій на день</p>
             </div>
-            <label class="stats-year-label">Рік
-              <select id="statsYear"></select>
+            <label class="stats-year-pill">
+              <span>Рік</span>
+              <select id="statsYear" aria-label="Рік календаря"></select>
             </label>
           </div>
           <div class="stats-heatmap-scroll">
             <div id="statsHeatmap" class="stats-heatmap"></div>
+            <div id="statsHeatTip" class="stats-heat-tip" hidden role="status"></div>
           </div>
           <div class="stats-heatmap-legend" aria-hidden="true">
             <span>Менше</span>
