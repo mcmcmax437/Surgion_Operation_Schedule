@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260919d" />
+    <link rel="stylesheet" href="styles.css?v=20260919f" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -180,7 +180,16 @@
         font-size:12px;
         line-height:1.35;
         pointer-events:none;
-        transform:translate(-50%, calc(-100% - 12px));
+        opacity:0;
+        visibility:hidden;
+        transform:translate(-50%, calc(-100% - 6px)) scale(.96);
+        transition:opacity .2s ease,transform .2s ease,visibility 0s linear .2s;
+      }
+      .stats-heat-tip.is-visible{
+        opacity:1;
+        visibility:visible;
+        transform:translate(-50%, calc(-100% - 12px)) scale(1);
+        transition:opacity .18s ease,transform .18s ease,visibility 0s;
       }
       .stats-heat-tip::before,
       .stats-heat-tip::after{
@@ -207,7 +216,8 @@
         border-bottom:1px solid #475569;
         transform:translateX(-50%) rotate(45deg);
       }
-      .stats-heat-tip.is-below{transform:translate(-50%, 14px)}
+      .stats-heat-tip.is-below{transform:translate(-50%, 10px) scale(.96)}
+      .stats-heat-tip.is-below.is-visible{transform:translate(-50%, 14px) scale(1)}
       .stats-heat-tip.is-below::before{top:-5px;bottom:auto;border-radius:10px 10px 0 0;border:1px solid #475569;border-bottom:0}
       .stats-heat-tip.is-below::after{top:-2px;bottom:auto;transform:translateX(-50%) rotate(225deg)}
       .stats-heat-tip strong{display:block;font-size:14px;margin-bottom:2px}
@@ -829,7 +839,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260919e"></script>
-    <script src="app.js?v=20260919e"></script>
+    <script src="api.js?v=20260919f"></script>
+    <script src="app.js?v=20260919f"></script>
   </body>
 </html>

@@ -2017,20 +2017,44 @@ function parseYmdLocal(ymd) {
   return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
-const STATS_HEAT_TIP_MS = 3500;
+const STATS_HEAT_TIP_MS = 1500;
+const STATS_HEAT_TIP_FADE_MS = 200;
 let statsHeatTipTimer = 0;
+let statsHeatTipFadeTimer = 0;
 
-function hideStatsHeatTip() {
+function clearStatsHeatTipTimers() {
   if (statsHeatTipTimer) {
     window.clearTimeout(statsHeatTipTimer);
     statsHeatTipTimer = 0;
   }
+  if (statsHeatTipFadeTimer) {
+    window.clearTimeout(statsHeatTipFadeTimer);
+    statsHeatTipFadeTimer = 0;
+  }
+}
+
+function hideStatsHeatTip({ immediate = false } = {}) {
+  clearStatsHeatTipTimers();
+  document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
   const tip = $("#statsHeatTip");
-  if (tip) {
+  if (!tip) return;
+
+  const finish = () => {
+    tip.classList.remove("is-visible", "is-below");
     tip.hidden = true;
     tip.innerHTML = "";
+  };
+
+  if (immediate || tip.hidden || !tip.classList.contains("is-visible")) {
+    finish();
+    return;
   }
-  document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
+
+  tip.classList.remove("is-visible");
+  statsHeatTipFadeTimer = window.setTimeout(() => {
+    statsHeatTipFadeTimer = 0;
+    finish();
+  }, STATS_HEAT_TIP_FADE_MS);
 }
 
 function operationsCountLabel(count) {
@@ -2050,17 +2074,14 @@ function showStatsHeatTip(dayEl) {
   const count = Number(dayEl.getAttribute("data-count") || 0);
   if (!ymd) return;
 
-  if (statsHeatTipTimer) {
-    window.clearTimeout(statsHeatTipTimer);
-    statsHeatTipTimer = 0;
-  }
+  clearStatsHeatTipTimers();
 
   document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
   dayEl.classList.add("is-active");
 
   tip.innerHTML = `<strong>${escapeHtml(operationsCountLabel(count))}</strong><span>${escapeHtml(formatDayHeading(ymd))}</span>`;
   tip.hidden = false;
-  tip.classList.remove("is-below");
+  tip.classList.remove("is-visible", "is-below");
 
   const dayRect = dayEl.getBoundingClientRect();
   const scrollRect = scroll.getBoundingClientRect();
@@ -2070,6 +2091,10 @@ function showStatsHeatTip(dayEl) {
   tip.classList.toggle("is-below", placeBelow);
   tip.style.left = `${Math.max(72, Math.min(left, scroll.scrollWidth - 72))}px`;
   tip.style.top = `${Math.max(8, top + (placeBelow ? dayRect.height : 0))}px`;
+
+  // Force a reflow so the fade-in transition always runs.
+  void tip.offsetWidth;
+  tip.classList.add("is-visible");
 
   statsHeatTipTimer = window.setTimeout(() => {
     statsHeatTipTimer = 0;
