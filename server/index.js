@@ -1107,6 +1107,10 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
 function toStatsYmd(value) {
   if (!value) return "";
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -1195,8 +1199,8 @@ app.get("/api/stats", auth, requireAdmin, async (req, res) => {
       const infections = parseJson(row.infections, []);
       const flags = parseJson(row.patient_flags, []);
       const primary = Array.isArray(team) && team.length ? String(team[0] || "").trim() : "";
-      const date = row.date ? String(row.date).slice(0, 10) : "";
-      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const date = toStatsYmd(row.date);
+      if (date) {
         bumpCount(dayCounts, date);
         years.add(Number(date.slice(0, 4)));
       }
