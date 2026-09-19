@@ -2153,9 +2153,17 @@ async function loadStats() {
     if ($("#statsProcedureBody")) $("#statsProcedureBody").innerHTML = statsCountRows(data?.byProcedure, "Немає втручань.", { shortName: false });
     if ($("#statsInfectionBody")) $("#statsInfectionBody").innerHTML = statsNamedRows(data?.byInfection, "Маркер");
 
-    renderStatsHeatmap(data?.byDay || [], selectedYear);
+    try {
+      renderStatsHeatmap(data?.byDay || [], selectedYear);
+    } catch (heatError) {
+      console.error("heatmap render failed:", heatError);
+      if ($("#statsHeatmap")) {
+        $("#statsHeatmap").innerHTML = `<p class="week-empty" style="min-height:120px">Не вдалося намалювати календар.</p>`;
+      }
+    }
     if ($("#statsEmpty")) $("#statsEmpty").hidden = total > 0;
   } catch (error) {
+    console.error("loadStats failed:", error);
     alert(error.message || "Не вдалося завантажити статистику.");
   }
 }
