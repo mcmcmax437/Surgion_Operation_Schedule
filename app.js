@@ -2160,8 +2160,20 @@ function updateStatsPeriodHint() {
   const from = $("#statsFrom")?.value || "";
   const to = $("#statsTo")?.value || "";
   const active = document.querySelector(".stats-chip.is-active")?.dataset.statsPeriod || "all";
-  if (active === "all" && !from && !to) {
+  if (active === "all") {
     hint.textContent = "Усі дати в базі";
+    return;
+  }
+  if (active === "year" && from && to) {
+    hint.textContent = `З ${from.slice(0, 4)} року · ${formatDayMonth(from)} — ${formatDayMonth(to)}`;
+    return;
+  }
+  if (active === "month" && from && to) {
+    hint.textContent = `Поточний місяць · ${formatDayMonth(from)} — ${formatDayMonth(to)}`;
+    return;
+  }
+  if (active === "30" && from && to) {
+    hint.textContent = `Останні 30 днів · ${formatDayMonth(from)} — ${formatDayMonth(to)}`;
     return;
   }
   if (from && to) {
@@ -2174,6 +2186,10 @@ function updateStatsPeriodHint() {
   }
   if (to) {
     hint.textContent = `До ${formatDayMonth(to)}`;
+    return;
+  }
+  if (active === "custom") {
+    hint.textContent = "Оберіть дати Від / До";
     return;
   }
   hint.textContent = "Усі дати в базі";
