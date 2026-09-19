@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260919f" />
+    <link rel="stylesheet" href="styles.css?v=20260919g" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -181,15 +181,11 @@
         line-height:1.35;
         pointer-events:none;
         opacity:0;
-        visibility:hidden;
         transform:translate(-50%, calc(-100% - 6px)) scale(.96);
-        transition:opacity .2s ease,transform .2s ease,visibility 0s linear .2s;
+        transition:transform .18s ease;
       }
       .stats-heat-tip.is-visible{
-        opacity:1;
-        visibility:visible;
         transform:translate(-50%, calc(-100% - 12px)) scale(1);
-        transition:opacity .18s ease,transform .18s ease,visibility 0s;
       }
       .stats-heat-tip::before,
       .stats-heat-tip::after{
@@ -839,7 +835,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260919f"></script>
-    <script src="app.js?v=20260919f"></script>
+    <script src="api.js?v=20260919g"></script>
+    <script src="app.js?v=20260919g"></script>
   </body>
 </html>

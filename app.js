@@ -2018,43 +2018,82 @@ function parseYmdLocal(ymd) {
 }
 
 const STATS_HEAT_TIP_MS = 1500;
-const STATS_HEAT_TIP_FADE_MS = 200;
+const STATS_HEAT_TIP_FADE_IN_MS = 180;
+const STATS_HEAT_TIP_FADE_OUT_MS = 160;
 let statsHeatTipTimer = 0;
-let statsHeatTipFadeTimer = 0;
+let statsHeatTipGen = 0;
+let statsHeatTipAnim = null;
 
-function clearStatsHeatTipTimers() {
+function clearStatsHeatTipTimer() {
   if (statsHeatTipTimer) {
     window.clearTimeout(statsHeatTipTimer);
     statsHeatTipTimer = 0;
   }
-  if (statsHeatTipFadeTimer) {
-    window.clearTimeout(statsHeatTipFadeTimer);
-    statsHeatTipFadeTimer = 0;
+}
+
+function cancelStatsHeatTipAnim() {
+  if (statsHeatTipAnim) {
+    try { statsHeatTipAnim.cancel(); } catch { /* ignore */ }
+    statsHeatTipAnim = null;
   }
 }
 
+function tipOpacity(tip) {
+  const value = Number(getComputedStyle(tip).opacity);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function animateStatsHeatTip(tip, toOpacity, duration) {
+  cancelStatsHeatTipAnim();
+  const from = tipOpacity(tip);
+  if (Math.abs(from - toOpacity) < 0.02 && duration > 0) {
+    tip.style.opacity = String(toOpacity);
+    return Promise.resolve();
+  }
+  tip.style.opacity = "";
+  const anim = tip.animate(
+    [{ opacity: from }, { opacity: toOpacity }],
+    { duration: Math.max(0, duration), easing: "ease", fill: "forwards" }
+  );
+  statsHeatTipAnim = anim;
+  return anim.finished.then(() => {
+    if (statsHeatTipAnim === anim) {
+      tip.style.opacity = String(toOpacity);
+      try { anim.cancel(); } catch { /* ignore */ }
+      tip.style.opacity = String(toOpacity);
+      statsHeatTipAnim = null;
+    }
+  }).catch(() => {
+    /* cancelled */
+  });
+}
+
 function hideStatsHeatTip({ immediate = false } = {}) {
-  clearStatsHeatTipTimers();
+  statsHeatTipGen += 1;
+  clearStatsHeatTipTimer();
   document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
   const tip = $("#statsHeatTip");
   if (!tip) return;
 
   const finish = () => {
+    cancelStatsHeatTipAnim();
     tip.classList.remove("is-visible", "is-below");
+    tip.style.opacity = "";
     tip.hidden = true;
     tip.innerHTML = "";
   };
 
-  if (immediate || tip.hidden || !tip.classList.contains("is-visible")) {
+  if (immediate || tip.hidden || tipOpacity(tip) < 0.05) {
     finish();
     return;
   }
 
+  const gen = statsHeatTipGen;
   tip.classList.remove("is-visible");
-  statsHeatTipFadeTimer = window.setTimeout(() => {
-    statsHeatTipFadeTimer = 0;
+  animateStatsHeatTip(tip, 0, STATS_HEAT_TIP_FADE_OUT_MS).then(() => {
+    if (gen !== statsHeatTipGen) return;
     finish();
-  }, STATS_HEAT_TIP_FADE_MS);
+  });
 }
 
 function operationsCountLabel(count) {
@@ -2074,38 +2113,67 @@ function showStatsHeatTip(dayEl) {
   const count = Number(dayEl.getAttribute("data-count") || 0);
   if (!ymd) return;
 
-  clearStatsHeatTipTimers();
+  const gen = ++statsHeatTipGen;
+  clearStatsHeatTipTimer();
 
   document.querySelectorAll(".heat-day.is-active").forEach((el) => el.classList.remove("is-active"));
   dayEl.classList.add("is-active");
-
-  tip.innerHTML = `<strong>${escapeHtml(operationsCountLabel(count))}</strong><span>${escapeHtml(formatDayHeading(ymd))}</span>`;
-  tip.hidden = false;
-  tip.classList.remove("is-visible", "is-below");
 
   const dayRect = dayEl.getBoundingClientRect();
   const scrollRect = scroll.getBoundingClientRect();
   const left = dayRect.left - scrollRect.left + scroll.scrollLeft + dayRect.width / 2;
   const top = dayRect.top - scrollRect.top + scroll.scrollTop;
   const placeBelow = dayRect.top - scrollRect.top < 44;
-  tip.classList.toggle("is-below", placeBelow);
-  tip.style.left = `${Math.max(72, Math.min(left, scroll.scrollWidth - 72))}px`;
-  tip.style.top = `${Math.max(8, top + (placeBelow ? dayRect.height : 0))}px`;
 
-  // Force a reflow so the fade-in transition always runs.
-  void tip.offsetWidth;
-  tip.classList.add("is-visible");
+  const placeContent = () => {
+    tip.innerHTML = `<strong>${escapeHtml(operationsCountLabel(count))}</strong><span>${escapeHtml(formatDayHeading(ymd))}</span>`;
+    tip.hidden = false;
+    tip.classList.toggle("is-below", placeBelow);
+    tip.style.left = `${Math.max(72, Math.min(left, scroll.scrollWidth - 72))}px`;
+    tip.style.top = `${Math.max(8, top + (placeBelow ? dayRect.height : 0))}px`;
+  };
 
-  statsHeatTipTimer = window.setTimeout(() => {
-    statsHeatTipTimer = 0;
-    hideStatsHeatTip();
-  }, STATS_HEAT_TIP_MS);
+  const fadeInAndScheduleHide = () => {
+    if (gen !== statsHeatTipGen) return;
+    tip.classList.add("is-visible");
+    animateStatsHeatTip(tip, 1, STATS_HEAT_TIP_FADE_IN_MS).then(() => {
+      if (gen !== statsHeatTipGen) return;
+    });
+    statsHeatTipTimer = window.setTimeout(() => {
+      if (gen !== statsHeatTipGen) return;
+      statsHeatTipTimer = 0;
+      hideStatsHeatTip();
+    }, STATS_HEAT_TIP_MS);
+  };
+
+  // Retargeting: always fade out first so each tap gets both animations.
+  if (!tip.hidden && tipOpacity(tip) > 0.05) {
+    tip.classList.remove("is-visible");
+    animateStatsHeatTip(tip, 0, STATS_HEAT_TIP_FADE_OUT_MS).then(() => {
+      if (gen !== statsHeatTipGen) return;
+      placeContent();
+      // Start from fully hidden before fading in.
+      tip.style.opacity = "0";
+      tip.classList.remove("is-visible");
+      fadeInAndScheduleHide();
+    });
+    return;
+  }
+
+  placeContent();
+  tip.style.opacity = "0";
+  tip.classList.remove("is-visible");
+  // Next frame so the browser commits opacity:0 before fade-in.
+  window.requestAnimationFrame(() => {
+    if (gen !== statsHeatTipGen) return;
+    fadeInAndScheduleHide();
+  });
 }
 
 function renderStatsHeatmap(byDay, year) {
   const root = $("#statsHeatmap");
   if (!root) return;
-  hideStatsHeatTip();
+  hideStatsHeatTip({ immediate: true });
   const counts = new Map((byDay || []).map((item) => [String(item.date).slice(0, 10), Number(item.count) || 0]));
   const values = [...counts.values()];
   const peak = values.length ? Math.max(...values) : 0;
