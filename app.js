@@ -1048,126 +1048,31 @@ let currentFormAttachments = [];
 let pendingFormFiles = [];
 let editingUpdatedAt = null;
 const MAX_PENDING_FILES = 12;
-const IMAGE_MAX_EDGE = 2048;
-const IMAGE_JPEG_QUALITY = 0.82;
-const IMAGE_SKIP_IF_UNDER_BYTES = 450 * 1024;
 
 function fileKey(file) {
   return `${file.name}::${file.size}::${file.lastModified}`;
 }
 
-function isImageFile(file) {
-  const type = String(file.type || "").toLowerCase();
-  const name = String(file.name || "").toLowerCase();
-  if (type.startsWith("image/")) return true;
-  return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
-}
-
-function shouldOptimizeImage(file) {
-  const type = String(file.type || "").toLowerCase();
-  const name = String(file.name || "").toLowerCase();
-  // Keep animated GIF / HEIC as-is (HEIC may not decode in all browsers).
-  if (type === "image/gif" || /\.gif$/i.test(name)) return false;
-  if (type.includes("heic") || type.includes("heif") || /\.(heic|heif)$/i.test(name)) return false;
-  return isImageFile(file);
-}
-
-function loadImageElement(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("image load failed"));
-    };
-    img.src = url;
-  });
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), type, quality);
-  });
-}
-
-async function optimizeImageFile(file) {
-  if (!shouldOptimizeImage(file)) return file;
-  try {
-    const img = await loadImageElement(file);
-    const srcW = img.naturalWidth || img.width;
-    const srcH = img.naturalHeight || img.height;
-    if (!srcW || !srcH) return file;
-
-    const longest = Math.max(srcW, srcH);
-    const needsResize = longest > IMAGE_MAX_EDGE;
-    const needsRecompress = file.size > IMAGE_SKIP_IF_UNDER_BYTES;
-    if (!needsResize && !needsRecompress) return file;
-
-    const scale = needsResize ? IMAGE_MAX_EDGE / longest : 1;
-    const width = Math.max(1, Math.round(srcW * scale));
-    const height = Math.max(1, Math.round(srcH * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return file;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(img, 0, 0, width, height);
-
-    const preferWebp = typeof canvas.toBlob === "function";
-    let blob = preferWebp
-      ? await canvasToBlob(canvas, "image/webp", IMAGE_JPEG_QUALITY)
-      : null;
-    let outType = "image/webp";
-    if (!blob || blob.size === 0) {
-      blob = await canvasToBlob(canvas, "image/jpeg", IMAGE_JPEG_QUALITY);
-      outType = "image/jpeg";
-    }
-    if (!blob || blob.size === 0) return file;
-    // Keep original if compression somehow made it larger.
-    if (blob.size >= file.size && !needsResize) return file;
-
-    const base = String(file.name || "image").replace(/\.[^.]+$/, "") || "image";
-    const ext = outType === "image/webp" ? ".webp" : ".jpg";
-    return new File([blob], `${base}${ext}`, {
-      type: outType,
-      lastModified: Date.now(),
-    });
-  } catch {
-    return file;
-  }
-}
-
-async function addPendingFiles(fileList) {
+function addPendingFiles(fileList) {
   const incoming = [...(fileList || [])];
   const input = $("#attachments");
   if (input) input.value = "";
   if (!incoming.length) return;
 
-  const hint = $("#attachmentsPanelHint");
-  if (hint) hint.textContent = "Оптимізація зображень…";
-
-  for (const raw of incoming) {
-    const type = String(raw.type || "").toLowerCase();
-    const name = String(raw.name || "").toLowerCase();
+  for (const file of incoming) {
+    const type = String(file.type || "").toLowerCase();
+    const name = String(file.name || "").toLowerCase();
     const allowed = type.startsWith("image/") || type.startsWith("video/")
       || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
     if (!allowed) {
-      alert(`Файл «${raw.name}» пропущено. Дозволені лише зображення та відео.`);
+      alert(`Файл «${file.name}» пропущено. Дозволені лише зображення та відео.`);
       continue;
     }
     if (pendingFormFiles.length >= MAX_PENDING_FILES) {
       alert(`Можна додати максимум ${MAX_PENDING_FILES} нових файлів за раз.`);
       break;
     }
-
-    const file = await optimizeImageFile(raw);
-    if (pendingFormFiles.some((item) => fileKey(item) === fileKey(file) || fileKey(item) === fileKey(raw))) {
+    if (pendingFormFiles.some((item) => fileKey(item) === fileKey(file))) {
       continue;
     }
     pendingFormFiles.push(file);
@@ -1356,7 +1261,7 @@ async function saveOperation(event) {
           return;
         }
         const percent = (loaded / total) * 100;
-        setProgress(percent, percent >= 100 ? "Обробка на сервері…" : `Завантаження файлів… ${Math.round(percent)}%`);
+        setProgress(percent, percent >= 100 ? "Конвертація в AVIF…" : `Завантаження файлів… ${Math.round(percent)}%`);
       });
       setProgress(100, "Готово");
     }
@@ -1630,7 +1535,7 @@ function bindMediaPinchTarget(target) {
       scheduleMediaTransform();
       return;
     }
-    if (mediaPanDrag && event.touches.length === 1 && mediaZoom > 1) {
+    if (mediaPanDrag && !mediaPanDrag.mouse && event.touches.length === 1 && mediaZoom > 1) {
       event.preventDefault();
       const touch = event.touches[0];
       mediaPanX = mediaPanDrag.startPanX + (touch.clientX - mediaPanDrag.startX);
@@ -1640,6 +1545,7 @@ function bindMediaPinchTarget(target) {
   }, { passive: false });
 
   const endPinch = () => {
+    if (mediaPanDrag?.mouse) return;
     const wasInteracting = Boolean(mediaPinch || mediaPanDrag);
     mediaPinch = null;
     mediaPanDrag = null;
@@ -1649,17 +1555,95 @@ function bindMediaPinchTarget(target) {
   };
   target.addEventListener("touchend", endPinch);
   target.addEventListener("touchcancel", endPinch);
+
+  ensureMediaMousePanBound();
+}
+
+let mediaMousePanBound = false;
+
+function ensureMediaMousePanBound() {
+  if (mediaMousePanBound) return;
+  mediaMousePanBound = true;
+
+  document.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (currentMediaIsVideo() || mediaZoom <= 1) return;
+    if (event.target?.closest?.("button, a, input, select, textarea, label")) return;
+    const inMedia = event.target?.closest?.(".media-viewport, .media-fs-overlay, .media-fs-stage, img.media-zoomable, #mediaFsImage");
+    if (!inMedia) return;
+    event.preventDefault();
+    mediaPinch = null;
+    mediaPanDrag = {
+      mouse: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      startPanX: mediaPanX,
+      startPanY: mediaPanY,
+    };
+    applyMediaTransform();
+  });
+
+  document.addEventListener("mousemove", (event) => {
+    if (!mediaPanDrag?.mouse || mediaZoom <= 1) return;
+    event.preventDefault();
+    mediaPanX = mediaPanDrag.startPanX + (event.clientX - mediaPanDrag.startX);
+    mediaPanY = mediaPanDrag.startPanY + (event.clientY - mediaPanDrag.startY);
+    scheduleMediaTransform();
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!mediaPanDrag?.mouse) return;
+    mediaPanDrag = null;
+    if (mediaZoom <= 1) resetMediaPan();
+    else mediaZoom = Math.min(MEDIA_ZOOM_MAX, Math.max(MEDIA_ZOOM_MIN, Number(mediaZoom.toFixed(2))));
+    updateMediaZoomUi();
+  });
 }
 
 function downloadCurrentMedia() {
   const current = mediaFiles[mediaIndex];
-  if (!current) return;
-  const link = document.createElement("a");
-  link.href = current.url;
-  link.download = decodeFileName(current.metadata.name) || `media-${mediaIndex + 1}`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  if (!current?.metadata?.id) return;
+  const button = $("#mediaDownload");
+  if (button) button.disabled = true;
+
+  const rawName = decodeFileName(current.metadata.name) || `media-${mediaIndex + 1}`;
+  const isVideo = currentMediaIsVideo()
+    || String(current.metadata.type || "").startsWith("video/");
+
+  const finish = () => {
+    if (button) button.disabled = false;
+  };
+
+  if (isVideo) {
+    const link = document.createElement("a");
+    link.href = current.url;
+    link.download = rawName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    finish();
+    return;
+  }
+
+  const url = `${attachmentUrl(current.metadata.id)}&download=1`;
+  fetch(url, { credentials: "same-origin" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error("download failed");
+      const blob = await response.blob();
+      const base = String(rawName).replace(/\.[^.]+$/, "") || "photo";
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${base}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+    })
+    .catch(() => {
+      alert("Не вдалося завантажити зображення як PNG.");
+    })
+    .finally(finish);
 }
 
 async function deleteCurrentMedia() {
@@ -1816,7 +1800,7 @@ function renderMediaSlide() {
       </div>
       ${isVideo
         ? `<video controls playsinline webkit-playsinline preload="metadata" src="${current.url}"></video>`
-        : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(fileName)}">`}
+        : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(fileName)}" decoding="async" draggable="false">`}
     </div>
   </figure>`;
 

@@ -23,6 +23,7 @@ const MIME_BY_EXT = {
   ".bmp": "image/bmp",
   ".heic": "image/heic",
   ".heif": "image/heif",
+  ".avif": "image/avif",
 };
 
 export function decodeOriginalName(name) {

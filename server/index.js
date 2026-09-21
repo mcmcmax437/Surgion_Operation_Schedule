@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 import {
   createPool,
@@ -171,7 +172,7 @@ const upload = multer({
     const mime = String(file.mimetype || "").toLowerCase();
     const name = String(decodeOriginalName(file.originalname) || "").toLowerCase();
     const videoExt = /\.(mp4|mov|m4v|webm|avi|mkv|3gp|mpeg|mpg)$/i.test(name);
-    const imageExt = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
+    const imageExt = /\.(jpe?g|png|gif|webp|bmp|heic|heif|avif)$/i.test(name);
     if (mime.startsWith("image/") || mime.startsWith("video/") || videoExt || imageExt) {
       cb(null, true);
       return;
@@ -258,6 +259,81 @@ function fileMeta(file) {
   };
 }
 
+function isConvertibleImage(mime, name) {
+  const type = String(mime || "").toLowerCase();
+  const fileName = String(name || "").toLowerCase();
+  if (type === "image/gif" || /\.gif$/i.test(fileName)) return false;
+  if (type.startsWith("image/")) return true;
+  return /\.(jpe?g|png|webp|bmp|heic|heif|avif|tiff?)$/i.test(fileName);
+}
+
+function attachmentBaseName(name) {
+  const decoded = decodeOriginalName(name);
+  const base = String(decoded || "image").replace(/\.[^.]+$/, "").trim();
+  return base || "image";
+}
+
+/** Convert uploaded images to AVIF for storage. Videos / GIF stay unchanged. */
+async function prepareUploadedFile(file) {
+  const meta = fileMeta(file);
+  const srcPath = path.join(uploadsDir, file.filename);
+  if (!isConvertibleImage(meta.mimeType, meta.originalName)) {
+    return {
+      originalName: meta.originalName,
+      mimeType: meta.mimeType,
+      sizeBytes: file.size,
+      storagePath: file.filename,
+    };
+  }
+
+  if (meta.mimeType === "image/avif" || /\.avif$/i.test(meta.originalName)) {
+    return {
+      originalName: meta.originalName.endsWith(".avif")
+        ? meta.originalName
+        : `${attachmentBaseName(meta.originalName)}.avif`,
+      mimeType: "image/avif",
+      sizeBytes: file.size,
+      storagePath: file.filename,
+    };
+  }
+
+  const newFilename = `${path.parse(file.filename).name}.avif`;
+  const destPath = path.join(uploadsDir, newFilename);
+  try {
+    await sharp(srcPath, { failOn: "none" })
+      .rotate()
+      .avif({ quality: 72, effort: 4 })
+      .toFile(destPath);
+    fs.unlinkSync(srcPath);
+    const sizeBytes = fs.statSync(destPath).size;
+    return {
+      originalName: `${attachmentBaseName(meta.originalName)}.avif`,
+      mimeType: "image/avif",
+      sizeBytes,
+      storagePath: newFilename,
+    };
+  } catch (error) {
+    console.warn("AVIF conversion failed, keeping original:", meta.originalName, error?.message || error);
+    if (fs.existsSync(destPath)) {
+      try { fs.unlinkSync(destPath); } catch { /* ignore */ }
+    }
+    return {
+      originalName: meta.originalName,
+      mimeType: meta.mimeType,
+      sizeBytes: file.size,
+      storagePath: file.filename,
+    };
+  }
+}
+
+async function prepareUploadedFiles(files) {
+  const prepared = [];
+  for (const file of files || []) {
+    prepared.push(await prepareUploadedFile(file));
+  }
+  return prepared;
+}
+
 function sendStoredFile(req, res, file) {
   const full = path.join(uploadsDir, file.storage_path);
   if (!fs.existsSync(full)) {
@@ -267,6 +343,30 @@ function sendStoredFile(req, res, file) {
 
   const downloadName = decodeOriginalName(file.original_name);
   const mime = guessMime(downloadName, file.mime_type);
+  const wantDownload = ["1", "true", "png"].includes(String(req.query.download || "").toLowerCase());
+  const asPng = wantDownload && isConvertibleImage(mime, downloadName);
+
+  if (asPng) {
+    const pngName = `${attachmentBaseName(downloadName)}.png`;
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(pngName)}`,
+    );
+    res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+    const pipeline = sharp(full, { failOn: "none" }).rotate().png({ compressionLevel: 6 });
+    pipeline.on("error", (error) => {
+      console.warn("PNG conversion failed:", downloadName, error?.message || error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Не вдалося конвертувати зображення в PNG" });
+      } else {
+        res.destroy(error);
+      }
+    });
+    pipeline.pipe(res);
+    return;
+  }
+
   const stat = fs.statSync(full);
   const size = stat.size;
   const range = req.headers.range;
@@ -275,7 +375,7 @@ function sendStoredFile(req, res, file) {
   res.setHeader("Content-Type", mime);
   res.setHeader(
     "Content-Disposition",
-    `inline; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+    `${wantDownload ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
   );
   res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
 
@@ -746,6 +846,7 @@ app.post("/api/operations", auth, optionalUpload, async (req, res) => {
     return res.status(400).json({ error: "patient and procedure are required" });
   }
 
+  const uploadedFiles = await prepareUploadedFiles(req.files || []);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -784,7 +885,7 @@ app.post("/api/operations", auth, optionalUpload, async (req, res) => {
       },
     );
 
-    for (const file of req.files || []) {
+    for (const file of uploadedFiles) {
       await connection.query(
         `INSERT INTO attachments
           (id, operation_id, original_name, mime_type, size_bytes, storage_path, created_at)
@@ -793,10 +894,10 @@ app.post("/api/operations", auth, optionalUpload, async (req, res) => {
         {
           id: uuidv4(),
           operation_id: id,
-          original_name: fileMeta(file).originalName,
-          mime_type: fileMeta(file).mimeType,
-          size_bytes: file.size,
-          storage_path: file.filename,
+          original_name: file.originalName,
+          mime_type: file.mimeType,
+          size_bytes: file.sizeBytes,
+          storage_path: file.storagePath,
           created_at: now,
         },
       );
@@ -839,6 +940,7 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
   const hasExpected = expectedRaw
     && !Number.isNaN(expectedUpdatedAt?.getTime?.() ?? Number.NaN);
 
+  const uploadedFiles = await prepareUploadedFiles(req.files || []);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -911,7 +1013,7 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
       },
     );
 
-    for (const file of req.files || []) {
+    for (const file of uploadedFiles) {
       await connection.query(
         `INSERT INTO attachments
           (id, operation_id, original_name, mime_type, size_bytes, storage_path, created_at)
@@ -920,10 +1022,10 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
         {
           id: uuidv4(),
           operation_id: req.params.id,
-          original_name: fileMeta(file).originalName,
-          mime_type: fileMeta(file).mimeType,
-          size_bytes: file.size,
-          storage_path: file.filename,
+          original_name: file.originalName,
+          mime_type: file.mimeType,
+          size_bytes: file.sizeBytes,
+          storage_path: file.storagePath,
           created_at: now,
         },
       );
