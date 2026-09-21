@@ -59,34 +59,29 @@ pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-## Nginx
+## Nginx + HTTPS
 
-Додайте proxy для API (окремий `server` для домену):
+Конфіг у репозиторії: `nginx-surgion-schedule.conf` (HTTP → HTTPS + proxy `/api/`).
 
-```nginx
-server {
-    listen 80;
-    server_name surgion-schedule.tereshkovych.com.ua;
+На VPS найпростіше видати безкоштовний сертифікат Let's Encrypt:
 
-    root /usr/src/surgion_operation/Surgion_Operation_Schedule;
-    index login.html index.html;
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        client_max_body_size 80m;
-    }
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
+```bash
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx \
+  -d surgion-schedule.tereshkovych.com.ua \
+  -d imaging-schedule.tereshkovych.com.ua \
+  -d surgeon-schedule.tereshkovych.com.ua
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Після змін: `nginx -t && systemctl reload nginx`.
+Перевірка автооновлення сертифіката:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+Після змін без certbot: скопіюйте `nginx-surgion-schedule.conf` у `/etc/nginx/sites-available/`, увімкніть сайт і зробіть `nginx -t && systemctl reload nginx`.
 
 Якщо логін показує **502 Bad Gateway** — nginx не може достукатись до API на `127.0.0.1:3001`. На VPS:
 

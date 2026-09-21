@@ -535,7 +535,7 @@ function applyScheduleMode() {
     weekBar.style.display = showWeekBar ? "" : "none";
   }
   const weekEyebrow = $("#weekBar .eyebrow");
-  if (weekEyebrow) weekEyebrow.textContent = scheduleMode === "plan" ? "План операцій" : "Розклад на тиждень";
+  if (weekEyebrow) weekEyebrow.textContent = scheduleMode === "plan" ? "План" : "Тиждень";
 }
 
 function showView(view) {

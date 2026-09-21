@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260919g" />
+    <link rel="stylesheet" href="styles.css?v=20260921a" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -346,8 +346,8 @@
       </header>
 
       <nav class="view-tabs" aria-label="Розділи сайту">
-        <button class="view-tab active" id="dayTab" type="button"><span class="tab-label"><span class="tab-label-full">Розклад на день</span><span class="tab-label-short">День</span></span><span class="tab-count" id="dayTabCount">0</span></button>
-        <button class="view-tab" id="weekTab" type="button"><span class="tab-label"><span class="tab-label-full">Розклад на тиждень</span><span class="tab-label-short">Тиждень</span></span><span class="tab-count" id="weekTabCount">0</span></button>
+        <button class="view-tab active" id="dayTab" type="button"><span class="tab-label"><span class="tab-label-full">День</span><span class="tab-label-short">День</span></span><span class="tab-count" id="dayTabCount">0</span></button>
+        <button class="view-tab" id="weekTab" type="button"><span class="tab-label"><span class="tab-label-full">Тиждень</span><span class="tab-label-short">Тиждень</span></span><span class="tab-count" id="weekTabCount">0</span></button>
         <button class="view-tab" id="planTab" type="button"><span class="tab-label"><span class="tab-label-full">План</span><span class="tab-label-short">План</span></span><span class="tab-count" id="planTabCount">0</span></button>
         <button class="view-tab admin-tab" id="staffTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Лікарі</span><span class="tab-label-short">Лікарі</span></span></button>
         <button class="view-tab admin-tab" id="usersTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Користувачі</span><span class="tab-label-short">Юзери</span></span></button>
@@ -371,7 +371,7 @@
       <section class="week-bar" id="dayBar" aria-label="День розкладу">
         <button class="secondary week-nav-btn" id="prevDay" type="button" aria-label="Попередній день">‹</button>
         <div class="week-label-wrap">
-          <p class="eyebrow">Розклад на день</p>
+          <p class="eyebrow">День</p>
           <strong id="dayLabel">—</strong>
         </div>
         <button class="secondary week-nav-btn" id="nextDay" type="button" aria-label="Наступний день">›</button>
@@ -381,7 +381,7 @@
       <section class="week-bar" id="weekBar" hidden aria-label="Тиждень розкладу">
         <button class="secondary week-nav-btn" id="prevWeek" type="button" aria-label="Попередній тиждень">‹</button>
         <div class="week-label-wrap">
-          <p class="eyebrow">Розклад на тиждень</p>
+          <p class="eyebrow">Тиждень</p>
           <strong id="weekLabel">—</strong>
         </div>
         <button class="secondary week-nav-btn" id="nextWeek" type="button" aria-label="Наступний тиждень">›</button>
@@ -836,6 +836,6 @@
     </dialog>
 
     <script src="api.js?v=20260919g"></script>
-    <script src="app.js?v=20260919g"></script>
+    <script src="app.js?v=20260921a"></script>
   </body>
 </html>
