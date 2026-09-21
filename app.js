@@ -391,7 +391,7 @@ function rankedTeamLabel(names) {
 function renderPersonChips(names, { ranked = false } = {}) {
   if (!names.length) return '<span class="sub">Не призначено</span>';
   return `<div class="people-chips">${names.map((name, index) => {
-    const rank = ranked ? `<span class="person-rank" title="${index === 0 ? "Основний хірург" : "Асистент"}">${index + 1}</span>` : "";
+    const rank = ranked ? `<span class="person-rank" title="${index === 0 ? "Основний хірург" : "Асистент"}"><span class="person-rank-num">${index + 1}</span></span>` : "";
     return `<span class="person-chip">${rank}${escapeHtml(formatShortName(name))}</span>`;
   }).join("")}</div>`;
 }
@@ -493,7 +493,7 @@ function paintPicker(containerId, selected = null) {
       // Ranks always compact to 1..n from current selection order (no gaps).
       const rank = isTeam && isChecked ? order.indexOf(name) + 1 : 0;
       const rankHtml = isTeam
-        ? `<span class="picker-rank${rank ? " is-on" : ""}" aria-hidden="true">${rank || ""}</span>`
+        ? `<span class="picker-rank${rank ? " is-on" : ""}" aria-hidden="true">${rank ? `<span class="person-rank-num">${rank}</span>` : ""}</span>`
         : "";
       return `
       <label class="picker-option${isTeam ? " picker-option-ranked" : ""}${isChecked ? " is-checked" : ""}">
