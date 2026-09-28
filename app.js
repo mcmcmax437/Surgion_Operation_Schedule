@@ -1807,7 +1807,7 @@ function renderMediaSlide() {
     <div class="media-viewport is-loading">
       <div class="media-loading" aria-live="polite">
         <span class="media-loading-spinner" aria-hidden="true"></span>
-        <span class="media-loading-text">${preparingMov ? "Конвертація відео для перегляду на ПК…" : "Завантаження…"}</span>
+        <span class="media-loading-text">Loading...</span>
       </div>
       ${isVideo
         ? `<video controls playsinline webkit-playsinline preload="auto" src="${current.url}"></video>`
@@ -1923,7 +1923,7 @@ async function viewOperation(id) {
   body.innerHTML = `<div class="media-viewport is-loading" style="min-height:240px;width:100%;border-radius:10px">
     <div class="media-loading" aria-live="polite">
       <span class="media-loading-spinner" aria-hidden="true"></span>
-      <span>Завантаження медіа…</span>
+      <span class="media-loading-text">Loading...</span>
     </div>
   </div>`;
   if ($("#mediaPrev")) $("#mediaPrev").hidden = true;

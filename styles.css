@@ -668,13 +668,35 @@ html.dialog-open body{
   pointer-events:none;
 }
 .media-viewport:not(.is-loading) .media-loading{display:none}
-.media-loading-spinner{
-  width:36px;
-  height:36px;
+.media-loading-spinner,
+.media-ring{
+  width:52px;
+  height:52px;
   border-radius:50%;
-  border:3px solid #94a3b8;
-  border-top-color:#e2e8f0;
-  animation:spin .8s linear infinite;
+  border:3px solid rgba(226,232,240,.28);
+  border-top-color:#f8fafc;
+  border-right-color:#93c5fd;
+  animation:spin .85s linear infinite;
+  position:relative;
+  box-sizing:border-box;
+}
+.media-loading-spinner::after,
+.media-ring::after{
+  content:"";
+  position:absolute;
+  inset:7px;
+  border-radius:50%;
+  border:2px solid transparent;
+  border-bottom-color:#7dd3fc;
+  animation:spin 1.15s linear infinite reverse;
+}
+.media-loading-text{
+  animation:mediaLoadPulse 1.35s ease-in-out infinite;
+  letter-spacing:.04em;
+}
+@keyframes mediaLoadPulse{
+  0%,100%{opacity:.4;transform:translateY(0)}
+  50%{opacity:1;transform:translateY(-2px)}
 }
 .media-dialog .media-card.is-image .media-zoomable{
   position:absolute;
@@ -704,9 +726,19 @@ html.dialog-open body{
 .media-dialog .media-card.is-image .media-zoomable.is-zoomed{cursor:grab;max-width:none!important;max-height:none!important;transition:none}
 .media-dialog .media-card.is-image .media-zoomable.is-pinching,
 .media-dialog .media-card.is-image .media-zoomable.is-zoomed:active{cursor:grabbing;transition:none}
+.media-dialog-body,
+.media-dialog .media-card,
+.media-dialog .media-viewport{
+  width:100%;
+  align-self:stretch;
+}
 .media-dialog .media-card.is-video,
 .media-dialog .media-card.is-video .media-viewport{
+  width:100%!important;
   min-height:min(68vh,640px)!important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   touch-action:auto;
 }
 .media-dialog .media-card.is-video video{
@@ -714,14 +746,15 @@ html.dialog-open body{
   top:auto;
   left:auto;
   display:block;
-  width:100%!important;
-  height:100%!important;
+  width:auto!important;
+  height:auto!important;
   max-width:100%!important;
   max-height:min(68vh,640px)!important;
   min-width:0;
-  min-height:240px;
+  min-height:0;
   margin:0 auto;
   object-fit:contain;
+  object-position:center center;
   background:#000;
   border-radius:10px;
 }
@@ -1771,6 +1804,21 @@ button:active:not(:disabled),
     text-align:center;
     width:1%;
     white-space:nowrap;
+  }
+  .desktop-week th.col-status,
+  .desktop-week td.col-status{
+    text-align:center!important;
+    white-space:normal;
+  }
+  .desktop-week td.col-status .status-badge{
+    display:flex;
+    width:fit-content;
+    max-width:100%;
+    margin-left:auto;
+    margin-right:auto;
+    justify-content:center;
+    text-align:center;
+    white-space:normal;
   }
   .desktop-week .col-diagnosis,
   .desktop-week .col-procedure,
