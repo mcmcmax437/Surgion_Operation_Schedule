@@ -43,13 +43,19 @@ export async function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(left, right);
 }
 
+export function normalizeRole(role) {
+  const value = String(role || "").trim();
+  if (value === "admin" || value === "anesthesiologist") return value;
+  return "doctor";
+}
+
 export function publicUser(row) {
   if (!row) return null;
   return {
     id: row.id,
     email: row.email,
     name: row.name,
-    role: row.role === "admin" ? "admin" : "doctor",
+    role: normalizeRole(row.role),
     status: row.status || "active",
   };
 }
@@ -84,9 +90,7 @@ export async function updateUser(pool, id, {
 
   const nextName = name != null ? String(name || "").trim() : existing.name;
   const nextEmail = email != null ? normalizeEmail(email) : existing.email;
-  const nextRole = role != null
-    ? (role === "admin" ? "admin" : "doctor")
-    : existing.role;
+  const nextRole = role != null ? normalizeRole(role) : normalizeRole(existing.role);
   const nextStatus = status != null
     ? (status === "disabled" ? "disabled" : "active")
     : (existing.status || "active");
@@ -171,7 +175,7 @@ export async function createUser(pool, {
       name: String(name || "").trim(),
       password_hash: passwordHash,
       google_sub: googleSub || null,
-      role: role === "admin" ? "admin" : "doctor",
+      role: normalizeRole(role),
       status: status === "disabled" ? "disabled" : "active",
       created_at: now,
       updated_at: now,

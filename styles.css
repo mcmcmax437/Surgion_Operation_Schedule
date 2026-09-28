@@ -2089,3 +2089,13 @@ html.theme-fade-in{
   }
 }
 
+label.is-locked select{
+  background:#f1f5f9;
+  color:#64748b;
+  cursor:not-allowed;
+}
+.theme-dark label.is-locked select{
+  background:#111827;
+  color:#94a3b8;
+}
+

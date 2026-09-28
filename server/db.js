@@ -242,7 +242,7 @@ export async function migrate(pool) {
       name VARCHAR(255) NOT NULL,
       password_hash VARCHAR(255) NULL,
       google_sub VARCHAR(255) NULL,
-      role ENUM('admin', 'doctor') NOT NULL DEFAULT 'doctor',
+      role ENUM('admin', 'doctor', 'anesthesiologist') NOT NULL DEFAULT 'doctor',
       status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
       created_at DATETIME(3) NOT NULL,
       updated_at DATETIME(3) NOT NULL,
@@ -259,6 +259,21 @@ export async function migrate(pool) {
   }
   if (!(await indexExists(pool, "sessions", "idx_sessions_user"))) {
     await pool.query(`ALTER TABLE sessions ADD INDEX idx_sessions_user (user_id)`);
+  }
+
+  const [roleRows] = await pool.query(
+    `SELECT COLUMN_TYPE AS columnType
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'role'
+     LIMIT 1`,
+  );
+  const roleType = String(roleRows[0]?.columnType || "");
+  if (roleType && !roleType.includes("anesthesiologist")) {
+    await pool.query(
+      `ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'doctor', 'anesthesiologist') NOT NULL DEFAULT 'doctor'`,
+    );
   }
 }
 

@@ -376,9 +376,36 @@ function formatDateTime(value) {
   return `${dd}/${mm}/${yy} ${hh}:${min}`;
 }
 
+function asNameList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  const text = String(value || "").trim();
+  return text ? [text] : [];
+}
+
 function namesForOperation(item, field, fallback) {
-  const names = Array.isArray(item[field]) && item[field].length ? item[field] : (item[fallback] ? [item[fallback]] : []);
-  return names.map(formatShortName);
+  const names = asNameList(item[field]);
+  return (names.length ? names : asNameList(item[fallback])).map(formatShortName);
+}
+
+function canEditClearanceStatus() {
+  const role = currentUser?.role;
+  return role === "admin" || role === "anesthesiologist";
+}
+
+function applyClearanceStatusAccess() {
+  const select = $("#operationStatus");
+  const label = select?.closest("label");
+  const help = $("#operationStatusHelp");
+  const allowed = canEditClearanceStatus();
+  if (select) select.disabled = !allowed;
+  label?.classList.toggle("is-locked", !allowed);
+  if (help) {
+    help.textContent = allowed
+      ? "Заповнює лікар-анестезіолог після огляду пацієнта."
+      : "Це поле може змінити лише анестезіолог або адміністратор.";
+  }
 }
 
 function rankedTeamLabel(names) {
@@ -401,7 +428,8 @@ function setTeamSelectionOrder(names = []) {
   const seen = new Set();
   teamSelectionOrder = [];
   for (const name of names) {
-    const resolved = resolveTeamOptionName(name, options);
+    const raw = String(name || "").trim();
+    const resolved = resolveTeamOptionName(raw, options) || raw;
     if (!resolved || seen.has(resolved)) continue;
     seen.add(resolved);
     teamSelectionOrder.push(resolved);
@@ -466,7 +494,8 @@ function setAnesSelection(names = []) {
   const seen = new Set();
   anesSelection = [];
   for (const name of names) {
-    const resolved = resolveTeamOptionName(name, options);
+    const raw = String(name || "").trim();
+    const resolved = resolveTeamOptionName(raw, options) || raw;
     if (!resolved || seen.has(resolved)) continue;
     seen.add(resolved);
     anesSelection.push(resolved);
@@ -489,15 +518,15 @@ function applyAnesPickerChange(name, checked) {
   return true;
 }
 
-function renderPicker(containerId, options, selected = []) {
+function renderPicker(containerId, options, selected) {
   const container = $(`#${containerId}`);
   if (!container) return;
   container.dataset.options = JSON.stringify(options || []);
   if (containerId === "teamPicker") {
-    setTeamSelectionOrder(selected);
+    setTeamSelectionOrder(selected !== undefined ? selected : teamSelectionOrder);
   }
   if (containerId === "anesthesiologistPicker") {
-    setAnesSelection(selected);
+    setAnesSelection(selected !== undefined ? selected : anesSelection);
   }
   paintPicker(containerId);
 }
@@ -626,10 +655,11 @@ function applySessionUser(session) {
     chip.textContent = "";
     return;
   }
-  const roleLabel = currentUser.role === "admin" ? "Адмін" : "Лікар";
+  const roleLabel = userRoleLabel(currentUser.role);
   chip.hidden = false;
   chip.textContent = `${currentUser.name || currentUser.email} · ${roleLabel}`;
   chip.title = currentUser.email || "";
+  applyClearanceStatusAccess();
 }
 
 function findOperation(id) {
@@ -1172,7 +1202,8 @@ function resetForm() {
   if (progress) progress.hidden = true;
   setTeamSelectionOrder([]);
   renderPicker("teamPicker", staff.team, []);
-  renderPicker("anesthesiologistPicker", staff.anesthesiologists);
+  renderPicker("anesthesiologistPicker", staff.anesthesiologists, []);
+  applyClearanceStatusAccess();
 }
 
 function openForm(id = null) {
@@ -1204,12 +1235,12 @@ function openForm(id = null) {
     });
     setSelectedInfections(item.infections || []);
     setSelectedPatientFlags(item.patientFlags || []);
-    const teamSelected = Array.isArray(item.teamMembers) && item.teamMembers.length
-      ? item.teamMembers
-      : (item.team ? [item.team] : []);
-    const anesSelected = Array.isArray(item.anesthesiologists) && item.anesthesiologists.length
-      ? item.anesthesiologists
-      : (item.anesthesiologist ? [item.anesthesiologist] : []);
+    const teamSelected = asNameList(item.teamMembers).length
+      ? asNameList(item.teamMembers)
+      : asNameList(item.team);
+    const anesSelected = asNameList(item.anesthesiologists).length
+      ? asNameList(item.anesthesiologists)
+      : asNameList(item.anesthesiologist);
     renderPicker("teamPicker", staff.team, teamSelected);
     renderPicker("anesthesiologistPicker", staff.anesthesiologists, anesSelected);
     currentFormAttachments = item.attachments || [];
@@ -1218,6 +1249,7 @@ function openForm(id = null) {
     renderAttachmentsPanel([]);
   }
 
+  applyClearanceStatusAccess();
   openModalDialog($("#operationDialog"));
   captureFormSnapshot();
 }
@@ -2595,7 +2627,9 @@ async function loadStats() {
 }
 
 function userRoleLabel(role) {
-  return role === "admin" ? "Адмін" : "Лікар";
+  if (role === "admin") return "Адмін";
+  if (role === "anesthesiologist") return "Анестезіолог";
+  return "Лікар";
 }
 
 function userStatusLabel(status) {
@@ -2664,7 +2698,9 @@ function openUserEditor(user) {
   if ($("#userDialogTitle")) $("#userDialogTitle").textContent = user.name || user.email || "Користувач";
   if ($("#userName")) $("#userName").value = user.name || "";
   if ($("#userEmail")) $("#userEmail").value = user.email || "";
-  if ($("#userRole")) $("#userRole").value = user.role === "admin" ? "admin" : "doctor";
+  if ($("#userRole")) {
+    $("#userRole").value = ["admin", "anesthesiologist", "doctor"].includes(user.role) ? user.role : "doctor";
+  }
   if ($("#userStatus")) $("#userStatus").value = user.status === "disabled" ? "disabled" : "active";
   if ($("#userPassword")) $("#userPassword").value = "";
   fillUserMeta(user);
@@ -2963,13 +2999,13 @@ document.addEventListener("change", (event) => {
       alert("Можна обрати максимум 3 хірургів: 1 — основний, 2–3 — асистенти.");
       return;
     }
-    paintPicker("teamPicker");
+    window.setTimeout(() => paintPicker("teamPicker"), 0);
     return;
   }
 
   const name = input.getAttribute("data-team-name") || input.value;
   applyAnesPickerChange(name, input.checked);
-  paintPicker(pickerId);
+  window.setTimeout(() => paintPicker(pickerId), 0);
 });
 on("#deleteOperation", "click", () => {
   if (editingId) deleteOperation(editingId);

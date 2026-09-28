@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260928m" />
+    <link rel="stylesheet" href="styles.css?v=20260928n" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -685,6 +685,7 @@
           <label>Роль
             <select id="userRole">
               <option value="doctor">Лікар</option>
+              <option value="anesthesiologist">Анестезіолог</option>
               <option value="admin">Адміністратор</option>
             </select>
           </label>
@@ -765,7 +766,7 @@
               <option value="Потребує дообстеження">Потребує дообстеження</option>
               <option value="Відміна">Відміна</option>
             </select>
-            <small class="picker-help">Заповнює лікар-анастезіолог після огляду пацієнта</small>
+            <small class="picker-help" id="operationStatusHelp">Заповнює лікар-анастезіолог після огляду пацієнта</small>
           </label>
           <fieldset class="wide picker-field">
             <legend>Тип пацієнта</legend>
@@ -851,6 +852,6 @@
     </dialog>
 
     <script src="api.js?v=20260928j"></script>
-    <script src="app.js?v=20260928l"></script>
+    <script src="app.js?v=20260928n"></script>
   </body>
 </html>

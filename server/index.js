@@ -35,6 +35,7 @@ import {
   hashPassword,
   verifyPassword,
   publicUser,
+  normalizeRole,
   adminUserDetails,
   findUserByEmail,
   findUserById,
@@ -268,7 +269,11 @@ function formatLogScalar(field, value) {
     if (value === "dept1") return "Хірургічне відділення №1";
   }
   if (field === "date" || field === "birthDate") return formatLogDate(value);
-  if (field === "role") return value === "admin" ? "Адміністратор" : "Лікар";
+  if (field === "role") {
+    if (value === "admin") return "Адміністратор";
+    if (value === "anesthesiologist") return "Анестезіолог";
+    return "Лікар";
+  }
   if (field === "status" && (value === "active" || value === "disabled")) {
     return value === "disabled" ? "Заблокований" : "Активний";
   }
@@ -434,6 +439,23 @@ function actorFromReq(req) {
   };
 }
 
+function normalizeNameList(value, limit) {
+  const list = Array.isArray(value) ? value : [];
+  const names = [];
+  for (const item of list) {
+    const name = String(item || "").trim();
+    if (!name || names.includes(name)) continue;
+    names.push(name);
+    if (names.length >= limit) break;
+  }
+  return names;
+}
+
+function canSetClearanceStatus(user) {
+  const role = user?.role;
+  return role === "admin" || role === "anesthesiologist";
+}
+
 function bodyToOperation(body) {
   const teamMembers = Array.isArray(body.teamMembers)
     ? body.teamMembers
@@ -470,8 +492,8 @@ function bodyToOperation(body) {
     bloodGroup: body.bloodGroup || null,
     diagnosis: String(body.diagnosis || "").trim(),
     procedure: String(body.procedure || "").trim(),
-    teamMembers: Array.isArray(teamMembers) ? teamMembers.slice(0, 3) : [],
-    anesthesiologists: Array.isArray(anesthesiologists) ? anesthesiologists.slice(0, 1) : [],
+    teamMembers: normalizeNameList(teamMembers, 3),
+    anesthesiologists: normalizeNameList(anesthesiologists, 1),
     infections,
     patientFlags,
     status,
@@ -1246,6 +1268,7 @@ app.post("/api/operations", auth, optionalUpload, async (req, res) => {
   if (!data.patient || !data.procedure) {
     return res.status(400).json({ error: "patient and procedure are required" });
   }
+  if (!canSetClearanceStatus(req.user)) data.status = "";
 
   const uploadedFiles = await prepareUploadedFiles(req.files || []);
   const connection = await pool.getConnection();
@@ -1370,6 +1393,8 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
         });
       }
     }
+
+    if (!canSetClearanceStatus(req.user)) data.status = before.status || "";
 
     const now = new Date();
     const keepArchived = shouldArchiveDate(data.date);
@@ -1851,9 +1876,7 @@ app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
 
     const name = req.body?.name != null ? String(req.body.name || "").trim() : undefined;
     const email = req.body?.email != null ? normalizeEmail(req.body.email) : undefined;
-    const role = req.body?.role != null
-      ? (String(req.body.role) === "admin" ? "admin" : "doctor")
-      : undefined;
+    const role = req.body?.role != null ? normalizeRole(req.body.role) : undefined;
     const status = req.body?.status != null
       ? (String(req.body.status) === "disabled" ? "disabled" : "active")
       : undefined;
