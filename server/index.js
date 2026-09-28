@@ -345,7 +345,6 @@ function sendStoredFile(req, res, file) {
   const mime = guessMime(downloadName, file.mime_type);
   const wantDownload = ["1", "true", "png"].includes(String(req.query.download || "").toLowerCase());
   const asPng = wantDownload && isConvertibleImage(mime, downloadName);
-  const isAvif = mime === "image/avif" || /\.avif$/i.test(downloadName);
 
   if (asPng) {
     const pngName = `${attachmentBaseName(downloadName)}.png`;
@@ -360,28 +359,6 @@ function sendStoredFile(req, res, file) {
       console.warn("PNG conversion failed:", downloadName, error?.message || error);
       if (!res.headersSent) {
         res.status(500).json({ error: "Не вдалося конвертувати зображення в PNG" });
-      } else {
-        res.destroy(error);
-      }
-    });
-    pipeline.pipe(res);
-    return;
-  }
-
-  // Inline AVIF → WebP for browser preview (broader PC support; storage stays AVIF).
-  if (!wantDownload && isAvif) {
-    const viewName = `${attachmentBaseName(downloadName)}.webp`;
-    res.setHeader("Content-Type", "image/webp");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename*=UTF-8''${encodeURIComponent(viewName)}`,
-    );
-    res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
-    const pipeline = sharp(full, { failOn: "none" }).rotate().webp({ quality: 88 });
-    pipeline.on("error", (error) => {
-      console.warn("WebP preview failed:", downloadName, error?.message || error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Не вдалося показати зображення" });
       } else {
         res.destroy(error);
       }

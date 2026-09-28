@@ -1411,7 +1411,7 @@ function currentMediaIsVideo() {
 }
 
 function mediaTransformValue() {
-  return `translate3d(${mediaPanX}px, ${mediaPanY}px, 0) scale(${mediaZoom})`;
+  return `translate(-50%, -50%) translate3d(${mediaPanX}px, ${mediaPanY}px, 0) scale(${mediaZoom})`;
 }
 
 function resetMediaPan() {
