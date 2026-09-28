@@ -698,13 +698,18 @@ function filteredOperations() {
     });
 }
 
+function adminOperationIdHtml(item) {
+  if (currentUser?.role !== "admin" || !item?.id) return "";
+  return `<span class="op-id">${escapeHtml(item.id)}</span>`;
+}
+
 function operationRowHtml(item) {
   const danger = infectionLabel(item);
   const dangerClass = hasInfectionRisk(item) ? "infection-alert" : "infection-ok";
   const notesText = String(item.notes || "").trim();
   return `
     <tr class="op-row is-expanded ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
-      <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span></td>
+      <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span>${adminOperationIdHtml(item)}</td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
         <span class="patient-age">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
@@ -743,7 +748,7 @@ function mobileCardHtml(item) {
   const notesText = String(item.notes || "").trim();
   return `
     <article class="week-card ${hasInfectionRisk(item) ? "has-danger" : ""}" data-id="${item.id}">
-      <p class="week-card-date">${escapeHtml(dateLabel)}</p>
+      <p class="week-card-date">${escapeHtml(dateLabel)}${adminOperationIdHtml(item)}</p>
       <div class="week-card-top">
         ${dangerMarkHtml(item)}
         <strong class="patient">${escapeHtml(formatShortName(item.patient))}</strong>

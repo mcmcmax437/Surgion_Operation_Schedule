@@ -1873,6 +1873,18 @@ td.col-blood .flag-chip{vertical-align:middle}
   td.col-blood{display:inline-flex}
 }
 
+.col-when .date{display:block}
+.op-id{
+  display:block;
+  margin-top:2px;
+  color:#64748b;
+  font-size:11px;
+  font-weight:750;
+  letter-spacing:.02em;
+  line-height:1.2;
+}
+.week-card-date .op-id{margin-top:2px}
+.theme-dark .op-id{color:#94a3b8}
 .patient-age{
   display:inline-block;
   color:#475569;
