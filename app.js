@@ -1799,7 +1799,7 @@ function renderMediaSlide() {
         <span>Завантаження…</span>
       </div>
       ${isVideo
-        ? `<video controls playsinline webkit-playsinline preload="metadata" src="${current.url}"></video>`
+        ? `<video controls playsinline webkit-playsinline preload="auto" src="${current.url}"></video>`
         : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(fileName)}" decoding="async" draggable="false">`}
     </div>
   </figure>`;
@@ -1812,15 +1812,24 @@ function renderMediaSlide() {
   syncMediaFullscreenUi();
 
   const viewport = body.querySelector(".media-viewport");
-  const markLoaded = () => viewport?.classList.remove("is-loading");
+  let loadSettled = false;
+  const markLoaded = () => {
+    if (loadSettled) return;
+    loadSettled = true;
+    viewport?.classList.remove("is-loading");
+    if (loadFallbackTimer) clearTimeout(loadFallbackTimer);
+  };
+  // iOS often delays video frames until a tap — don't keep the spinner forever.
+  const loadFallbackTimer = setTimeout(markLoaded, isVideo ? 900 : 4000);
 
   const video = body.querySelector("video");
   if (video) {
-    if (video.readyState >= 2) markLoaded();
-    else {
-      video.addEventListener("loadeddata", markLoaded, { once: true });
-      video.addEventListener("error", markLoaded, { once: true });
-    }
+    const revealVideo = () => markLoaded();
+    if (video.readyState >= 1) revealVideo();
+    ["loadedmetadata", "loadeddata", "canplay", "playing", "error"].forEach((evt) => {
+      video.addEventListener(evt, revealVideo, { once: true });
+    });
+    try { video.load(); } catch { /* ignore */ }
     video.addEventListener("error", () => {
       if (body.querySelector(".empty-media")) return;
       const note = document.createElement("p");
