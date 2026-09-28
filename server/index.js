@@ -297,7 +297,7 @@ function isVideoUpload(mime, name) {
   return /\.(mp4|mov|m4v|webm|avi|mkv|3gp|mpeg|mpg)$/i.test(fileName);
 }
 
-function needsVideoTranscode(mime, name) {
+function needsBrowserMp4(mime, name) {
   const type = String(mime || "").toLowerCase();
   const fileName = String(name || "").toLowerCase();
   if (/\.mp4$/i.test(fileName) || type === "video/mp4") return false;
@@ -305,59 +305,107 @@ function needsVideoTranscode(mime, name) {
   return isVideoUpload(mime, name);
 }
 
-async function convertVideoToMp4(srcPath, destPath) {
-  await execFileAsync(
-    "ffmpeg",
-    [
-      "-y",
-      "-i", srcPath,
-      "-map", "0:v:0?",
-      "-map", "0:a:0?",
-      "-c:v", "libx264",
-      "-preset", "veryfast",
-      "-crf", "23",
-      "-pix_fmt", "yuv420p",
-      "-c:a", "aac",
-      "-b:a", "128k",
-      "-ac", "2",
-      "-movflags", "+faststart",
-      destPath,
-    ],
-    { timeout: 15 * 60 * 1000, windowsHide: true, maxBuffer: 10 * 1024 * 1024 },
-  );
+/** iPhone/iPad and desktop Safari play the original .mov. Chrome/Edge/Android get MP4. */
+function clientPlaysOriginalVideo(req) {
+  const ua = String(req.headers["user-agent"] || "");
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  const mac = /Macintosh|Mac OS X/i.test(ua);
+  const safari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox|Android/i.test(ua);
+  return mac && safari;
 }
 
-/** Convert uploaded images to AVIF; convert .mov etc. to MP4 when ffmpeg is available. */
+function previewMp4Path(storagePath) {
+  const base = path.parse(String(storagePath || "video")).name || "video";
+  return path.join(uploadsDir, `${base}.preview.mp4`);
+}
+
+const previewJobs = new Map();
+
+async function videoCodecName(srcPath) {
+  const { stdout } = await execFileAsync(
+    "ffprobe",
+    [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=codec_name",
+      "-of", "default=nw=1:nk=1",
+      srcPath,
+    ],
+    { timeout: 20000, windowsHide: true, maxBuffer: 1024 * 1024 },
+  );
+  return String(stdout || "").trim().toLowerCase();
+}
+
+async function buildBrowserMp4(srcPath, destPath) {
+  const tmp = `${destPath}.part`;
+  const ff = { timeout: 20 * 60 * 1000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 };
+  let codec = "";
+  try {
+    codec = await videoCodecName(srcPath);
+  } catch {
+    codec = "";
+  }
+
+  const finish = async () => {
+    await fs.promises.rename(tmp, destPath);
+  };
+
+  // Already H.264: change container only — no quality loss.
+  if (codec === "h264" || codec === "avc1") {
+    try {
+      await execFileAsync("ffmpeg", [
+        "-y", "-i", srcPath,
+        "-map", "0:v:0",
+        "-map", "0:a:0?",
+        "-c", "copy",
+        "-movflags", "+faststart",
+        tmp,
+      ], ff);
+      await finish();
+      return;
+    } catch (error) {
+      console.warn("MP4 remux failed, re-encoding:", error?.message || error);
+      await fs.promises.unlink(tmp).catch(() => {});
+    }
+  }
+
+  await execFileAsync("ffmpeg", [
+    "-y", "-i", srcPath,
+    "-map", "0:v:0",
+    "-map", "0:a:0?",
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "18",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "160k",
+    "-movflags", "+faststart",
+    tmp,
+  ], ff);
+  await finish();
+}
+
+function ensureBrowserMp4(srcPath, destPath) {
+  if (fs.existsSync(destPath) && fs.statSync(destPath).size > 1024) {
+    return Promise.resolve(destPath);
+  }
+  if (!previewJobs.has(destPath)) {
+    const job = buildBrowserMp4(srcPath, destPath)
+      .catch(async (error) => {
+        await fs.promises.unlink(`${destPath}.part`).catch(() => {});
+        await fs.promises.unlink(destPath).catch(() => {});
+        throw error;
+      })
+      .finally(() => previewJobs.delete(destPath));
+    previewJobs.set(destPath, job);
+  }
+  return previewJobs.get(destPath).then(() => destPath);
+}
+
+/** Convert uploaded images to AVIF. Videos stay as the original file. */
 async function prepareUploadedFile(file) {
   const meta = fileMeta(file);
   const srcPath = path.join(uploadsDir, file.filename);
-
-  if (needsVideoTranscode(meta.mimeType, meta.originalName) && await ensureFfmpeg()) {
-    const newFilename = `${path.parse(file.filename).name}.mp4`;
-    const destPath = path.join(uploadsDir, newFilename);
-    try {
-      await convertVideoToMp4(srcPath, destPath);
-      fs.unlinkSync(srcPath);
-      const sizeBytes = fs.statSync(destPath).size;
-      return {
-        originalName: `${attachmentBaseName(meta.originalName)}.mp4`,
-        mimeType: "video/mp4",
-        sizeBytes,
-        storagePath: newFilename,
-      };
-    } catch (error) {
-      console.warn("MP4 conversion failed, keeping original:", meta.originalName, error?.message || error);
-      if (fs.existsSync(destPath)) {
-        try { fs.unlinkSync(destPath); } catch { /* ignore */ }
-      }
-      return {
-        originalName: meta.originalName,
-        mimeType: meta.mimeType,
-        sizeBytes: file.size,
-        storagePath: file.filename,
-      };
-    }
-  }
 
   if (!isConvertibleImage(meta.mimeType, meta.originalName)) {
     return {
@@ -416,7 +464,7 @@ async function prepareUploadedFiles(files) {
   return prepared;
 }
 
-function sendStoredFile(req, res, file) {
+async function sendStoredFile(req, res, file) {
   const full = path.join(uploadsDir, file.storage_path);
   if (!fs.existsSync(full)) {
     res.status(404).json({ error: "File missing" });
@@ -427,6 +475,23 @@ function sendStoredFile(req, res, file) {
   const mime = guessMime(downloadName, file.mime_type);
   const wantDownload = ["1", "true", "png"].includes(String(req.query.download || "").toLowerCase());
   const asPng = wantDownload && isConvertibleImage(mime, downloadName);
+
+  if (!wantDownload && needsBrowserMp4(mime, downloadName) && !clientPlaysOriginalVideo(req)) {
+    if (await ensureFfmpeg()) {
+      try {
+        const preview = await ensureBrowserMp4(full, previewMp4Path(file.storage_path));
+        streamLocalFile(req, res, preview, {
+          mime: "video/mp4",
+          downloadName: `${attachmentBaseName(downloadName)}.mp4`,
+          wantDownload: false,
+        });
+        return;
+      } catch (error) {
+        console.warn("Browser MP4 preview failed, sending original:", downloadName, error?.message || error);
+        if (res.headersSent) return;
+      }
+    }
+  }
 
   if (asPng) {
     const pngName = `${attachmentBaseName(downloadName)}.png`;
@@ -449,6 +514,10 @@ function sendStoredFile(req, res, file) {
     return;
   }
 
+  streamLocalFile(req, res, full, { mime, downloadName, wantDownload });
+}
+
+function streamLocalFile(req, res, full, { mime, downloadName, wantDownload }) {
   const stat = fs.statSync(full);
   const size = stat.size;
   const range = req.headers.range;
@@ -550,6 +619,9 @@ async function unlinkAttachmentFiles(files) {
   for (const file of files) {
     const full = path.join(uploadsDir, file.storage_path);
     await fs.promises.unlink(full).catch(() => {});
+    const preview = previewMp4Path(file.storage_path);
+    await fs.promises.unlink(preview).catch(() => {});
+    await fs.promises.unlink(`${preview}.part`).catch(() => {});
   }
 }
 
@@ -1196,7 +1268,7 @@ app.get("/api/attachments/:id", auth, async (req, res) => {
     { id: req.params.id },
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
-  sendStoredFile(req, res, rows[0]);
+  await sendStoredFile(req, res, rows[0]);
 });
 
 app.get("/api/staff", auth, async (_req, res) => {
