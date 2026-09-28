@@ -271,6 +271,7 @@ function formatLogScalar(field, value) {
   if (field === "date" || field === "birthDate") return formatLogDate(value);
   if (field === "role") {
     if (value === "admin") return "Адміністратор";
+    if (value === "subadmin") return "Sub-Admin";
     if (value === "anesthesiologist") return "Анестезіолог";
     return "Лікар";
   }
@@ -453,7 +454,7 @@ function normalizeNameList(value, limit) {
 
 function canSetClearanceStatus(user) {
   const role = user?.role;
-  return role === "admin" || role === "anesthesiologist";
+  return role === "admin" || role === "subadmin" || role === "anesthesiologist";
 }
 
 function bodyToOperation(body) {

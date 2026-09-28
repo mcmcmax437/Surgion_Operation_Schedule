@@ -391,7 +391,7 @@ function namesForOperation(item, field, fallback) {
 
 function canEditClearanceStatus() {
   const role = currentUser?.role;
-  return role === "admin" || role === "anesthesiologist";
+  return role === "admin" || role === "subadmin" || role === "anesthesiologist";
 }
 
 function applyClearanceStatusAccess() {
@@ -404,7 +404,7 @@ function applyClearanceStatusAccess() {
   if (help) {
     help.textContent = allowed
       ? "Заповнює лікар-анестезіолог після огляду пацієнта."
-      : "Це поле може змінити лише анестезіолог або адміністратор.";
+      : "Це поле може змінити анестезіолог, Sub-Admin або адміністратор.";
   }
 }
 
@@ -778,7 +778,7 @@ function operationRowHtml(item) {
       <td class="col-when" data-label="Дата"><span class="date">${formatDate(item.date)}</span>${adminOperationIdHtml(item)}</td>
       <td class="col-patient" data-label="Пацієнт">
         <span class="patient">${dangerMarkHtml(item)}${escapeHtml(formatShortName(item.patient))}</span>
-        <span class="patient-age">${item.patientAge !== "" && item.patientAge != null ? `${escapeHtml(String(item.patientAge))} р.` : escapeHtml(item.id)}</span>
+        ${item.patientAge !== "" && item.patientAge != null ? `<span class="patient-age">${escapeHtml(String(item.patientAge))} р.</span>` : ""}
       </td>
       <td class="col-age" data-label="Вік">${item.patientAge !== "" && item.patientAge != null ? escapeHtml(String(item.patientAge)) : "—"}</td>
       <td class="col-infection" data-label="Небезпека"><span class="${dangerClass}">${escapeHtml(danger)}</span></td>
@@ -1804,7 +1804,7 @@ async function deleteCurrentMedia() {
     showMediaAt(Math.min(mediaIndex, mediaFiles.length - 1));
     const item = findOperation(mediaOperationId);
     if ($("#mediaDialogMeta")) {
-      $("#mediaDialogMeta").textContent = `${item?.id || mediaOperationId || ""} · ${mediaFiles.length} файл(ів)`;
+      $("#mediaDialogMeta").textContent = mediaCountLabel(mediaFiles.length, item);
     }
   } catch (error) {
     alert(error.message || "Не вдалося видалити файл.");
@@ -2050,7 +2050,7 @@ async function viewOperation(id) {
   mediaOperationId = id;
   if ($("#mediaDialogTitle")) $("#mediaDialogTitle").textContent = item.patient || "Медіа";
   if ($("#mediaDialogMeta")) {
-    $("#mediaDialogMeta").textContent = `${item.id || ""} · ${(item.attachments || []).length} файл(ів) · завантаження…`;
+    $("#mediaDialogMeta").textContent = `${mediaCountLabel((item.attachments || []).length, item)} · завантаження…`;
   }
   body.innerHTML = `<div class="media-viewport is-loading" style="min-height:240px;width:100%;border-radius:10px">
     <div class="media-loading" aria-live="polite">
@@ -2071,7 +2071,7 @@ async function viewOperation(id) {
   mediaFiles = files;
   mediaIndex = 0;
   if ($("#mediaDialogMeta")) {
-    $("#mediaDialogMeta").textContent = `${item.id || ""} · ${files.length} файл(ів)`;
+    $("#mediaDialogMeta").textContent = mediaCountLabel(files.length, item);
   }
   renderMediaSlide();
 }
@@ -2626,10 +2626,21 @@ async function loadStats() {
   }
 }
 
+function isFullAdmin() {
+  return currentUser?.role === "admin";
+}
+
 function userRoleLabel(role) {
   if (role === "admin") return "Адмін";
+  if (role === "subadmin") return "Sub-Admin";
   if (role === "anesthesiologist") return "Анестезіолог";
   return "Лікар";
+}
+
+function mediaCountLabel(count, item) {
+  const files = `${count} файл(ів)`;
+  const id = isFullAdmin() ? (item?.id || "") : "";
+  return id ? `${id} · ${files}` : files;
 }
 
 function userStatusLabel(status) {
@@ -2699,7 +2710,8 @@ function openUserEditor(user) {
   if ($("#userName")) $("#userName").value = user.name || "";
   if ($("#userEmail")) $("#userEmail").value = user.email || "";
   if ($("#userRole")) {
-    $("#userRole").value = ["admin", "anesthesiologist", "doctor"].includes(user.role) ? user.role : "doctor";
+    const known = ["admin", "subadmin", "anesthesiologist", "doctor"];
+    $("#userRole").value = known.includes(user.role) ? user.role : "doctor";
   }
   if ($("#userStatus")) $("#userStatus").value = user.status === "disabled" ? "disabled" : "active";
   if ($("#userPassword")) $("#userPassword").value = "";

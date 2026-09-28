@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NULL,
   google_sub VARCHAR(255) NULL,
-  role ENUM('admin', 'doctor', 'anesthesiologist') NOT NULL DEFAULT 'doctor',
+  role ENUM('admin', 'doctor', 'anesthesiologist', 'subadmin') NOT NULL DEFAULT 'doctor',
   status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,

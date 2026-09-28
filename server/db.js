@@ -242,7 +242,7 @@ export async function migrate(pool) {
       name VARCHAR(255) NOT NULL,
       password_hash VARCHAR(255) NULL,
       google_sub VARCHAR(255) NULL,
-      role ENUM('admin', 'doctor', 'anesthesiologist') NOT NULL DEFAULT 'doctor',
+      role ENUM('admin', 'doctor', 'anesthesiologist', 'subadmin') NOT NULL DEFAULT 'doctor',
       status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
       created_at DATETIME(3) NOT NULL,
       updated_at DATETIME(3) NOT NULL,
@@ -270,9 +270,9 @@ export async function migrate(pool) {
      LIMIT 1`,
   );
   const roleType = String(roleRows[0]?.columnType || "");
-  if (roleType && !roleType.includes("anesthesiologist")) {
+  if (roleType && !roleType.includes("subadmin")) {
     await pool.query(
-      `ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'doctor', 'anesthesiologist') NOT NULL DEFAULT 'doctor'`,
+      `ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'doctor', 'anesthesiologist', 'subadmin') NOT NULL DEFAULT 'doctor'`,
     );
   }
 }

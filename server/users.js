@@ -43,9 +43,12 @@ export async function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(left, right);
 }
 
+const USER_ROLES = ["admin", "subadmin", "anesthesiologist", "doctor"];
+
 export function normalizeRole(role) {
-  const value = String(role || "").trim();
-  if (value === "admin" || value === "anesthesiologist") return value;
+  const value = String(role || "").trim().toLowerCase().replace(/[\s_]+/g, "");
+  if (value === "sub-admin" || value === "subadmin") return "subadmin";
+  if (USER_ROLES.includes(value)) return value;
   return "doctor";
 }
 
