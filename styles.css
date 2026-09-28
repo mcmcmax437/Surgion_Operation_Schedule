@@ -741,28 +741,32 @@ html.dialog-open body{
 .media-dialog .media-card.is-video,
 .media-dialog .media-card.is-video .media-viewport{
   width:100%!important;
-  min-height:min(68vh,640px)!important;
+  min-height:0!important;
+  height:100%;
+  flex:1 1 auto;
   display:flex;
-  align-items:center;
-  justify-content:center;
+  align-items:stretch;
+  justify-content:stretch;
   touch-action:auto;
 }
-.media-dialog .media-card.is-video video{
+.media-dialog .media-card.is-video .media-viewport{
   position:relative;
-  top:auto;
-  left:auto;
+}
+.media-dialog .media-card.is-video video{
+  position:absolute;
+  inset:0;
   display:block;
-  width:auto!important;
-  height:auto!important;
+  width:100%!important;
+  height:100%!important;
   max-width:100%!important;
-  max-height:min(68vh,640px)!important;
+  max-height:100%!important;
   min-width:0;
   min-height:0;
-  margin:0 auto;
+  margin:0;
   object-fit:contain;
   object-position:center center;
   background:#000;
-  border-radius:10px;
+  border-radius:0;
 }
 .media-playback-issue{
   position:absolute;
