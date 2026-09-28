@@ -210,6 +210,9 @@ export async function migrate(pool) {
   if (!(await columnExists(pool, "access_logs", "geo"))) {
     await pool.query(`ALTER TABLE access_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
   }
+  if (!(await columnExists(pool, "change_logs", "details"))) {
+    await pool.query(`ALTER TABLE change_logs ADD COLUMN details TEXT NULL AFTER summary`);
+  }
   if (!(await columnExists(pool, "change_logs", "geo"))) {
     await pool.query(`ALTER TABLE change_logs ADD COLUMN geo VARCHAR(255) NULL AFTER ip`);
   }

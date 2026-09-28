@@ -2010,6 +2010,46 @@ html:not(.theme-dark) .toolbar{
   }
 }
 
+.logs-filters{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin:0 0 14px;
+}
+.logs-filter{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  color:#315b7a;
+  font-size:13px;
+  font-weight:750;
+}
+.logs-filter select{
+  min-height:44px;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  background:#fff;
+  color:#17365d;
+  font:inherit;
+  padding:8px 12px;
+}
+.log-changes{
+  margin:0;
+  padding-left:18px;
+  display:grid;
+  gap:4px;
+}
+.log-changes li{line-height:1.35}
+.theme-dark .logs-filter{color:#9ac3e5}
+.theme-dark .logs-filter select{
+  background:#1f2937;
+  border-color:#374151;
+  color:#e5e7eb;
+}
+@media (max-width:760px){
+  .logs-filters{grid-template-columns:1fr}
+}
+
 @media (max-width:760px){
   #thisDay{grid-column:1/-1}
 }

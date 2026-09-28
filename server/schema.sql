@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS change_logs (
   entity_id VARCHAR(64) NULL,
   action VARCHAR(32) NOT NULL,
   summary VARCHAR(512) NOT NULL,
+  details TEXT NULL,
   changed_fields JSON NULL,
   before_json JSON NULL,
   after_json JSON NULL,

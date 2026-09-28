@@ -194,7 +194,233 @@ function optionalUpload(req, res, next) {
 
 app.set("trust proxy", true);
 app.use(cors({ origin: true, credentials: true }));
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 app.use(express.json({ limit: "2mb" }));
+
+function operationLogRef(id, patient) {
+  const name = String(patient || "").trim();
+  return name ? `${id} (${name})` : String(id || "");
+}
+
+function summaryWithPatient(summary, patient, entityId) {
+  const text = String(summary || "");
+  const name = String(patient || "").trim();
+  if (!name || text.includes(name)) return text;
+  const id = String(entityId || "");
+  if (id && text.includes(id)) return text.replace(id, `${id} (${name})`);
+  return text;
+}
+
+const LOG_OPERATION_FIELDS = [
+  ["date", "Дата"],
+  ["queueNo", "Черга"],
+  ["department", "Відділення"],
+  ["patient", "Пацієнт"],
+  ["birthDate", "Дата народження"],
+  ["patientAge", "Вік"],
+  ["bloodGroup", "Група крові"],
+  ["diagnosis", "Діагноз"],
+  ["procedure", "Втручання"],
+  ["teamMembers", "Операційна бригада"],
+  ["anesthesiologists", "Анестезіолог"],
+  ["infections", "Інфекційні маркери"],
+  ["patientFlags", "Позначки"],
+  ["status", "Статус"],
+  ["notes", "Примітки"],
+];
+
+const LOG_STAFF_FIELDS = [
+  ["team", "Список хірургів"],
+  ["anesthesiologists", "Список анестезіологів"],
+];
+
+const LOG_USER_FIELDS = [
+  ["name", "Користувач"],
+  ["email", "Email"],
+  ["role", "Роль"],
+  ["status", "Статус акаунта"],
+];
+
+function clipLogText(value, max = 280) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
+function formatLogDate(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(value || "").trim();
+  return `${match[3]}/${match[2]}/${match[1].slice(-2)}`;
+}
+
+function formatLogList(value) {
+  if (!Array.isArray(value)) return "";
+  return value.map((item) => String(item || "").trim()).filter(Boolean).join(", ");
+}
+
+function formatLogScalar(field, value) {
+  if (value == null || value === "") return "";
+  if (field === "department") {
+    if (value === "dept2") return "Хірургічне відділення №2";
+    if (value === "dept1") return "Хірургічне відділення №1";
+  }
+  if (field === "date" || field === "birthDate") return formatLogDate(value);
+  if (field === "role") return value === "admin" ? "Адміністратор" : "Лікар";
+  if (field === "status" && (value === "active" || value === "disabled")) {
+    return value === "disabled" ? "Заблокований" : "Активний";
+  }
+  if (field === "patientFlags") {
+    const labels = { zsu: "ЗСУ", vip: "VIP" };
+    return (Array.isArray(value) ? value : []).map((item) => labels[item] || item).join(", ");
+  }
+  if (field === "attachments") return "";
+  if (Array.isArray(value)) return formatLogList(value);
+  return clipLogText(value);
+}
+
+function attachmentNames(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((file) => String(file?.name || file?.original_name || "").trim()).filter(Boolean);
+}
+
+function logChangeLine(label, from, to) {
+  const left = clipLogText(from) || "не вказано";
+  const right = clipLogText(to) || "не вказано";
+  if (left === right) return null;
+  return {
+    label,
+    from: left,
+    to: right,
+    text: `Зміна «${label}» з «${left}» на «${right}»`,
+  };
+}
+
+function logSetLine(label, value, prefix = "") {
+  const text = clipLogText(value);
+  if (!text) return null;
+  return {
+    label,
+    from: "",
+    to: text,
+    text: prefix ? `${label}: ${prefix} «${text}»` : `${label}: «${text}»`,
+  };
+}
+
+function describeFieldChanges(before, after, fields, mode) {
+  const changes = [];
+  for (const [field, label] of fields) {
+    if (field === "attachments") continue;
+    const left = formatLogScalar(field, before?.[field]);
+    const right = formatLogScalar(field, after?.[field]);
+    if (mode === "update") {
+      const line = logChangeLine(label, left, right);
+      if (line) changes.push(line);
+    } else if (mode === "create") {
+      const line = logSetLine(label, right);
+      if (line) changes.push(line);
+    } else if (mode === "delete") {
+      const line = logSetLine(label, left, "було");
+      if (line) changes.push(line);
+    }
+  }
+  return changes;
+}
+
+function describeAttachmentChanges(before, after) {
+  const left = attachmentNames(before?.attachments);
+  const right = attachmentNames(after?.attachments);
+  const added = right.filter((name) => !left.includes(name));
+  const removed = left.filter((name) => !right.includes(name));
+  const changes = [];
+  if (added.length) {
+    changes.push({
+      label: "Файли",
+      from: "",
+      to: added.join(", "),
+      text: `Додано файл: «${added.join("», «")}»`,
+    });
+  }
+  if (removed.length) {
+    changes.push({
+      label: "Файли",
+      from: removed.join(", "),
+      to: "",
+      text: `Видалено файл: «${removed.join("», «")}»`,
+    });
+  }
+  return changes;
+}
+
+function describeLogChanges({ entityType, action, before, after, changedFields }) {
+  if (entityType === "attachment") {
+    const fileName = before?.name || before?.original_name || "без назви";
+    return [{ label: "Файл", from: fileName, to: "", text: `Видалено файл: «${fileName}»` }];
+  }
+
+  if (entityType === "staff") {
+    return describeFieldChanges(before, after, LOG_STAFF_FIELDS, action === "create" ? "create" : "update");
+  }
+
+  if (entityType === "user") {
+    const mode = action === "delete" ? "delete" : "update";
+    const changes = describeFieldChanges(before, after, LOG_USER_FIELDS, mode);
+    if ((changedFields || []).includes("password")) {
+      changes.push({ label: "Пароль", from: "", to: "", text: "Пароль: змінено" });
+    }
+    return changes;
+  }
+
+  const mode = action === "create" ? "create" : action === "delete" ? "delete" : "update";
+  const changes = describeFieldChanges(before, after, LOG_OPERATION_FIELDS, mode);
+  if (mode === "update") changes.push(...describeAttachmentChanges(before, after));
+  return changes;
+}
+
+function logDetailsText(changes) {
+  const text = (changes || []).map((item) => item.text).filter(Boolean).join("\n");
+  return text || null;
+}
+
+function logPatientName(before, after) {
+  return String(after?.patient || before?.patient || "").trim();
+}
+
+function nameList(value) {
+  return (Array.isArray(value) ? value : []).map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function logDoctorNames(entityType, before, after, actorName) {
+  const names = new Set();
+  const add = (value) => {
+    const text = String(value || "").trim();
+    if (text) names.add(text);
+  };
+  add(actorName);
+
+  if (entityType === "staff") {
+    const beforeNames = new Set([...nameList(before?.team), ...nameList(before?.anesthesiologists)]);
+    const afterNames = new Set([...nameList(after?.team), ...nameList(after?.anesthesiologists)]);
+    for (const name of new Set([...beforeNames, ...afterNames])) {
+      if (beforeNames.has(name) !== afterNames.has(name)) add(name);
+    }
+    return [...names];
+  }
+
+  if (entityType === "user") {
+    add(before?.name);
+    add(after?.name);
+    return [...names];
+  }
+
+  for (const snap of [before, after]) {
+    nameList(snap?.teamMembers).forEach(add);
+    nameList(snap?.anesthesiologists).forEach(add);
+  }
+  return [...names];
+}
 
 function actorFromReq(req) {
   const user = req?.user;
@@ -514,7 +740,7 @@ async function sendStoredFile(req, res, file) {
       "Content-Disposition",
       `attachment; filename*=UTF-8''${encodeURIComponent(pngName)}`,
     );
-    res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+    res.setHeader("Cache-Control", "private, no-store");
     const pipeline = sharp(full, { failOn: "none" }).rotate().png({ compressionLevel: 6 });
     pipeline.on("error", (error) => {
       console.warn("PNG conversion failed:", downloadName, error?.message || error);
@@ -542,7 +768,7 @@ function streamLocalFile(req, res, full, { mime, downloadName, wantDownload }) {
     "Content-Disposition",
     `${wantDownload ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
   );
-  res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+  res.setHeader("Cache-Control", "private, no-store");
 
   if (!range) {
     res.setHeader("Content-Length", size);
@@ -650,11 +876,18 @@ async function permanentlyDeleteOperation(id, meta = {}) {
   await pool.query(`DELETE FROM operations WHERE id = :id`, { id });
   await unlinkAttachmentFiles(files);
 
+  const deleteChanges = describeLogChanges({
+    entityType: "operation",
+    action: "delete",
+    before,
+    after: null,
+  });
   await logChange(pool, {
     entityType: "operation",
     entityId: id,
     action: meta.action || "delete",
     summary: meta.summary || `Видалено операцію ${id} (${before.patient})`,
+    details: logDetailsText(deleteChanges),
     before,
     ip: meta.ip || null,
     userAgent: meta.userAgent || null,
@@ -1074,11 +1307,18 @@ app.post("/api/operations", auth, optionalUpload, async (req, res) => {
     const created = await loadOperation(connection, id);
     await connection.commit();
 
+    const createChanges = describeLogChanges({
+      entityType: "operation",
+      action: "create",
+      before: null,
+      after: created,
+    });
     await logChange(pool, {
       entityType: "operation",
       entityId: id,
       action: "create",
       summary: `Додано операцію ${id} (${data.patient})`,
+      details: logDetailsText(createChanges),
       changedFields: Object.keys(data),
       after: created,
       ip: req.clientIp,
@@ -1203,18 +1443,26 @@ app.put("/api/operations/:id", auth, optionalUpload, async (req, res) => {
     await connection.commit();
 
     const fields = [
-      "date", "queueNo", "department", "patient", "patientAge", "bloodGroup", "diagnosis",
-      "procedure", "teamMembers", "anesthesiologists", "infections", "patientFlags", "notes", "attachments",
+      "date", "queueNo", "department", "patient", "birthDate", "patientAge", "bloodGroup", "diagnosis",
+      "procedure", "teamMembers", "anesthesiologists", "infections", "patientFlags", "status", "notes", "attachments",
     ];
     const changed = diffFields(before, after, fields);
+    const updateChanges = describeLogChanges({
+      entityType: "operation",
+      action: "update",
+      before,
+      after,
+      changedFields: changed,
+    });
 
     await logChange(pool, {
       entityType: "operation",
       entityId: req.params.id,
       action: "update",
       summary: changed.length
-        ? `Змінено операцію ${req.params.id}: ${changed.join(", ")}`
-        : `Оновлено операцію ${req.params.id}`,
+        ? `Змінено операцію ${operationLogRef(req.params.id, after?.patient || data.patient)}`
+        : `Оновлено операцію ${operationLogRef(req.params.id, after?.patient || data.patient)}`,
+      details: logDetailsText(updateChanges),
       changedFields: changed,
       before,
       after,
@@ -1254,11 +1502,18 @@ app.delete("/api/attachments/:id", auth, async (req, res) => {
   await unlinkAttachmentFiles([file]);
   const after = await loadOperation(pool, file.operation_id);
 
+  const fileChanges = describeLogChanges({
+    entityType: "attachment",
+    action: "delete",
+    before: { name: decodeOriginalName(file.original_name), operationId: file.operation_id },
+    after,
+  });
   await logChange(pool, {
     entityType: "attachment",
     entityId: file.id,
     action: "delete",
-    summary: `Видалено файл «${file.original_name}» з операції ${file.operation_id}`,
+    summary: `Видалено файл «${file.original_name}» з операції ${operationLogRef(file.operation_id, after?.patient)}`,
+    details: logDetailsText(fileChanges),
     changedFields: ["attachments"],
     before: {
       id: file.id,
@@ -1345,13 +1600,19 @@ app.put("/api/staff", auth, async (req, res) => {
 
   const after = { team, anesthesiologists };
   const changed = diffFields(before, after, ["team", "anesthesiologists"]);
+  const staffChanges = describeLogChanges({
+    entityType: "staff",
+    action: "update",
+    before,
+    after,
+    changedFields: changed,
+  });
   await logChange(pool, {
     entityType: "staff",
     entityId: "staff",
     action: "update",
-    summary: changed.length
-      ? `Змінено список працівників: ${changed.join(", ")}`
-      : "Оновлено список працівників",
+    summary: changed.length ? "Змінено список працівників" : "Оновлено список працівників",
+    details: logDetailsText(staffChanges),
     changedFields: changed,
     before,
     after,
@@ -1653,6 +1914,13 @@ app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
         entityId: existing.id,
         action: nextStatus === "disabled" && existing.status !== "disabled" ? "ban" : "update",
         summary: `Оновлено користувача ${updated.email}`,
+        details: logDetailsText(describeLogChanges({
+          entityType: "user",
+          action: nextStatus === "disabled" && existing.status !== "disabled" ? "ban" : "update",
+          before: adminUserDetails(existing),
+          after: adminUserDetails(updated),
+          changedFields: ["name", "email", "role", "status", password ? "password" : null].filter(Boolean),
+        })),
         changedFields: ["name", "email", "role", "status", password ? "password" : null].filter(Boolean),
         before: adminUserDetails(existing),
         after: adminUserDetails(updated),
@@ -1695,6 +1963,12 @@ app.delete("/api/users/:id", auth, requireAdmin, async (req, res) => {
         entityId: existing.id,
         action: "delete",
         summary: `Видалено користувача ${existing.email}`,
+        details: logDetailsText(describeLogChanges({
+          entityType: "user",
+          action: "delete",
+          before: adminUserDetails(existing),
+          after: null,
+        })),
         changedFields: [],
         before: adminUserDetails(existing),
         after: null,
@@ -1716,21 +1990,39 @@ app.delete("/api/users/:id", auth, requireAdmin, async (req, res) => {
 app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
-    `SELECT id, entity_type, entity_id, action, summary, changed_fields, before_json, after_json,
+    `SELECT id, entity_type, entity_id, action, summary, details, changed_fields, before_json, after_json,
             actor_user_id, actor_name, actor_email, ip, geo, user_agent, created_at
      FROM change_logs
      ORDER BY created_at DESC
      LIMIT ${limit}`,
   );
-  const mapped = rows.map((row) => ({
+  const mapped = rows.map((row) => {
+    const before = parseJson(row.before_json, null);
+    const after = parseJson(row.after_json, null);
+    const changedFields = parseJson(row.changed_fields, []);
+    const patient = logPatientName(before, after);
+    let changes = describeLogChanges({
+      entityType: row.entity_type,
+      action: row.action,
+      before,
+      after,
+      changedFields,
+    });
+    if (!changes.length && row.details) {
+      changes = String(row.details).split("\n").map((line) => line.trim()).filter(Boolean)
+        .map((text) => ({ text }));
+    }
+    return {
     id: row.id,
     entityType: row.entity_type,
     entityId: row.entity_id,
     action: row.action,
-    summary: row.summary,
-    changedFields: parseJson(row.changed_fields, []),
-    before: parseJson(row.before_json, null),
-    after: parseJson(row.after_json, null),
+    summary: summaryWithPatient(row.summary, patient, row.entity_id),
+    details: changes.map((item) => item.text).join("\n"),
+    changes,
+    patient,
+    doctors: logDoctorNames(row.entity_type, before, after, row.actor_name),
+    changedFields,
     actorUserId: row.actor_user_id || null,
     actorName: row.actor_name || null,
     actorEmail: row.actor_email || null,
@@ -1738,7 +2030,8 @@ app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
     geo: row.geo,
     userAgent: row.user_agent,
     createdAt: row.created_at,
-  }));
+    };
+  });
   res.json(await attachGeo(mapped));
 });
 

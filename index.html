@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20260928i" />
+    <link rel="stylesheet" href="styles.css?v=20260928k" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -431,16 +431,30 @@
           <div>
             <p class="eyebrow">Аудит</p>
             <h2>Журнали змін і доступів</h2>
-            <p>Історія додавання/редагування даних із ПІБ автора змін, IP-адреси входів і приблизне місце за IP.</p>
+            <p>Історія змін із ПІБ пацієнта, лікарями операції та тим, яке значення було і яким стало.</p>
           </div>
           <button class="secondary" id="refreshLogs" type="button">Оновити</button>
         </div>
 
         <h3 class="logs-title">Зміни даних</h3>
+        <div class="logs-filters">
+          <label class="logs-filter">
+            <span>Пацієнт</span>
+            <select id="logPatientFilter">
+              <option value="">Усі пацієнти</option>
+            </select>
+          </label>
+          <label class="logs-filter">
+            <span>Лікар</span>
+            <select id="logDoctorFilter">
+              <option value="">Усі лікарі</option>
+            </select>
+          </label>
+        </div>
         <section class="table-card">
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Час</th><th>Користувач</th><th>Дія</th><th>Опис</th><th>Поля</th><th>IP / місце</th></tr></thead>
+              <thead><tr><th>Час</th><th>Користувач</th><th>Дія</th><th>Опис</th><th>Що змінилось</th><th>IP / місце</th></tr></thead>
               <tbody id="changeLogsBody"></tbody>
             </table>
           </div>
@@ -836,7 +850,7 @@
       </div>
     </dialog>
 
-    <script src="api.js?v=20260919g"></script>
-    <script src="app.js?v=20260928i"></script>
+    <script src="api.js?v=20260928j"></script>
+    <script src="app.js?v=20260928l"></script>
   </body>
 </html>

@@ -459,12 +459,45 @@ function applyTeamPickerChange(name, checked) {
   return true;
 }
 
+let anesSelection = [];
+
+function setAnesSelection(names = []) {
+  const options = getPickerOptions("anesthesiologistPicker");
+  const seen = new Set();
+  anesSelection = [];
+  for (const name of names) {
+    const resolved = resolveTeamOptionName(name, options);
+    if (!resolved || seen.has(resolved)) continue;
+    seen.add(resolved);
+    anesSelection.push(resolved);
+    if (anesSelection.length >= MAX_ANESTHESIOLOGISTS) break;
+  }
+}
+
+function selectedAnesthesiologists() {
+  return anesSelection.slice(0, MAX_ANESTHESIOLOGISTS);
+}
+
+function applyAnesPickerChange(name, checked) {
+  const resolved = resolveTeamOptionName(name, getPickerOptions("anesthesiologistPicker"));
+  if (!resolved) return true;
+  if (checked) {
+    anesSelection = [resolved];
+    return true;
+  }
+  anesSelection = anesSelection.filter((item) => item !== resolved);
+  return true;
+}
+
 function renderPicker(containerId, options, selected = []) {
   const container = $(`#${containerId}`);
   if (!container) return;
   container.dataset.options = JSON.stringify(options || []);
   if (containerId === "teamPicker") {
     setTeamSelectionOrder(selected);
+  }
+  if (containerId === "anesthesiologistPicker") {
+    setAnesSelection(selected);
   }
   paintPicker(containerId);
 }
@@ -480,7 +513,9 @@ function paintPicker(containerId, selected = null) {
   }
   const order = isTeam
     ? selectedTeamMembers()
-    : (selected ?? selectedPickerValues(containerId));
+    : containerId === "anesthesiologistPicker"
+      ? selectedAnesthesiologists()
+      : (selected ?? selectedPickerValues(containerId));
   const searchInput = $(`#${containerId}Search`);
   const term = (searchInput?.value || "").trim().toLowerCase();
   const filtered = term
@@ -507,6 +542,7 @@ function paintPicker(containerId, selected = null) {
 
 function selectedPickerValues(containerId) {
   if (containerId === "teamPicker") return selectedTeamMembers();
+  if (containerId === "anesthesiologistPicker") return selectedAnesthesiologists();
   return [...document.querySelectorAll(`#${containerId} input:checked`)].map((input) => input.value);
 }
 
@@ -1183,6 +1219,54 @@ function openForm(id = null) {
   }
 
   openModalDialog($("#operationDialog"));
+  captureFormSnapshot();
+}
+
+let formSnapshot = "";
+
+function formStateSignature() {
+  return JSON.stringify({
+    date: $("#operationDate")?.value || "",
+    department: $("#department")?.value || "",
+    patient: $("#patientName")?.value || "",
+    patientAge: $("#patientAge")?.value || "",
+    bloodGroup: $("#bloodGroup")?.value || "",
+    diagnosis: $("#diagnosis")?.value || "",
+    procedure: $("#procedure")?.value || "",
+    side: $("#operationSide")?.value || "",
+    status: $("#operationStatus")?.value || "",
+    notes: $("#notes")?.value || "",
+    team: selectedTeamMembers(),
+    anesthesiologists: selectedAnesthesiologists(),
+    infections: selectedInfections(),
+    flags: selectedPatientFlags(),
+    pending: pendingFormFiles.map((file) => fileKey(file)),
+    attachments: (currentFormAttachments || []).map((file) => file.id),
+  });
+}
+
+function captureFormSnapshot() {
+  formSnapshot = formStateSignature();
+}
+
+function formIsDirty() {
+  if (!$("#operationDialog")?.open) return false;
+  return formStateSignature() !== formSnapshot;
+}
+
+function requestCloseOperation() {
+  if (!formIsDirty()) {
+    closeModalDialog($("#operationDialog"));
+    return;
+  }
+  const save = window.confirm("Є незбережені зміни.\n\nOK — зберегти і закрити\nСкасувати — не закривати форму");
+  if (save) {
+    $("#operationForm")?.requestSubmit();
+    return;
+  }
+  const discard = window.confirm("Закрити форму без збереження змін?");
+  if (!discard) return;
+  closeModalDialog($("#operationDialog"));
 }
 
 async function saveOperation(event) {
@@ -1348,7 +1432,8 @@ function browserNeedsMp4Playback() {
 function attachmentUrl(id, options = {}) {
   const token = getToken();
   const playback = options.playback && browserNeedsMp4Playback() ? "&playback=mp4" : "";
-  return `${API_BASE}/attachments/${id}?access_token=${encodeURIComponent(token || "")}${playback}`;
+  const fresh = options.fresh === false ? "" : `&v=${Date.now()}`;
+  return `${API_BASE}/attachments/${id}?access_token=${encodeURIComponent(token || "")}${playback}${fresh}`;
 }
 
 function decodeFileName(name) {
@@ -1368,7 +1453,11 @@ function decodeFileName(name) {
 async function deleteOperation(id) {
   const item = findOperation(id);
   if (!item) return;
-  if (!confirm(`Видалити операцію «${item.patient}» (${item.id})?`)) return;
+  const patient = item.patient || "цього пацієнта";
+  const first = window.confirm(`Видалити операцію пацієнта «${patient}»?\n\nЦю дію не можна скасувати.`);
+  if (!first) return;
+  const second = window.confirm(`Підтвердіть ще раз: операцію «${patient}» буде видалено назавжди.`);
+  if (!second) return;
   try {
     await api(`/operations/${id}`, { method: "DELETE" });
     if (editingId === id) closeModalDialog($("#operationDialog"));
@@ -1912,6 +2001,12 @@ function showMediaAt(index) {
 }
 
 async function viewOperation(id) {
+  try {
+    operations = await api(`/operations?t=${Date.now()}`);
+    render();
+  } catch {
+    // Keep the list already on screen if the refresh fails.
+  }
   const item = findOperation(id);
   if (!item) return;
 
@@ -1972,23 +2067,85 @@ function logActorHtml(item) {
   return `<strong>${escapeHtml(title)}</strong>${sub}`;
 }
 
-async function loadLogs() {
-  try {
-    const [changes, access] = await Promise.all([
-      api("/logs/changes?limit=150"),
-      api("/logs/access?limit=150"),
-    ]);
+const LOG_ACTION_LABELS = {
+  create: "Додано",
+  update: "Змінено",
+  delete: "Видалено",
+  ban: "Заблоковано",
+};
 
-    $("#changeLogsBody").innerHTML = changes.map((item) => `
+let changeLogItems = [];
+
+function logActionLabel(action) {
+  return LOG_ACTION_LABELS[action] || action || "—";
+}
+
+function logChangesHtml(item) {
+  const lines = Array.isArray(item.changes) ? item.changes.map((line) => line?.text || line).filter(Boolean) : [];
+  if (!lines.length && item.details) lines.push(...String(item.details).split("\n").filter(Boolean));
+  if (!lines.length) return "—";
+  return `<ul class="log-changes">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "uk"));
+}
+
+function fillLogSelect(select, values, current, allLabel) {
+  if (!select) return;
+  const options = uniqueSorted(values);
+  select.innerHTML = [`<option value="">${escapeHtml(allLabel)}</option>`]
+    .concat(options.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
+    .join("");
+  select.value = current && options.includes(current) ? current : "";
+}
+
+function renderChangeLogs() {
+  const patient = $("#logPatientFilter")?.value || "";
+  const doctor = $("#logDoctorFilter")?.value || "";
+  const rows = changeLogItems.filter((item) => {
+    if (patient && item.patient !== patient) return false;
+    if (doctor && !(item.doctors || []).includes(doctor)) return false;
+    return true;
+  });
+  const body = $("#changeLogsBody");
+  if (!body) return;
+  body.innerHTML = rows.map((item) => `
       <tr>
         <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
         <td data-label="Користувач">${logActorHtml(item)}</td>
-        <td data-label="Дія">${escapeHtml(item.action)}</td>
+        <td data-label="Дія">${escapeHtml(logActionLabel(item.action))}</td>
         <td data-label="Опис">${escapeHtml(item.summary)}</td>
-        <td data-label="Поля">${escapeHtml((item.changedFields || []).join(", ") || "—")}</td>
+        <td data-label="Що змінилось">${logChangesHtml(item)}</td>
         <td data-label="IP / місце">${logPlaceHtml(item)}</td>
       </tr>
-    `).join("") || `<tr><td colspan="6">Змін ще немає.</td></tr>`;
+    `).join("") || `<tr><td colspan="6">${patient || doctor ? "Немає записів за цим фільтром." : "Змін ще немає."}</td></tr>`;
+}
+
+async function loadLogs() {
+  try {
+    const selectedPatient = $("#logPatientFilter")?.value || "";
+    const selectedDoctor = $("#logDoctorFilter")?.value || "";
+    const [changes, access] = await Promise.all([
+      api("/logs/changes?limit=500"),
+      api("/logs/access?limit=150"),
+    ]);
+
+    changeLogItems = Array.isArray(changes) ? changes : [];
+    fillLogSelect(
+      $("#logPatientFilter"),
+      changeLogItems.map((item) => item.patient),
+      selectedPatient,
+      "Усі пацієнти",
+    );
+    fillLogSelect(
+      $("#logDoctorFilter"),
+      changeLogItems.flatMap((item) => item.doctors || []),
+      selectedDoctor,
+      "Усі лікарі",
+    );
+    renderChangeLogs();
 
     $("#accessLogsBody").innerHTML = access.map((item) => `
       <tr>
@@ -2741,8 +2898,13 @@ document.addEventListener("click", (event) => {
   defaultDepartment = addBtn.dataset.addDept === "dept2" ? "dept2" : "dept1";
   openForm();
 });
-on("#closeOperation", "click", () => closeModalDialog($("#operationDialog")));
-on("#cancelOperation", "click", () => closeModalDialog($("#operationDialog")));
+on("#closeOperation", "click", () => requestCloseOperation());
+on("#cancelOperation", "click", () => requestCloseOperation());
+$("#operationDialog")?.addEventListener("cancel", (event) => {
+  if (!formIsDirty()) return;
+  event.preventDefault();
+  requestCloseOperation();
+});
 on("#attachments", "change", (event) => addPendingFiles(event.target.files));
 on("#attachmentsPanelList", "click", (event) => {
   const saved = event.target.closest("[data-remove-saved]");
@@ -2805,20 +2967,9 @@ document.addEventListener("change", (event) => {
     return;
   }
 
-  const selected = selectedPickerValues(pickerId);
-  if (selected.length <= max) {
-    paintPicker(pickerId);
-    return;
-  }
-  if (max === 1) {
-    document.querySelectorAll(`#${pickerId} input[type="checkbox"]`).forEach((box) => {
-      if (box !== input) box.checked = false;
-    });
-    paintPicker(pickerId);
-    return;
-  }
-  input.checked = false;
-  alert("Можна обрати максимум 1 анестезіолога.");
+  const name = input.getAttribute("data-team-name") || input.value;
+  applyAnesPickerChange(name, input.checked);
+  paintPicker(pickerId);
 });
 on("#deleteOperation", "click", () => {
   if (editingId) deleteOperation(editingId);
@@ -2902,6 +3053,8 @@ on("#dept2Body", "click", handleOperationRowClick);
 on("#dept1Days", "click", handleOperationRowClick);
 on("#dept2Days", "click", handleOperationRowClick);
 on("#refreshLogs", "click", () => loadLogs());
+on("#logPatientFilter", "change", () => renderChangeLogs());
+on("#logDoctorFilter", "change", () => renderChangeLogs());
 
 (function watchScheduleOrientation() {
   let lastLandscape = window.matchMedia("(orientation: landscape)").matches;
