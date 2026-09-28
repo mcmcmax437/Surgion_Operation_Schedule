@@ -1832,10 +1832,19 @@ function renderMediaSlide() {
 
   const img = body.querySelector("img.media-zoomable");
   if (img) {
+    const onImgError = () => {
+      markLoaded();
+      if (body.querySelector(".empty-media")) return;
+      const note = document.createElement("p");
+      note.className = "empty-media";
+      note.textContent = "Не вдалося показати зображення. Спробуйте завантажити файл.";
+      body.appendChild(note);
+    };
     if (img.complete && img.naturalWidth > 0) markLoaded();
+    else if (img.complete) onImgError();
     else {
       img.addEventListener("load", markLoaded, { once: true });
-      img.addEventListener("error", markLoaded, { once: true });
+      img.addEventListener("error", onImgError, { once: true });
     }
     bindMediaPinchTarget(viewport);
     bindMediaPinchTarget(img);
