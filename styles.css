@@ -572,7 +572,10 @@ html.dialog-open body{
   background:transparent;
   border-radius:10px;
 }
-.media-nav{align-self:center}
+.media-nav{align-self:center;grid-row:1}
+.media-nav-prev{grid-column:1}
+.media-dialog-body{grid-column:2;grid-row:1}
+.media-nav-next{grid-column:3}
 .media-nav[hidden]{display:none!important}
 @media (max-width:760px){
   .media-dialog{height:92vh;max-height:92vh!important}
@@ -582,6 +585,9 @@ html.dialog-open body{
     gap:0;
     padding:4px 4px 0;
   }
+  .media-dialog-body,
+  .media-nav-prev,
+  .media-nav-next{grid-column:1}
   .media-nav{
     position:absolute;
     z-index:3;
