@@ -1824,19 +1824,41 @@ function renderMediaSlide() {
 
   const video = body.querySelector("video");
   if (video) {
-    const revealVideo = () => markLoaded();
+    const showVideoIssue = (detail) => {
+      markLoaded();
+      if (viewport?.querySelector(".media-playback-issue")) return;
+      const note = document.createElement("div");
+      note.className = "media-playback-issue";
+      note.innerHTML = `<strong>Відео не відтворюється в цьому браузері</strong>
+        <p>${escapeHtml(detail)}</p>
+        <p>Натисніть «Завантажити», щоб відкрити файл локально, або перегляньте на телефоні.</p>`;
+      viewport?.appendChild(note);
+    };
+    const revealVideo = () => {
+      markLoaded();
+      if (video.videoWidth > 0) {
+        viewport?.querySelector(".media-playback-issue")?.remove();
+        return;
+      }
+    };
+    const verifyPlayable = () => {
+      markLoaded();
+      if (video.error || (video.readyState >= 1 && video.videoWidth === 0)) {
+        const isMov = /\.(mov|m4v)$/i.test(fileName);
+        showVideoIssue(
+          isMov
+            ? "Файл .MOV (iPhone) часто не підтримується Chrome/Edge на ПК. Нові відео конвертуються в MP4 на сервері."
+            : "Формат або кодек цього відео не підтримується браузером на ПК.",
+        );
+      }
+    };
     if (video.readyState >= 1) revealVideo();
-    ["loadedmetadata", "loadeddata", "canplay", "playing", "error"].forEach((evt) => {
+    ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach((evt) => {
       video.addEventListener(evt, revealVideo, { once: true });
     });
+    video.addEventListener("error", () => verifyPlayable(), { once: true });
     try { video.load(); } catch { /* ignore */ }
-    video.addEventListener("error", () => {
-      if (body.querySelector(".empty-media")) return;
-      const note = document.createElement("p");
-      note.className = "empty-media";
-      note.textContent = "Не вдалося відтворити відео в браузері. Завантажте файл кнопкою нижче.";
-      body.appendChild(note);
-    });
+    setTimeout(verifyPlayable, 1500);
   }
 
   const img = body.querySelector("img.media-zoomable");

@@ -2,6 +2,8 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -273,10 +275,90 @@ function attachmentBaseName(name) {
   return base || "image";
 }
 
-/** Convert uploaded images to AVIF for storage. Videos / GIF stay unchanged. */
+const execFileAsync = promisify(execFile);
+let ffmpegAvailable = null;
+
+async function ensureFfmpeg() {
+  if (ffmpegAvailable != null) return ffmpegAvailable;
+  try {
+    await execFileAsync("ffmpeg", ["-version"], { timeout: 8000, windowsHide: true });
+    ffmpegAvailable = true;
+  } catch {
+    ffmpegAvailable = false;
+    console.warn("ffmpeg not found — .mov/.m4v videos will stay as-is (may not play in Chrome on PC)");
+  }
+  return ffmpegAvailable;
+}
+
+function isVideoUpload(mime, name) {
+  const type = String(mime || "").toLowerCase();
+  const fileName = String(name || "").toLowerCase();
+  if (type.startsWith("video/")) return true;
+  return /\.(mp4|mov|m4v|webm|avi|mkv|3gp|mpeg|mpg)$/i.test(fileName);
+}
+
+function needsVideoTranscode(mime, name) {
+  const type = String(mime || "").toLowerCase();
+  const fileName = String(name || "").toLowerCase();
+  if (/\.mp4$/i.test(fileName) || type === "video/mp4") return false;
+  if (/\.webm$/i.test(fileName) || type === "video/webm") return false;
+  return isVideoUpload(mime, name);
+}
+
+async function convertVideoToMp4(srcPath, destPath) {
+  await execFileAsync(
+    "ffmpeg",
+    [
+      "-y",
+      "-i", srcPath,
+      "-map", "0:v:0?",
+      "-map", "0:a:0?",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-ac", "2",
+      "-movflags", "+faststart",
+      destPath,
+    ],
+    { timeout: 15 * 60 * 1000, windowsHide: true, maxBuffer: 10 * 1024 * 1024 },
+  );
+}
+
+/** Convert uploaded images to AVIF; convert .mov etc. to MP4 when ffmpeg is available. */
 async function prepareUploadedFile(file) {
   const meta = fileMeta(file);
   const srcPath = path.join(uploadsDir, file.filename);
+
+  if (needsVideoTranscode(meta.mimeType, meta.originalName) && await ensureFfmpeg()) {
+    const newFilename = `${path.parse(file.filename).name}.mp4`;
+    const destPath = path.join(uploadsDir, newFilename);
+    try {
+      await convertVideoToMp4(srcPath, destPath);
+      fs.unlinkSync(srcPath);
+      const sizeBytes = fs.statSync(destPath).size;
+      return {
+        originalName: `${attachmentBaseName(meta.originalName)}.mp4`,
+        mimeType: "video/mp4",
+        sizeBytes,
+        storagePath: newFilename,
+      };
+    } catch (error) {
+      console.warn("MP4 conversion failed, keeping original:", meta.originalName, error?.message || error);
+      if (fs.existsSync(destPath)) {
+        try { fs.unlinkSync(destPath); } catch { /* ignore */ }
+      }
+      return {
+        originalName: meta.originalName,
+        mimeType: meta.mimeType,
+        sizeBytes: file.size,
+        storagePath: file.filename,
+      };
+    }
+  }
+
   if (!isConvertibleImage(meta.mimeType, meta.originalName)) {
     return {
       originalName: meta.originalName,

@@ -722,6 +722,33 @@ html.dialog-open body{
   background:#000;
   border-radius:10px;
 }
+.media-playback-issue{
+  position:absolute;
+  inset:0;
+  z-index:3;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:24px 20px;
+  text-align:center;
+  background:#334155;
+  color:#e2e8f0;
+  box-sizing:border-box;
+}
+.media-playback-issue strong{
+  font-size:16px;
+  color:#fff;
+}
+.media-playback-issue p{
+  margin:0;
+  max-width:28rem;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.45;
+  color:#cbd5e1;
+}
 .theme-dark .media-zoom-tools{background:#182b3b;border-color:#4b5563}
 .theme-dark .media-tool-btn{background:#1f2937;border-color:#4b5563;color:#dbeafe}
 .theme-dark .media-tool-btn:hover{background:#243b53}
