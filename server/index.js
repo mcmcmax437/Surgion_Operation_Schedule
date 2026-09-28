@@ -276,18 +276,30 @@ function attachmentBaseName(name) {
 }
 
 const execFileAsync = promisify(execFile);
-let ffmpegAvailable = null;
+let ffmpegBin = null;
+let ffprobeBin = null;
+
+async function resolveBin(name, candidates) {
+  for (const bin of candidates) {
+    try {
+      await execFileAsync(bin, ["-version"], { timeout: 8000, windowsHide: true });
+      return bin;
+    } catch {
+      // try next path
+    }
+  }
+  console.warn(`${name} not found — .mov preview for PC/Android is unavailable`);
+  return "";
+}
 
 async function ensureFfmpeg() {
-  if (ffmpegAvailable != null) return ffmpegAvailable;
-  try {
-    await execFileAsync("ffmpeg", ["-version"], { timeout: 8000, windowsHide: true });
-    ffmpegAvailable = true;
-  } catch {
-    ffmpegAvailable = false;
-    console.warn("ffmpeg not found — .mov/.m4v videos will stay as-is (may not play in Chrome on PC)");
+  if (ffmpegBin == null) {
+    ffmpegBin = await resolveBin("ffmpeg", ["ffmpeg", "/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg"]);
   }
-  return ffmpegAvailable;
+  if (ffprobeBin == null) {
+    ffprobeBin = await resolveBin("ffprobe", ["ffprobe", "/usr/bin/ffprobe", "/usr/local/bin/ffprobe"]);
+  }
+  return Boolean(ffmpegBin);
 }
 
 function isVideoUpload(mime, name) {
@@ -322,8 +334,9 @@ function previewMp4Path(storagePath) {
 const previewJobs = new Map();
 
 async function videoCodecName(srcPath) {
+  if (!ffprobeBin) return "";
   const { stdout } = await execFileAsync(
-    "ffprobe",
+    ffprobeBin,
     [
       "-v", "error",
       "-select_streams", "v:0",
@@ -353,7 +366,7 @@ async function buildBrowserMp4(srcPath, destPath) {
   // Already H.264: change container only — no quality loss.
   if (codec === "h264" || codec === "avc1") {
     try {
-      await execFileAsync("ffmpeg", [
+      await execFileAsync(ffmpegBin, [
         "-y", "-i", srcPath,
         "-map", "0:v:0",
         "-map", "0:a:0?",
@@ -369,7 +382,7 @@ async function buildBrowserMp4(srcPath, destPath) {
     }
   }
 
-  await execFileAsync("ffmpeg", [
+  await execFileAsync(ffmpegBin, [
     "-y", "-i", srcPath,
     "-map", "0:v:0",
     "-map", "0:a:0?",
@@ -476,7 +489,8 @@ async function sendStoredFile(req, res, file) {
   const wantDownload = ["1", "true", "png"].includes(String(req.query.download || "").toLowerCase());
   const asPng = wantDownload && isConvertibleImage(mime, downloadName);
 
-  if (!wantDownload && needsBrowserMp4(mime, downloadName) && !clientPlaysOriginalVideo(req)) {
+  const forceBrowserMp4 = String(req.query.playback || "") === "mp4";
+  if (!wantDownload && needsBrowserMp4(mime, downloadName) && (forceBrowserMp4 || !clientPlaysOriginalVideo(req))) {
     if (await ensureFfmpeg()) {
       try {
         const preview = await ensureBrowserMp4(full, previewMp4Path(file.storage_path));

@@ -1331,9 +1331,19 @@ function uploadForm(path, method, formData, onProgress) {
   });
 }
 
-function attachmentUrl(id) {
+function browserNeedsMp4Playback() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return false;
+  if (/Macintosh|Mac OS X/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox/i.test(ua)) {
+    return false;
+  }
+  return true;
+}
+
+function attachmentUrl(id, options = {}) {
   const token = getToken();
-  return `${API_BASE}/attachments/${id}?access_token=${encodeURIComponent(token || "")}`;
+  const playback = options.playback && browserNeedsMp4Playback() ? "&playback=mp4" : "";
+  return `${API_BASE}/attachments/${id}?access_token=${encodeURIComponent(token || "")}${playback}`;
 }
 
 function decodeFileName(name) {
@@ -1792,11 +1802,12 @@ function renderMediaSlide() {
   resetMediaZoomState();
   exitMediaFullscreen(true);
 
+  const preparingMov = isVideo && browserNeedsMp4Playback() && /\.(mov|m4v|avi|mkv)$/i.test(fileName);
   body.innerHTML = `<figure class="media-card ${isVideo ? "is-video" : "is-image"}">
     <div class="media-viewport is-loading">
       <div class="media-loading" aria-live="polite">
         <span class="media-loading-spinner" aria-hidden="true"></span>
-        <span>Завантаження…</span>
+        <span class="media-loading-text">${preparingMov ? "Конвертація відео для перегляду на ПК…" : "Завантаження…"}</span>
       </div>
       ${isVideo
         ? `<video controls playsinline webkit-playsinline preload="auto" src="${current.url}"></video>`
@@ -1819,8 +1830,7 @@ function renderMediaSlide() {
     viewport?.classList.remove("is-loading");
     if (loadFallbackTimer) clearTimeout(loadFallbackTimer);
   };
-  // iOS often delays video frames until a tap — don't keep the spinner forever.
-  const loadFallbackTimer = setTimeout(markLoaded, isVideo ? 900 : 4000);
+  const loadFallbackTimer = isVideo ? 0 : setTimeout(markLoaded, 8000);
 
   const video = body.querySelector("video");
   if (video) {
@@ -1831,34 +1841,30 @@ function renderMediaSlide() {
       note.className = "media-playback-issue";
       note.innerHTML = `<strong>Відео не відтворюється в цьому браузері</strong>
         <p>${escapeHtml(detail)}</p>
-        <p>Натисніть «Завантажити», щоб відкрити файл локально, або перегляньте на телефоні.</p>`;
+        <p>Натисніть «Завантажити», щоб зберегти оригінал, або відкрийте його на iPhone.</p>`;
       viewport?.appendChild(note);
     };
     const revealVideo = () => {
-      markLoaded();
       if (video.videoWidth > 0) {
+        markLoaded();
         viewport?.querySelector(".media-playback-issue")?.remove();
-        return;
       }
     };
-    const verifyPlayable = () => {
-      markLoaded();
-      if (video.error || (video.readyState >= 1 && video.videoWidth === 0)) {
-        const isMov = /\.(mov|m4v)$/i.test(fileName);
-        showVideoIssue(
-          isMov
-            ? "Файл .MOV (iPhone) часто не підтримується Chrome/Edge на ПК. Нові відео конвертуються в MP4 на сервері."
-            : "Формат або кодек цього відео не підтримується браузером на ПК.",
-        );
-      }
-    };
-    if (video.readyState >= 1) revealVideo();
     ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach((evt) => {
-      video.addEventListener(evt, revealVideo, { once: true });
+      video.addEventListener(evt, revealVideo);
     });
-    video.addEventListener("error", () => verifyPlayable(), { once: true });
+    video.addEventListener("error", () => {
+      showVideoIssue("Не вдалося підготувати відео. Перевірте, що на сервері встановлено ffmpeg і сервіс перезапущено.");
+    });
     try { video.load(); } catch { /* ignore */ }
-    setTimeout(verifyPlayable, 1500);
+    setTimeout(() => {
+      if (loadSettled || video.videoWidth > 0) return;
+      showVideoIssue(
+        preparingMov
+          ? "Конвертація не завершилась. Зачекайте ще трохи й відкрийте файл знову, або завантажте оригінал."
+          : "Формат цього відео не підтримується браузером на ПК.",
+      );
+    }, preparingMov ? 120000 : 8000);
   }
 
   const img = body.querySelector("img.media-zoomable");
@@ -1927,7 +1933,7 @@ async function viewOperation(id) {
 
   const files = (item.attachments || []).map((metadata) => ({
     metadata: { ...metadata, name: decodeFileName(metadata.name) },
-    url: attachmentUrl(metadata.id),
+    url: attachmentUrl(metadata.id, { playback: true }),
   }));
 
   mediaFiles = files;
