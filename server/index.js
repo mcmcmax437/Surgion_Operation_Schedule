@@ -394,11 +394,25 @@ function logPatientName(before, after) {
   return String(after?.patient || before?.patient || "").trim();
 }
 
+function logPatientNames(before, after) {
+  const names = [];
+  for (const value of [before?.patient, after?.patient]) {
+    const text = String(value || "").trim();
+    if (text && !names.includes(text)) names.push(text);
+  }
+  return names;
+}
+
 function nameList(value) {
   return (Array.isArray(value) ? value : []).map((item) => String(item || "").trim()).filter(Boolean);
 }
 
-function logDoctorNames(entityType, before, after, actorName) {
+function operationPeople(snap) {
+  if (!snap || typeof snap !== "object") return [];
+  return [...nameList(snap.teamMembers), ...nameList(snap.anesthesiologists)];
+}
+
+function logDoctorNames(entityType, action, before, after, actorName) {
   const names = new Set();
   const add = (value) => {
     const text = String(value || "").trim();
@@ -421,9 +435,20 @@ function logDoctorNames(entityType, before, after, actorName) {
     return [...names];
   }
 
-  for (const snap of [before, after]) {
-    nameList(snap?.teamMembers).forEach(add);
-    nameList(snap?.anesthesiologists).forEach(add);
+  if (entityType === "attachment") return [...names];
+
+  const beforePeople = operationPeople(before);
+  const afterPeople = operationPeople(after);
+  if (action === "create") {
+    afterPeople.forEach(add);
+  } else if (action === "delete") {
+    beforePeople.forEach(add);
+  } else {
+    const beforeSet = new Set(beforePeople);
+    const afterSet = new Set(afterPeople);
+    for (const name of new Set([...beforeSet, ...afterSet])) {
+      if (beforeSet.has(name) !== afterSet.has(name)) add(name);
+    }
   }
   return [...names];
 }
@@ -2014,10 +2039,12 @@ app.delete("/api/users/:id", auth, requireAdmin, async (req, res) => {
 app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const [rows] = await pool.query(
-    `SELECT id, entity_type, entity_id, action, summary, details, changed_fields, before_json, after_json,
-            actor_user_id, actor_name, actor_email, ip, geo, user_agent, created_at
-     FROM change_logs
-     ORDER BY created_at DESC
+    `SELECT cl.id, cl.entity_type, cl.entity_id, cl.action, cl.summary, cl.details, cl.changed_fields,
+            cl.before_json, cl.after_json, cl.actor_user_id, cl.actor_name, cl.actor_email,
+            cl.ip, cl.geo, cl.user_agent, cl.created_at, u.role AS actor_role
+     FROM change_logs cl
+     LEFT JOIN users u ON u.id = cl.actor_user_id
+     ORDER BY cl.created_at DESC
      LIMIT ${limit}`,
   );
   const mapped = rows.map((row) => {
@@ -2025,6 +2052,7 @@ app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
     const after = parseJson(row.after_json, null);
     const changedFields = parseJson(row.changed_fields, []);
     const patient = logPatientName(before, after);
+    const patients = logPatientNames(before, after);
     let changes = describeLogChanges({
       entityType: row.entity_type,
       action: row.action,
@@ -2045,11 +2073,13 @@ app.get("/api/logs/changes", auth, requireLogsAccess, async (req, res) => {
     details: changes.map((item) => item.text).join("\n"),
     changes,
     patient,
-    doctors: logDoctorNames(row.entity_type, before, after, row.actor_name),
+    patients,
+    doctors: logDoctorNames(row.entity_type, row.action, before, after, row.actor_name),
     changedFields,
     actorUserId: row.actor_user_id || null,
     actorName: row.actor_name || null,
     actorEmail: row.actor_email || null,
+    actorRole: row.actor_role ? normalizeRole(row.actor_role) : null,
     ip: row.ip,
     geo: row.geo,
     userAgent: row.user_agent,

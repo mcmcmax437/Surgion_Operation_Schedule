@@ -2098,4 +2098,29 @@ label.is-locked select{
   background:#111827;
   color:#94a3b8;
 }
+.log-actor{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.log-role{
+  display:inline-flex;
+  align-items:center;
+  padding:1px 7px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  line-height:1.5;
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+.log-role.is-doctor{background:#e8f2fa;color:#17365d}
+.log-role.is-anesthesiologist{background:#e7f6ef;color:#027a48}
+.log-role.is-admin{background:#fdecc8;color:#92400e}
+.log-role.is-subadmin{background:#efe7fb;color:#6d28d9}
+.theme-dark .log-role.is-doctor{background:#1e3a5f;color:#dbeafe}
+.theme-dark .log-role.is-anesthesiologist{background:#064e3b;color:#6ee7b7}
+.theme-dark .log-role.is-admin{background:#78350f;color:#fde68a}
+.theme-dark .log-role.is-subadmin{background:#4c1d95;color:#ddd6fe}
 

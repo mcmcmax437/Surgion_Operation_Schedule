@@ -2088,6 +2088,18 @@ function logPlaceHtml(item) {
   return `${escapeHtml(ip)}${geo}`;
 }
 
+function logRoleTag(role) {
+  const labels = {
+    admin: "Адмін",
+    subadmin: "Sub-Admin",
+    anesthesiologist: "Анастезіолог",
+    doctor: "Лікар",
+  };
+  const label = labels[role];
+  if (!label) return "";
+  return `<span class="log-role is-${escapeHtml(role)}">${escapeHtml(label)}</span>`;
+}
+
 function logActorHtml(item) {
   const name = String(item.actorName || "").trim();
   const email = String(item.actorEmail || "").trim();
@@ -2096,7 +2108,7 @@ function logActorHtml(item) {
   }
   const title = name || email;
   const sub = name && email && name !== email ? `<span class="sub">${escapeHtml(email)}</span>` : "";
-  return `<strong>${escapeHtml(title)}</strong>${sub}`;
+  return `<span class="log-actor"><strong>${escapeHtml(title)}</strong>${logRoleTag(item.actorRole)}</span>${sub}`;
 }
 
 const LOG_ACTION_LABELS = {
@@ -2119,26 +2131,51 @@ function logChangesHtml(item) {
   return `<ul class="log-changes">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
 }
 
+function canonicalLogName(value) {
+  return formatShortName(value) || String(value || "").trim();
+}
+
+function sameLogName(left, right) {
+  const a = canonicalLogName(left);
+  const b = canonicalLogName(right);
+  return Boolean(a) && a === b;
+}
+
 function uniqueSorted(values) {
-  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))]
+  return [...new Set(values.map((value) => canonicalLogName(value)).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "uk"));
 }
 
 function fillLogSelect(select, values, current, allLabel) {
   if (!select) return;
   const options = uniqueSorted(values);
+  const wanted = canonicalLogName(current);
   select.innerHTML = [`<option value="">${escapeHtml(allLabel)}</option>`]
     .concat(options.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
     .join("");
-  select.value = current && options.includes(current) ? current : "";
+  select.value = wanted && options.includes(wanted) ? wanted : "";
+}
+
+function logNameList(item, key) {
+  const values = Array.isArray(item?.[key]) ? item[key] : [];
+  if (values.length) return values;
+  const single = item?.[key.replace(/s$/, "")] || item?.[key.slice(0, -1)];
+  return single ? [single] : [];
 }
 
 function renderChangeLogs() {
   const patient = $("#logPatientFilter")?.value || "";
   const doctor = $("#logDoctorFilter")?.value || "";
   const rows = changeLogItems.filter((item) => {
-    if (patient && item.patient !== patient) return false;
-    if (doctor && !(item.doctors || []).includes(doctor)) return false;
+    if (patient) {
+      const patients = logNameList(item, "patients");
+      const names = patients.length ? patients : [item.patient];
+      if (!names.some((name) => sameLogName(name, patient))) return false;
+    }
+    if (doctor) {
+      const doctors = [...logNameList(item, "doctors"), item.actorName];
+      if (!doctors.some((name) => sameLogName(name, doctor))) return false;
+    }
     return true;
   });
   const body = $("#changeLogsBody");
@@ -2167,7 +2204,10 @@ async function loadLogs() {
     changeLogItems = Array.isArray(changes) ? changes : [];
     fillLogSelect(
       $("#logPatientFilter"),
-      changeLogItems.map((item) => item.patient),
+      changeLogItems.flatMap((item) => {
+        const patients = logNameList(item, "patients");
+        return patients.length ? patients : [item.patient];
+      }),
       selectedPatient,
       "Усі пацієнти",
     );
