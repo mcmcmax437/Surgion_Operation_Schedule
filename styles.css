@@ -2122,3 +2122,61 @@ label.is-locked select{
 .theme-dark .log-role.is-admin{background:#78350f;color:#fde68a}
 .theme-dark .log-role.is-subadmin{background:#4c1d95;color:#ddd6fe}
 
+.files-board{display:grid;gap:16px}
+.files-case{
+  padding:14px;
+  border:1px solid #dbe5ee;
+  border-radius:16px;
+  background:#fff;
+}
+.files-case-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.files-case-head h3{margin:0;color:#17365d;font-size:18px}
+.files-case-head p{margin:4px 0 0;color:#64748b;font-size:13px;font-weight:650}
+.files-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(112px,1fr));
+  gap:10px;
+}
+.file-tile{
+  position:relative;
+  aspect-ratio:1;
+  width:100%;
+  padding:0;
+  border:1px solid #dbe5ee;
+  border-radius:12px;
+  overflow:hidden;
+  background:#1e293b;
+  cursor:pointer;
+}
+.file-tile img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.file-tile.is-video{background:#0f172a}
+.file-tile-icon{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:28px;
+}
+.file-tile-name{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  padding:16px 6px 6px;
+  background:linear-gradient(transparent,#0f172ae6);
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  text-align:left;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.theme-dark .files-case{background:#1f2937;border-color:#374151}
+.theme-dark .files-case-head h3{color:#dbeafe}
+.theme-dark .files-case-head p{color:#94a3b8}
+

@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20261001a" />
+    <link rel="stylesheet" href="styles.css?v=20261002a" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -354,6 +354,7 @@
         <button class="view-tab admin-tab" id="usersTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Користувачі</span><span class="tab-label-short">Юзери</span></span></button>
         <button class="view-tab admin-tab" id="statsTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Статистика</span><span class="tab-label-short">Стат.</span></span></button>
         <button class="view-tab admin-tab" id="logsTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Журнали</span><span class="tab-label-short">Журнали</span></span></button>
+        <button class="view-tab admin-tab" id="filesTab" type="button" hidden><span class="tab-label"><span class="tab-label-full">Файли</span><span class="tab-label-short">Файли</span></span></button>
       </nav>
 
       <section id="scheduleView">
@@ -424,6 +425,19 @@
           <div class="empty" id="dept2Empty" hidden>Немає операцій цього тижня.</div>
         </section>
       </section>
+      </section>
+
+      <section id="filesView" class="staff-view" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Медіа</p>
+            <h2>Файли операцій</h2>
+            <p>Усі завантажені фото та відео, згруповані по операціях.</p>
+          </div>
+          <button class="secondary" id="refreshFiles" type="button">Оновити</button>
+        </div>
+        <div id="filesBoard" class="files-board"></div>
+        <div class="empty" id="filesEmpty" hidden>Файлів ще немає.</div>
       </section>
 
       <section id="logsView" class="staff-view" hidden>
@@ -852,6 +866,6 @@
     </dialog>
 
     <script src="api.js?v=20260928j"></script>
-    <script src="app.js?v=20261001a"></script>
+    <script src="app.js?v=20261002a"></script>
   </body>
 </html>

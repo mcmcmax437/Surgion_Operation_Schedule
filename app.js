@@ -603,7 +603,7 @@ function applyScheduleMode() {
 }
 
 function showView(view) {
-  if ((view === "logs" || view === "staff" || view === "users" || view === "stats") && !canViewLogs) {
+  if ((view === "logs" || view === "staff" || view === "users" || view === "stats" || view === "files") && !canViewLogs) {
     view = "day";
   }
   if (view === "day" || view === "week" || view === "plan") {
@@ -616,6 +616,7 @@ function showView(view) {
   if ($("#usersView")) $("#usersView").hidden = view !== "users";
   if ($("#statsView")) $("#statsView").hidden = view !== "stats";
   if ($("#logsView")) $("#logsView").hidden = view !== "logs";
+  if ($("#filesView")) $("#filesView").hidden = view !== "files";
   if ($("#dayTab")) $("#dayTab").classList.toggle("active", view === "schedule" && scheduleMode === "day");
   if ($("#weekTab")) $("#weekTab").classList.toggle("active", view === "schedule" && scheduleMode === "week");
   if ($("#planTab")) $("#planTab").classList.toggle("active", view === "schedule" && scheduleMode === "plan");
@@ -623,16 +624,18 @@ function showView(view) {
   if ($("#usersTab")) $("#usersTab").classList.toggle("active", view === "users");
   if ($("#statsTab")) $("#statsTab").classList.toggle("active", view === "stats");
   if ($("#logsTab")) $("#logsTab").classList.toggle("active", view === "logs");
+  if ($("#filesTab")) $("#filesTab").classList.toggle("active", view === "files");
   applyScheduleMode();
   if (view === "schedule") render();
   if (view === "logs") loadLogs();
+  if (view === "files") loadFiles();
   if (view === "users") loadUsers();
   if (view === "stats") loadStats();
 }
 
 function applyAdminVisibility(allowed) {
   canViewLogs = Boolean(allowed);
-  ["logsTab", "staffTab", "usersTab", "statsTab"].forEach((id) => {
+  ["logsTab", "staffTab", "usersTab", "statsTab", "filesTab"].forEach((id) => {
     const tab = $(`#${id}`);
     if (!tab) return;
     tab.hidden = !canViewLogs;
@@ -640,7 +643,7 @@ function applyAdminVisibility(allowed) {
     tab.style.display = canViewLogs ? "" : "none";
   });
   document.querySelector(".view-tabs")?.classList.toggle("is-admin", canViewLogs);
-  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users" || currentView === "stats")) {
+  if (!canViewLogs && (currentView === "logs" || currentView === "staff" || currentView === "users" || currentView === "stats" || currentView === "files")) {
     showView("day");
   }
 }
@@ -2031,7 +2034,7 @@ function showMediaAt(index) {
   renderMediaSlide();
 }
 
-async function viewOperation(id) {
+async function viewOperation(id, startIndex = 0) {
   try {
     operations = await api(`/operations?t=${Date.now()}`);
     render();
@@ -2068,11 +2071,62 @@ async function viewOperation(id) {
   }));
 
   mediaFiles = files;
-  mediaIndex = 0;
+  const index = Number(startIndex) || 0;
+  mediaIndex = files.length ? Math.min(Math.max(index, 0), files.length - 1) : 0;
   if ($("#mediaDialogMeta")) {
     $("#mediaDialogMeta").textContent = mediaCountLabel(files.length, item);
   }
   renderMediaSlide();
+}
+
+function fileTileHtml(item, file, index) {
+  const name = decodeFileName(file.name);
+  const video = isVideoFile(file);
+  const preview = video
+    ? `<span class="file-tile-icon" aria-hidden="true">▶</span>`
+    : `<img src="${attachmentUrl(file.id, { fresh: false })}" alt="${escapeHtml(name)}" loading="lazy">`;
+  return `<button class="file-tile${video ? " is-video" : ""}" type="button" data-file-op="${escapeHtml(item.id)}" data-file-index="${index}" title="${escapeHtml(name)}">
+    ${preview}
+    <span class="file-tile-name">${escapeHtml(name || (video ? "Відео" : "Фото"))}</span>
+  </button>`;
+}
+
+function renderFiles() {
+  const board = $("#filesBoard");
+  const empty = $("#filesEmpty");
+  if (!board) return;
+  const cases = operations
+    .filter((item) => (item.attachments || []).length)
+    .slice()
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.id || "").localeCompare(String(a.id || "")));
+  if (empty) empty.hidden = cases.length > 0;
+  board.innerHTML = cases.map((item) => {
+    const idLine = isFullAdmin() && item.id ? ` · ${item.id}` : "";
+    const when = item.date ? formatDate(item.date) : "Без дати";
+    const files = item.attachments || [];
+    return `<article class="files-case">
+      <div class="files-case-head">
+        <div>
+          <h3>${escapeHtml(formatShortName(item.patient) || "Без імені")}</h3>
+          <p>${escapeHtml(when)}${escapeHtml(idLine)}${item.procedure ? ` · ${escapeHtml(item.procedure)}` : ""} · ${files.length} файл(ів)</p>
+        </div>
+      </div>
+      <div class="files-grid">
+        ${files.map((file, index) => fileTileHtml(item, file, index)).join("")}
+      </div>
+    </article>`;
+  }).join("");
+}
+
+async function loadFiles() {
+  if (!canViewLogs) return;
+  try {
+    operations = await api(`/operations?t=${Date.now()}`);
+    render();
+  } catch (error) {
+    alert(error.message || "Не вдалося завантажити файли.");
+  }
+  renderFiles();
 }
 
 function toggleOperation(id) {
@@ -2882,6 +2936,13 @@ on("#staffTab", "click", () => showView("staff"));
 on("#usersTab", "click", () => showView("users"));
 on("#statsTab", "click", () => showView("stats"));
 on("#logsTab", "click", () => showView("logs"));
+on("#filesTab", "click", () => showView("files"));
+on("#refreshFiles", "click", () => loadFiles());
+on("#filesBoard", "click", (event) => {
+  const tile = event.target.closest("[data-file-op]");
+  if (!tile) return;
+  viewOperation(tile.dataset.fileOp, Number(tile.dataset.fileIndex) || 0);
+});
 on("#refreshUsers", "click", () => loadUsers());
 on("#refreshStats", "click", () => loadStats());
 on("#statsFilterForm", "submit", (event) => {
