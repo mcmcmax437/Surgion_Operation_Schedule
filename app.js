@@ -1055,10 +1055,12 @@ function updateViewTabCounts() {
 }
 
 function formatFileSize(bytes) {
-  if (!bytes && bytes !== 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return "";
+  if (value < 1024) return `${Math.round(value)} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} КБ`;
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} МБ`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} ГБ`;
 }
 
 function isVideoFile(file) {
@@ -2079,15 +2081,35 @@ async function viewOperation(id, startIndex = 0) {
   renderMediaSlide();
 }
 
+let filesLayout = localStorage.getItem("surgery-files-layout") === "rows" ? "rows" : "cards";
+
+function applyFilesLayout() {
+  const board = $("#filesBoard");
+  if (board) {
+    board.classList.toggle("is-cards", filesLayout === "cards");
+    board.classList.toggle("is-rows", filesLayout === "rows");
+  }
+  document.querySelectorAll("[data-files-layout]").forEach((button) => {
+    const active = button.dataset.filesLayout === filesLayout;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
 function fileTileHtml(item, file, index) {
   const name = decodeFileName(file.name);
   const video = isVideoFile(file);
+  const size = formatFileSize(file.size) || "—";
+  const label = name || (video ? "Відео" : "Фото");
   const preview = video
     ? `<span class="file-tile-icon" aria-hidden="true">▶</span>`
     : `<img src="${attachmentUrl(file.id, { fresh: false })}" alt="${escapeHtml(name)}" loading="lazy">`;
-  return `<button class="file-tile${video ? " is-video" : ""}" type="button" data-file-op="${escapeHtml(item.id)}" data-file-index="${index}" title="${escapeHtml(name)}">
+  return `<button class="file-tile${video ? " is-video" : ""}" type="button" data-file-op="${escapeHtml(item.id)}" data-file-index="${index}" title="${escapeHtml(label)} · ${escapeHtml(size)}">
     ${preview}
-    <span class="file-tile-name">${escapeHtml(name || (video ? "Відео" : "Фото"))}</span>
+    <span class="file-tile-caption">
+      <span class="file-tile-name">${escapeHtml(label)}</span>
+      <span class="file-tile-size">${escapeHtml(size)}</span>
+    </span>
   </button>`;
 }
 
@@ -2104,11 +2126,13 @@ function renderFiles() {
     const idLine = isFullAdmin() && item.id ? ` · ${item.id}` : "";
     const when = item.date ? formatDate(item.date) : "Без дати";
     const files = item.attachments || [];
+    const totalBytes = files.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+    const sizeLine = totalBytes ? ` · ${formatFileSize(totalBytes)}` : "";
     return `<article class="files-case">
       <div class="files-case-head">
         <div>
           <h3>${escapeHtml(formatShortName(item.patient) || "Без імені")}</h3>
-          <p>${escapeHtml(when)}${escapeHtml(idLine)}${item.procedure ? ` · ${escapeHtml(item.procedure)}` : ""} · ${files.length} файл(ів)</p>
+          <p>${escapeHtml(when)}${escapeHtml(idLine)}${item.procedure ? ` · ${escapeHtml(item.procedure)}` : ""} · ${files.length} файл(ів)${escapeHtml(sizeLine)}</p>
         </div>
       </div>
       <div class="files-grid">
@@ -2116,6 +2140,7 @@ function renderFiles() {
       </div>
     </article>`;
   }).join("");
+  applyFilesLayout();
 }
 
 async function loadFiles() {
@@ -2938,6 +2963,13 @@ on("#statsTab", "click", () => showView("stats"));
 on("#logsTab", "click", () => showView("logs"));
 on("#filesTab", "click", () => showView("files"));
 on("#refreshFiles", "click", () => loadFiles());
+document.querySelectorAll("[data-files-layout]").forEach((button) => {
+  button.addEventListener("click", () => {
+    filesLayout = button.dataset.filesLayout === "rows" ? "rows" : "cards";
+    localStorage.setItem("surgery-files-layout", filesLayout);
+    applyFilesLayout();
+  });
+});
 on("#filesBoard", "click", (event) => {
   const tile = event.target.closest("[data-file-op]");
   if (!tile) return;

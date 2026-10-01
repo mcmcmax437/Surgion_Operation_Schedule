@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20261002a" />
+    <link rel="stylesheet" href="styles.css?v=20261002b" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -434,7 +434,13 @@
             <h2>Файли операцій</h2>
             <p>Усі завантажені фото та відео, згруповані по операціях.</p>
           </div>
-          <button class="secondary" id="refreshFiles" type="button">Оновити</button>
+          <div class="files-toolbar">
+            <div class="files-layout" role="group" aria-label="Вигляд файлів">
+              <button class="files-layout-btn is-active" type="button" data-files-layout="cards">Картки</button>
+              <button class="files-layout-btn" type="button" data-files-layout="rows">Ряди</button>
+            </div>
+            <button class="secondary" id="refreshFiles" type="button">Оновити</button>
+          </div>
         </div>
         <div id="filesBoard" class="files-board"></div>
         <div class="empty" id="filesEmpty" hidden>Файлів ще немає.</div>
@@ -866,6 +872,6 @@
     </dialog>
 
     <script src="api.js?v=20260928j"></script>
-    <script src="app.js?v=20261002a"></script>
+    <script src="app.js?v=20261002b"></script>
   </body>
 </html>
