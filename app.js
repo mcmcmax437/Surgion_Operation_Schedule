@@ -42,7 +42,6 @@ const DEPARTMENTS = [
 const INFECTION_OPTIONS = ["HCV", "HbsAg", "HIV", "RW"];
 const PATIENT_FLAG_OPTIONS = [
   { id: "zsu", label: "ЗСУ", title: "ЗСУ" },
-  { id: "vip", label: "VIP", title: "VIP персона" },
 ];
 const OPERATION_STATUSES = [
   { value: "ОК", label: "ОК", css: "status-ok" },
@@ -2638,7 +2637,7 @@ async function loadStats() {
     if ($("#statsWithPrimary")) $("#statsWithPrimary").textContent = String(withPrimary);
     if ($("#statsWithoutPrimary")) $("#statsWithoutPrimary").textContent = String(without);
     if ($("#statsFlags")) {
-      $("#statsFlags").textContent = `${Number(data?.zsuCount) || 0} / ${Number(data?.vipCount) || 0}`;
+      $("#statsFlags").textContent = String(Number(data?.zsuCount) || 0);
     }
 
     if ($("#statsBody")) $("#statsBody").innerHTML = statsCountRows(data?.byPrimarySurgeon, "Немає основних хірургів.");

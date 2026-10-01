@@ -1855,9 +1855,7 @@ button:active:not(:disabled),
   border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.04em;line-height:1.35
 }
 .flag-zsu{background:#1d4ed8;color:#fde047}
-.flag-vip{background:#a16207;color:#fef9c3}
 .theme-dark .flag-zsu{background:#1e40af;color:#fde047}
-.theme-dark .flag-vip{background:#854d0e;color:#fde68a}
 .patient .flag-chip,
 .week-card-top .flag-chip,
 .col-blood .flag-chip{vertical-align:middle;margin-left:0}

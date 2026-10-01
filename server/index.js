@@ -279,8 +279,8 @@ function formatLogScalar(field, value) {
     return value === "disabled" ? "Заблокований" : "Активний";
   }
   if (field === "patientFlags") {
-    const labels = { zsu: "ЗСУ", vip: "VIP" };
-    return (Array.isArray(value) ? value : []).map((item) => labels[item] || item).join(", ");
+    const labels = { zsu: "ЗСУ" };
+    return (Array.isArray(value) ? value : []).map((item) => labels[item] || "").filter(Boolean).join(", ");
   }
   if (field === "attachments") return "";
   if (Array.isArray(value)) return formatLogList(value);
@@ -494,7 +494,7 @@ function bodyToOperation(body) {
     : parseJson(body.infections, []);
   const allowedInfections = ["HCV", "HbsAg", "HIV", "RW"];
   const infections = infectionsRaw.filter((item) => allowedInfections.includes(item));
-  const allowedFlags = ["zsu", "vip"];
+  const allowedFlags = ["zsu"];
   const flagsRaw = Array.isArray(body.patientFlags)
     ? body.patientFlags
     : parseJson(body.patientFlags, []);
@@ -1768,7 +1768,6 @@ app.get("/api/stats", auth, requireAdmin, async (req, res) => {
     let withPrimarySurgeon = 0;
     let withoutPrimarySurgeon = 0;
     let zsuCount = 0;
-    let vipCount = 0;
     let ageSum = 0;
     let ageN = 0;
     let ageMin = null;
@@ -1808,7 +1807,6 @@ app.get("/api/stats", auth, requireAdmin, async (req, res) => {
       }
       if (Array.isArray(flags)) {
         if (flags.includes("zsu")) zsuCount += 1;
-        if (flags.includes("vip")) vipCount += 1;
       }
 
       if (!primary) {
@@ -1856,7 +1854,6 @@ app.get("/api/stats", auth, requireAdmin, async (req, res) => {
       ageMin,
       ageMax,
       zsuCount,
-      vipCount,
       rule: "Primary surgeon stats use teamMembers[0]. Assistants are positions 2–3.",
       byPrimarySurgeon: sortedCountEntries(primaryCounts),
       byAssistant: sortedCountEntries(assistantCounts),
