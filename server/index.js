@@ -2146,9 +2146,22 @@ setInterval(() => {
   });
 }, ARCHIVE_JOB_MS);
 
-app.listen(PORT, () => {
-  console.log(`API listening on http://127.0.0.1:${PORT}`);
-  console.log(
-    `Archive: keep all operations forever; restore any archived on boot (${ARCHIVE_TZ})`,
-  );
-});
+function listenForApi(attempt = 0) {
+  const server = app.listen(PORT, () => {
+    console.log(`API listening on http://127.0.0.1:${PORT}`);
+    console.log(
+      `Archive: keep all operations forever; restore any archived on boot (${ARCHIVE_TZ})`,
+    );
+  });
+  server.once("error", (error) => {
+    const busy = error?.code === "EADDRINUSE" && attempt < 15;
+    if (!busy) {
+      console.error("Fatal: failed to listen:", error);
+      process.exit(1);
+    }
+    console.error(`Port ${PORT} is busy, retry ${attempt + 1}/15 in 2s`);
+    setTimeout(() => listenForApi(attempt + 1), 2000);
+  });
+}
+
+listenForApi();
