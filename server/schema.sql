@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS operations (
   id VARCHAR(32) PRIMARY KEY,
+  draft_id CHAR(36) NULL,
   date DATE NULL,
   time TIME NULL,
   queue_no INT NULL,
@@ -22,7 +23,8 @@ CREATE TABLE IF NOT EXISTS operations (
   updated_at DATETIME(3) NOT NULL,
   INDEX idx_operations_archived_at (archived_at),
   INDEX idx_operations_date (date),
-  INDEX idx_operations_dept_date (department, date, queue_no)
+  INDEX idx_operations_dept_date (department, date, queue_no),
+  UNIQUE KEY uq_operations_draft_id (draft_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS attachments (

@@ -151,6 +151,14 @@ export async function migrate(pool) {
     await pool.query(statement);
   }
 
+  if (!(await columnExists(pool, "operations", "draft_id"))) {
+    await pool.query(`ALTER TABLE operations ADD COLUMN draft_id CHAR(36) NULL AFTER id`);
+  }
+  if (!(await indexExists(pool, "operations", "uq_operations_draft_id"))) {
+    await pool.query(
+      `ALTER TABLE operations ADD UNIQUE KEY uq_operations_draft_id (draft_id)`,
+    );
+  }
   if (!(await columnExists(pool, "operations", "archived_at"))) {
     await pool.query(
       `ALTER TABLE operations ADD COLUMN archived_at DATETIME(3) NULL AFTER is_example`,

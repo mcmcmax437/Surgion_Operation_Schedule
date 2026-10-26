@@ -1187,6 +1187,7 @@ async function removeSavedAttachment(attachmentId) {
 function resetForm() {
   editingId = null;
   editingUpdatedAt = null;
+  formDraftId = newFormDraftId();
   currentFormAttachments = [];
   pendingFormFiles = [];
   $("#operationForm").reset();
@@ -1259,6 +1260,29 @@ function openForm(id = null) {
 }
 
 let formSnapshot = "";
+let formDraftId = "";
+let operationSaveGate = null;
+
+function newFormDraftId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === "x" ? random : ((random & 0x3) | 0x8);
+    return value.toString(16);
+  });
+}
+
+function beginOperationSave() {
+  if (!operationSaveGate && window.SaveGate?.createSaveGate) {
+    operationSaveGate = window.SaveGate.createSaveGate();
+  }
+  if (!operationSaveGate) return true;
+  return operationSaveGate.tryBegin();
+}
+
+function endOperationSave() {
+  operationSaveGate?.end();
+}
 
 function formStateSignature() {
   return JSON.stringify({
@@ -1307,6 +1331,7 @@ function requestCloseOperation() {
 
 async function saveOperation(event) {
   event.preventDefault();
+  if (!beginOperationSave()) return;
 
   const data = {
     date: $("#operationDate").value,
@@ -1326,9 +1351,12 @@ async function saveOperation(event) {
   };
   if (editingId && editingUpdatedAt) {
     data.expectedUpdatedAt = editingUpdatedAt;
+  } else if (!editingId && formDraftId) {
+    data.draftId = formDraftId;
   }
 
   if (!data.patient || !data.procedure) {
+    endOperationSave();
     alert("Заповніть ПІБ пацієнта та вид втручання.");
     return;
   }
@@ -1337,10 +1365,12 @@ async function saveOperation(event) {
   const maxBytes = 512 * 1024 * 1024;
   for (const file of files) {
     if (file.type && !file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      endOperationSave();
       alert("Дозволені лише зображення та відео.");
       return;
     }
     if (file.size > maxBytes) {
+      endOperationSave();
       alert(`Файл «${file.name}» завеликий. Максимум 512 МБ.`);
       return;
     }
@@ -1403,6 +1433,7 @@ async function saveOperation(event) {
       alert(message || "Не вдалося зберегти операцію.");
     }
   } finally {
+    endOperationSave();
     if (saveButton) saveButton.disabled = false;
     if (progress) progress.hidden = true;
     if (progressBar) progressBar.style.width = "0%";

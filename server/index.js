@@ -20,6 +20,12 @@ import {
   guessMime,
 } from "./db.js";
 import {
+  isDuplicateDraftError,
+  mergeDuplicateOperation,
+  normalizeDraftId,
+  planOperationWrite,
+} from "./operation-guard.js";
+import {
   clientIp,
   userAgent,
   logAccess,
@@ -1289,95 +1295,171 @@ app.get("/api/operations", auth, async (req, res) => {
   res.json(result);
 });
 
+function operationWriteParams(id, data, now, draftId) {
+  return {
+    id,
+    draft_id: draftId || null,
+    date: data.date || null,
+    time: data.time || null,
+    queue_no: data.queueNo,
+    department: data.department,
+    patient: data.patient,
+    birth_date: data.birthDate || null,
+    patient_age: data.patientAge,
+    blood_group: data.bloodGroup || null,
+    diagnosis: data.diagnosis || null,
+    procedure: data.procedure,
+    team_members: JSON.stringify(data.teamMembers),
+    anesthesiologists: JSON.stringify(data.anesthesiologists),
+    infections: JSON.stringify(data.infections),
+    patient_flags: JSON.stringify(data.patientFlags),
+    status: data.status,
+    notes: data.notes || null,
+    archived_at: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+async function findDraftOperationId(connection, draftId) {
+  if (!draftId) return "";
+  const [rows] = await connection.query(
+    `SELECT id FROM operations WHERE draft_id = :draftId LIMIT 1`,
+    { draftId },
+  );
+  return rows[0]?.id || "";
+}
+
+async function attachNewFiles(connection, operationId, uploadedFiles, existingNames, now) {
+  const names = new Set(existingNames || []);
+  for (const file of uploadedFiles) {
+    if (names.has(file.originalName)) continue;
+    names.add(file.originalName);
+    await connection.query(
+      `INSERT INTO attachments
+        (id, operation_id, original_name, mime_type, size_bytes, storage_path, created_at)
+       VALUES
+        (:id, :operation_id, :original_name, :mime_type, :size_bytes, :storage_path, :created_at)`,
+      {
+        id: uuidv4(),
+        operation_id: operationId,
+        original_name: file.originalName,
+        mime_type: file.mimeType,
+        size_bytes: file.sizeBytes,
+        storage_path: file.storagePath,
+        created_at: now,
+      },
+    );
+  }
+}
+
+async function insertOperationRow(connection, id, data, now, draftId) {
+  const archivedAt = shouldArchiveDate(data.date) ? now : null;
+  await connection.query(
+    `INSERT INTO operations
+      (id, draft_id, date, time, queue_no, department, patient, birth_date, patient_age, blood_group, diagnosis, \`procedure\`,
+       team_members, anesthesiologists, infections, patient_flags, status, notes, is_example, archived_at, created_at, updated_at)
+     VALUES
+      (:id, :draft_id, :date, :time, :queue_no, :department, :patient, :birth_date, :patient_age, :blood_group, :diagnosis, :procedure,
+       :team_members, :anesthesiologists, :infections, :patient_flags, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
+    { ...operationWriteParams(id, data, now, draftId), archived_at: archivedAt },
+  );
+}
+
+async function updateOperationRow(connection, id, data, now) {
+  await connection.query(
+    `UPDATE operations SET
+      date = :date,
+      time = :time,
+      queue_no = :queue_no,
+      department = :department,
+      patient = :patient,
+      birth_date = :birth_date,
+      patient_age = :patient_age,
+      blood_group = :blood_group,
+      diagnosis = :diagnosis,
+      \`procedure\` = :procedure,
+      team_members = :team_members,
+      anesthesiologists = :anesthesiologists,
+      infections = :infections,
+      patient_flags = :patient_flags,
+      status = :status,
+      notes = :notes,
+      updated_at = :updated_at
+     WHERE id = :id`,
+    operationWriteParams(id, data, now, null),
+  );
+}
+
 app.post("/api/operations", auth, optionalUpload, async (req, res) => {
   const data = bodyToOperation(req.body);
   if (!data.patient || !data.procedure) {
     return res.status(400).json({ error: "patient and procedure are required" });
   }
   if (!canSetClearanceStatus(req.user)) data.status = "";
+  const draftId = normalizeDraftId(req.body?.draftId);
 
   const uploadedFiles = await prepareUploadedFiles(req.files || []);
   const connection = await pool.getConnection();
-  try {
+  const writeOnce = async () => {
     await connection.beginTransaction();
-    const id = await nextOperationId(connection);
     const now = new Date();
+    const existingId = await findDraftOperationId(connection, draftId);
+    const plan = planOperationWrite(draftId, existingId);
+    let before = null;
+    let id = plan.operationId;
+    if (plan.action === "update") {
+      before = await loadOperation(connection, id);
+      const merged = mergeDuplicateOperation(before, data);
+      if (!canSetClearanceStatus(req.user)) merged.status = before?.status || "";
+      await updateOperationRow(connection, id, merged, now);
+      await attachNewFiles(connection, id, uploadedFiles, (before?.attachments || []).map((file) => file.name), now);
+    } else {
+      id = await nextOperationId(connection);
+      await insertOperationRow(connection, id, data, now, plan.draftId);
+      await attachNewFiles(connection, id, uploadedFiles, [], now);
+    }
+    const saved = await loadOperation(connection, id);
+    await connection.commit();
+    return { saved, before, merged: plan.action === "update" };
+  };
 
-    const archivedAt = shouldArchiveDate(data.date) ? now : null;
-    await connection.query(
-      `INSERT INTO operations
-        (id, date, time, queue_no, department, patient, birth_date, patient_age, blood_group, diagnosis, \`procedure\`,
-         team_members, anesthesiologists, infections, patient_flags, status, notes, is_example, archived_at, created_at, updated_at)
-       VALUES
-        (:id, :date, :time, :queue_no, :department, :patient, :birth_date, :patient_age, :blood_group, :diagnosis, :procedure,
-         :team_members, :anesthesiologists, :infections, :patient_flags, :status, :notes, 0, :archived_at, :created_at, :updated_at)`,
-      {
-        id,
-        date: data.date,
-        time: data.time || null,
-        queue_no: data.queueNo,
-        department: data.department,
-        patient: data.patient,
-        birth_date: data.birthDate || null,
-        patient_age: data.patientAge,
-        blood_group: data.bloodGroup || null,
-        diagnosis: data.diagnosis || null,
-        procedure: data.procedure,
-        team_members: JSON.stringify(data.teamMembers),
-        anesthesiologists: JSON.stringify(data.anesthesiologists),
-        infections: JSON.stringify(data.infections),
-        patient_flags: JSON.stringify(data.patientFlags),
-        status: data.status,
-        notes: data.notes || null,
-        archived_at: archivedAt,
-        created_at: now,
-        updated_at: now,
-      },
-    );
-
-    for (const file of uploadedFiles) {
-      await connection.query(
-        `INSERT INTO attachments
-          (id, operation_id, original_name, mime_type, size_bytes, storage_path, created_at)
-         VALUES
-          (:id, :operation_id, :original_name, :mime_type, :size_bytes, :storage_path, :created_at)`,
-        {
-          id: uuidv4(),
-          operation_id: id,
-          original_name: file.originalName,
-          mime_type: file.mimeType,
-          size_bytes: file.sizeBytes,
-          storage_path: file.storagePath,
-          created_at: now,
-        },
-      );
+  try {
+    let result;
+    try {
+      result = await writeOnce();
+    } catch (error) {
+      try { await connection.rollback(); } catch { /* transaction already closed */ }
+      if (!isDuplicateDraftError(error) || !draftId) throw error;
+      result = await writeOnce();
     }
 
-    const created = await loadOperation(connection, id);
-    await connection.commit();
-
-    const createChanges = describeLogChanges({
+    const { saved, before, merged } = result;
+    const changes = describeLogChanges({
       entityType: "operation",
-      action: "create",
-      before: null,
-      after: created,
+      action: merged ? "update" : "create",
+      before: merged ? before : null,
+      after: saved,
     });
     await logChange(pool, {
       entityType: "operation",
-      entityId: id,
-      action: "create",
-      summary: `Додано операцію ${id} (${data.patient})`,
-      details: logDetailsText(createChanges),
+      entityId: saved.id,
+      action: merged ? "update" : "create",
+      summary: merged
+        ? `Повторне збереження злито в операцію ${saved.id} (${saved.patient})`
+        : `Додано операцію ${saved.id} (${data.patient})`,
+      details: logDetailsText(changes),
       changedFields: Object.keys(data),
-      after: created,
+      before: merged ? before : undefined,
+      after: saved,
       ip: req.clientIp,
       userAgent: req.clientUa,
       ...actorFromReq(req),
     });
 
-    res.status(201).json(created);
+    res.status(merged ? 200 : 201).json(saved);
   } catch (error) {
-    await connection.rollback();
+    try { await connection.rollback(); } catch { /* already rolled back */ }
     throw error;
   } finally {
     connection.release();
