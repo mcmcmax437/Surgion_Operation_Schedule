@@ -2,7 +2,7 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
 import { promisify } from "util";
 import express from "express";
 import cors from "cors";
@@ -159,6 +159,14 @@ function recordLoginFailure(ip, email = "") {
 
 function clearLoginFailures(ip, email = "") {
   loginAttempts.delete(loginAttemptKey(ip, email));
+}
+
+async function recordLoginEvent(event, ip, ua, details) {
+  try {
+    await logAccess(pool, { event, ip, userAgent: ua, details });
+  } catch (error) {
+    console.error(`${event} log failed:`, error);
+  }
 }
 
 fs.mkdirSync(uploadsDir, { recursive: true });
@@ -611,8 +619,6 @@ function previewMp4Path(storagePath) {
   return path.join(uploadsDir, `${base}.preview.mp4`);
 }
 
-const previewJobs = new Map();
-
 async function videoCodecName(srcPath) {
   if (!ffprobeBin) return "";
   const { stdout } = await execFileAsync(
@@ -629,70 +635,130 @@ async function videoCodecName(srcPath) {
   return String(stdout || "").trim().toLowerCase();
 }
 
-async function buildBrowserMp4(srcPath, destPath) {
-  const tmp = `${destPath}.part`;
-  const ff = { timeout: 20 * 60 * 1000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 };
-  let codec = "";
-  try {
-    codec = await videoCodecName(srcPath);
-  } catch {
-    codec = "";
-  }
+const liveMp4Jobs = new Map();
 
-  const finish = async () => {
-    await fs.promises.rename(tmp, destPath);
-  };
-
-  // Already H.264: change container only — no quality loss.
-  if (codec === "h264" || codec === "avc1") {
-    try {
-      await execFileAsync(ffmpegBin, [
-        "-y", "-i", srcPath,
-        "-map", "0:v:0",
-        "-map", "0:a:0?",
-        "-c", "copy",
-        "-movflags", "+faststart",
-        tmp,
-      ], ff);
-      await finish();
-      return;
-    } catch (error) {
-      console.warn("MP4 remux failed, re-encoding:", error?.message || error);
-      await fs.promises.unlink(tmp).catch(() => {});
-    }
-  }
-
-  await execFileAsync(ffmpegBin, [
-    "-y", "-i", srcPath,
+function ffmpegPreviewArgs(codec) {
+  const copy = codec === "h264" || codec === "avc1";
+  const encode = copy
+    ? ["-c", "copy"]
+    : ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k"];
+  return [
     "-map", "0:v:0",
     "-map", "0:a:0?",
-    "-c:v", "libx264",
-    "-preset", "fast",
-    "-crf", "18",
-    "-pix_fmt", "yuv420p",
-    "-c:a", "aac",
-    "-b:a", "160k",
-    "-movflags", "+faststart",
-    tmp,
-  ], ff);
-  await finish();
+    ...encode,
+    "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+    "-f", "mp4",
+    "pipe:1",
+  ];
 }
 
-function ensureBrowserMp4(srcPath, destPath) {
-  if (fs.existsSync(destPath) && fs.statSync(destPath).size > 1024) {
-    return Promise.resolve(destPath);
+function startLiveMp4(srcPath, destPath) {
+  const existing = liveMp4Jobs.get(destPath);
+  if (existing) return existing;
+  const tmp = `${destPath}.part`;
+  const subscribers = new Set();
+  let resolve;
+  let reject;
+  const promise = new Promise((ok, fail) => {
+    resolve = ok;
+    reject = fail;
+  });
+  const job = {
+    promise,
+    subscribe(res) {
+      subscribers.add(res);
+      res.on("close", () => subscribers.delete(res));
+    },
+  };
+  liveMp4Jobs.set(destPath, job);
+  let settled = false;
+  const finish = (error, value) => {
+    if (settled) return;
+    settled = true;
+    liveMp4Jobs.delete(destPath);
+    if (error) reject(error);
+    else resolve(value);
+  };
+  (async () => {
+    let codec = "";
+    try {
+      codec = await videoCodecName(srcPath);
+    } catch {
+      codec = "";
+    }
+    const child = spawn(ffmpegBin, ["-y", "-i", srcPath, ...ffmpegPreviewArgs(codec)], { windowsHide: true });
+    const file = fs.createWriteStream(tmp);
+    child.stdout.on("data", (chunk) => {
+      if (!file.destroyed && !file.writableEnded) file.write(chunk);
+      for (const sub of subscribers) {
+        if (!sub.destroyed && !sub.writableEnded) sub.write(chunk);
+      }
+    });
+    child.stderr.on("data", () => {});
+    child.on("error", (error) => {
+      file.destroy();
+      fs.promises.unlink(tmp).catch(() => {});
+      finish(error);
+    });
+    child.on("close", (code) => {
+      file.end(() => {
+        if (code !== 0) {
+          fs.promises.unlink(tmp).catch(() => {});
+          const error = new Error(`ffmpeg exited ${code}`);
+          for (const sub of subscribers) {
+            if (!sub.destroyed) sub.destroy(error);
+          }
+          finish(error);
+          return;
+        }
+        fs.promises.rename(tmp, destPath).catch(() => {}).finally(() => {
+          for (const sub of subscribers) {
+            if (!sub.destroyed && !sub.writableEnded) sub.end();
+          }
+          finish(null, destPath);
+        });
+      });
+    });
+  })().catch((error) => finish(error));
+  return job;
+}
+
+function previewIsReady(destPath) {
+  return fs.existsSync(destPath) && fs.statSync(destPath).size > 1024;
+}
+
+async function sendBrowserPreview(req, res, srcPath, destPath, downloadName) {
+  if (previewIsReady(destPath)) {
+    streamLocalFile(req, res, destPath, {
+      mime: "video/mp4",
+      downloadName,
+      wantDownload: false,
+    });
+    return;
   }
-  if (!previewJobs.has(destPath)) {
-    const job = buildBrowserMp4(srcPath, destPath)
-      .catch(async (error) => {
-        await fs.promises.unlink(`${destPath}.part`).catch(() => {});
-        await fs.promises.unlink(destPath).catch(() => {});
-        throw error;
-      })
-      .finally(() => previewJobs.delete(destPath));
-    previewJobs.set(destPath, job);
+  const running = liveMp4Jobs.get(destPath);
+  if (running) {
+    await running.promise;
+    if (!previewIsReady(destPath)) throw new Error("preview was not created");
+    if (!res.headersSent) {
+      streamLocalFile(req, res, destPath, {
+        mime: "video/mp4",
+        downloadName,
+        wantDownload: false,
+      });
+    }
+    return;
   }
-  return previewJobs.get(destPath).then(() => destPath);
+  const job = startLiveMp4(srcPath, destPath);
+  res.status(200);
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Cache-Control", "private");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+  );
+  job.subscribe(res);
+  await job.promise;
 }
 
 /** Convert uploaded images to AVIF. Videos stay as the original file. */
@@ -773,12 +839,13 @@ async function sendStoredFile(req, res, file) {
   if (!wantDownload && needsBrowserMp4(mime, downloadName) && (forceBrowserMp4 || !clientPlaysOriginalVideo(req))) {
     if (await ensureFfmpeg()) {
       try {
-        const preview = await ensureBrowserMp4(full, previewMp4Path(file.storage_path));
-        streamLocalFile(req, res, preview, {
-          mime: "video/mp4",
-          downloadName: `${attachmentBaseName(downloadName)}.mp4`,
-          wantDownload: false,
-        });
+        await sendBrowserPreview(
+          req,
+          res,
+          full,
+          previewMp4Path(file.storage_path),
+          `${attachmentBaseName(downloadName)}.mp4`,
+        );
         return;
       } catch (error) {
         console.warn("Browser MP4 preview failed, sending original:", downloadName, error?.message || error);
@@ -1087,7 +1154,7 @@ app.post("/api/register", async (req, res) => {
       ip,
       ua,
       event: "register_success",
-      details: { method: "password", role },
+      details: { method: "password", role, name: user.name || "", email: user.email, reasonText: "Новий акаунт створено і виконано вхід." },
     });
   } catch (error) {
     console.error("register failed:", error);
@@ -1108,29 +1175,58 @@ app.post("/api/login", async (req, res) => {
     if (email) {
       const throttleError = assertLoginAllowed(ip, email) || assertLoginAllowed(ip, "");
       if (throttleError) {
-        await logAccess(pool, {
-          event: "login_blocked",
-          ip,
-          userAgent: ua,
-          details: { email, method: "password", reason: "brute_force" },
-        }).catch(() => {});
+        await recordLoginEvent("login_blocked", ip, ua, {
+          email,
+          method: "password",
+          reason: "brute_force",
+          reasonText: throttleError,
+        });
         return res.status(429).json({ error: throttleError });
       }
       if (!isValidEmail(email) || !password) {
+        await recordLoginEvent("login_fail", ip, ua, {
+          email,
+          method: "password",
+          reason: "missing_fields",
+          reasonText: "Не вказано email або пароль.",
+        });
         return res.status(400).json({ error: "Вкажіть email і пароль." });
       }
       const user = await findUserByEmail(pool, email);
       if (!user || user.status !== "active" || !user.password_hash) {
         recordLoginFailure(ip, email);
         recordLoginFailure(ip, "");
-        await logAccess(pool, { event: "login_fail", ip, userAgent: ua, details: { email, method: "password" } }).catch(() => {});
+        let reason = "unknown_account";
+        let reasonText = "Акаунт з цим email не знайдено.";
+        if (user?.status && user.status !== "active") {
+          reason = "disabled";
+          reasonText = "Обліковий запис заблоковано.";
+        } else if (user && !user.password_hash) {
+          reason = "no_password";
+          reasonText = "У акаунта немає пароля. Вхід можливий лише через Google.";
+        }
+        await recordLoginEvent("login_fail", ip, ua, {
+          email,
+          name: user?.name || "",
+          userId: user?.id || null,
+          method: "password",
+          reason,
+          reasonText,
+        });
         return res.status(401).json({ error: "Невірний email або пароль." });
       }
       const ok = await verifyPassword(password, user.password_hash);
       if (!ok) {
         recordLoginFailure(ip, email);
         recordLoginFailure(ip, "");
-        await logAccess(pool, { event: "login_fail", ip, userAgent: ua, details: { email, method: "password" } }).catch(() => {});
+        await recordLoginEvent("login_fail", ip, ua, {
+          email,
+          name: user.name || "",
+          userId: user.id,
+          method: "password",
+          reason: "bad_password",
+          reasonText: "Невірний пароль.",
+        });
         return res.status(401).json({ error: "Невірний email або пароль." });
       }
       clearLoginFailures(ip, email);
@@ -1141,33 +1237,29 @@ app.post("/api/login", async (req, res) => {
         ip,
         ua,
         event: "login_success",
-        details: { method: "password" },
+        details: { method: "password", name: user.name || "", email: user.email },
       });
     }
 
     // Legacy shared department password (optional).
     const sharedThrottle = assertLoginAllowed(ip, "");
     if (sharedThrottle) {
-      await logAccess(pool, {
-        event: "login_blocked",
-        ip,
-        userAgent: ua,
-        details: { method: "shared", reason: "brute_force" },
-      }).catch(() => {});
+      await recordLoginEvent("login_blocked", ip, ua, {
+        method: "shared",
+        reason: "brute_force",
+        reasonText: sharedThrottle,
+      });
       return res.status(429).json({ error: sharedThrottle });
     }
     if (!hasSharedPassword || password !== ACCESS_PASSWORD) {
       recordLoginFailure(ip, "");
-      try {
-        await logAccess(pool, {
-          event: "login_fail",
-          ip,
-          userAgent: ua,
-          details: { method: "shared" },
-        });
-      } catch (logError) {
-        console.error("login_fail log failed:", logError);
-      }
+      await recordLoginEvent("login_fail", ip, ua, {
+        method: "shared",
+        reason: hasSharedPassword ? "bad_password" : "shared_disabled",
+        reasonText: hasSharedPassword
+          ? "Невірний пароль відділення."
+          : "Пароль відділення не налаштовано.",
+      });
       return res.status(401).json({ error: "Invalid password" });
     }
 
@@ -1182,6 +1274,12 @@ app.post("/api/login", async (req, res) => {
     });
   } catch (error) {
     console.error("login failed:", error);
+    await recordLoginEvent("login_fail", ip, ua, {
+      email,
+      method: email ? "password" : "shared",
+      reason: "server",
+      reasonText: "Сервер не зміг перевірити вхід. Спробуйте ще раз за хвилину.",
+    });
     res.status(503).json({
       error: "Сервер тимчасово недоступний. Спробуйте ще раз за хвилину.",
     });
@@ -1189,13 +1287,23 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/auth/google", async (req, res) => {
-  if (!GOOGLE_CLIENT_ID) {
-    return res.status(503).json({ error: "Вхід через Google не налаштовано." });
-  }
   const ip = clientIp(req);
   const ua = userAgent(req);
+  if (!GOOGLE_CLIENT_ID) {
+    await recordLoginEvent("login_fail", ip, ua, {
+      method: "google",
+      reason: "google_disabled",
+      reasonText: "Вхід через Google не налаштовано на сервері.",
+    });
+    return res.status(503).json({ error: "Вхід через Google не налаштовано." });
+  }
   const credential = String(req.body?.credential || "").trim();
   if (!credential) {
+    await recordLoginEvent("login_fail", ip, ua, {
+      method: "google",
+      reason: "missing_credential",
+      reasonText: "Google не передав дані для входу.",
+    });
     return res.status(400).json({ error: "Немає Google credential." });
   }
 
@@ -1212,6 +1320,12 @@ app.post("/api/auth/google", async (req, res) => {
     const name = String(payload.name || email || "Google user").trim();
     const emailVerified = Boolean(payload.email_verified);
     if (!googleSub || !email || !emailVerified) {
+      await recordLoginEvent("login_fail", ip, ua, {
+        email,
+        method: "google",
+        reason: "google_unverified",
+        reasonText: "Google акаунт не підтверджено.",
+      });
       return res.status(401).json({ error: "Google акаунт не підтверджено." });
     }
 
@@ -1230,11 +1344,26 @@ app.post("/api/auth/google", async (req, res) => {
           status: "active",
         });
       } else {
+        await recordLoginEvent("login_fail", ip, ua, {
+          email,
+          name,
+          method: "google",
+          reason: "registration_disabled",
+          reasonText: "Реєстрація нових користувачів вимкнена.",
+        });
         return res.status(403).json({ error: "Реєстрація нових користувачів вимкнена." });
       }
     }
 
     if (!user || user.status !== "active") {
+      await recordLoginEvent("login_fail", ip, ua, {
+        email,
+        name: user?.name || name,
+        userId: user?.id || null,
+        method: "google",
+        reason: "disabled",
+        reasonText: "Обліковий запис вимкнено.",
+      });
       return res.status(403).json({ error: "Обліковий запис вимкнено." });
     }
 
@@ -1244,20 +1373,15 @@ app.post("/api/auth/google", async (req, res) => {
       ip,
       ua,
       event: "login_success",
-      details: { method: "google" },
+      details: { method: "google", name: user.name || "", email: user.email },
     });
   } catch (error) {
     console.error("google auth failed:", error);
-    try {
-      await logAccess(pool, {
-        event: "login_fail",
-        ip,
-        userAgent: ua,
-        details: { method: "google" },
-      });
-    } catch {
-      // ignore
-    }
+    await recordLoginEvent("login_fail", ip, ua, {
+      method: "google",
+      reason: "google_token",
+      reasonText: "Google відхилив спробу входу.",
+    });
     res.status(401).json({ error: "Не вдалося увійти через Google." });
   }
 });
@@ -1270,7 +1394,12 @@ app.post("/api/logout", auth, async (req, res) => {
     event: "logout",
     ip: req.clientIp,
     userAgent: req.clientUa,
-    details: { userId: req.user?.id || null },
+    details: {
+      userId: req.user?.id || null,
+      email: req.user?.email || "",
+      name: req.user?.name || "",
+      reasonText: "Користувач вийшов із системи.",
+    },
   });
   res.json({ ok: true });
 });

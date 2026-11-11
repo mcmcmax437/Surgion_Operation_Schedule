@@ -1971,7 +1971,7 @@ function renderMediaSlide() {
         <span class="media-loading-text">Loading...</span>
       </div>
       ${isVideo
-        ? `<video controls playsinline webkit-playsinline preload="auto" src="${current.url}"></video>`
+        ? `<video muted autoplay playsinline webkit-playsinline preload="auto" controls src="${current.url}"></video>`
         : `<img class="media-zoomable" src="${current.url}" alt="${escapeHtml(fileName)}" decoding="async" draggable="false">`}
     </div>
   </figure>`;
@@ -1995,6 +1995,15 @@ function renderMediaSlide() {
 
   const video = body.querySelector("video");
   if (video) {
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+    const startMuted = () => {
+      video.muted = true;
+      video.volume = 0;
+      const pending = video.play();
+      if (pending?.catch) pending.catch(() => {});
+    };
     const showVideoIssue = (detail) => {
       markLoaded();
       if (viewport?.querySelector(".media-playback-issue")) return;
@@ -2012,8 +2021,12 @@ function renderMediaSlide() {
       }
     };
     ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach((evt) => {
-      video.addEventListener(evt, revealVideo);
+      video.addEventListener(evt, () => {
+        revealVideo();
+        startMuted();
+      });
     });
+    startMuted();
     video.addEventListener("error", () => {
       showVideoIssue("Не вдалося підготувати відео. Перевірте, що на сервері встановлено ffmpeg і сервіс перезапущено.");
     });
@@ -2191,6 +2204,54 @@ function toggleOperation(id) {
   render();
 }
 
+function accessWhoHtml(item) {
+  const details = item?.details || {};
+  const name = String(details.name || "").trim();
+  const email = String(details.email || "").trim();
+  if (!name && !email) {
+    if (details.method === "shared") return "Пароль відділення";
+    return "Невідомо";
+  }
+  const title = name || email;
+  const sub = name && email && name !== email ? `<span class="sub">${escapeHtml(email)}</span>` : "";
+  return `<strong>${escapeHtml(title)}</strong>${sub}`;
+}
+
+function accessResultHtml(item) {
+  const labels = {
+    login_success: ["Успішно", "is-ok"],
+    register_success: ["Реєстрація", "is-ok"],
+    logout: ["Вихід", "is-muted"],
+    login_fail: ["Не вдалося", "is-bad"],
+    login_blocked: ["Заблоковано", "is-bad"],
+  };
+  const [label, tone] = labels[item?.event] || [item?.event || "—", "is-muted"];
+  return `<span class="access-result ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function accessReasonText(item) {
+  const details = item?.details || {};
+  if (details.reasonText) return details.reasonText;
+  const fallback = {
+    brute_force: "Забагато невдалих спроб входу.",
+    bad_password: "Невірний пароль.",
+    unknown_account: "Акаунт не знайдено.",
+    disabled: "Обліковий запис заблоковано.",
+    no_password: "У акаунта немає пароля.",
+    missing_fields: "Не вказано email або пароль.",
+    google_token: "Google відхилив спробу входу.",
+    google_unverified: "Google акаунт не підтверджено.",
+    google_disabled: "Вхід через Google не налаштовано.",
+    registration_disabled: "Реєстрація нових користувачів вимкнена.",
+    server: "Сервер не зміг перевірити вхід.",
+  };
+  if (details.reason && fallback[details.reason]) return fallback[details.reason];
+  if (item?.event === "login_success") return "Вхід виконано.";
+  if (item?.event === "logout") return "Користувач вийшов із системи.";
+  if (item?.event === "register_success") return "Новий акаунт створено і виконано вхід.";
+  return "—";
+}
+
 function logPlaceHtml(item) {
   const ip = item.ip || "—";
   const geo = item.geo ? `<span class="sub">${escapeHtml(item.geo)}</span>` : "";
@@ -2328,14 +2389,16 @@ async function loadLogs() {
     );
     renderChangeLogs();
 
-    $("#accessLogsBody").innerHTML = access.map((item) => `
+    const rows = Array.isArray(access) ? access : [];
+    $("#accessLogsBody").innerHTML = rows.map((item) => `
       <tr>
         <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
-        <td data-label="Подія">${escapeHtml(item.event)}</td>
+        <td data-label="Хто">${accessWhoHtml(item)}</td>
+        <td data-label="Результат">${accessResultHtml(item)}</td>
+        <td data-label="Чому">${escapeHtml(accessReasonText(item))}</td>
         <td data-label="IP / місце">${logPlaceHtml(item)}</td>
-        <td data-label="Браузер">${escapeHtml(item.userAgent || "—")}</td>
       </tr>
-    `).join("") || `<tr><td colspan="4">Записів ще немає.</td></tr>`;
+    `).join("") || `<tr><td colspan="5">Входів ще немає.</td></tr>`;
   } catch (error) {
     alert(error.message || "Не вдалося завантажити журнали.");
   }

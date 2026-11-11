@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20261002b" />
+    <link rel="stylesheet" href="styles.css?v=20261111a" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -451,10 +451,20 @@
           <div>
             <p class="eyebrow">Аудит</p>
             <h2>Журнали змін і доступів</h2>
-            <p>Історія змін із ПІБ пацієнта, лікарями операції та тим, яке значення було і яким стало.</p>
+            <p>Історія входів і змін: хто зайшов, звідки, чи вдалося, і що змінилось в операціях.</p>
           </div>
           <button class="secondary" id="refreshLogs" type="button">Оновити</button>
         </div>
+
+        <h3 class="logs-title">Входи в систему</h3>
+        <section class="table-card">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Час</th><th>Хто</th><th>Результат</th><th>Чому</th><th>IP / місце</th></tr></thead>
+              <tbody id="accessLogsBody"></tbody>
+            </table>
+          </div>
+        </section>
 
         <h3 class="logs-title">Зміни даних</h3>
         <div class="logs-filters">
@@ -480,15 +490,6 @@
           </div>
         </section>
 
-        <h3 class="logs-title">Доступ (IP)</h3>
-        <section class="table-card">
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Час</th><th>Подія</th><th>IP / місце</th><th>Браузер</th></tr></thead>
-              <tbody id="accessLogsBody"></tbody>
-            </table>
-          </div>
-        </section>
       </section>
 
       <section id="staffView" class="staff-view" hidden>
@@ -873,6 +874,6 @@
 
     <script type="module" src="save-gate.js?v=20261026a"></script>
     <script src="api.js?v=20260928j"></script>
-    <script src="app.js?v=20261026a"></script>
+    <script src="app.js?v=20261111a"></script>
   </body>
 </html>
