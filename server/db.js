@@ -268,6 +268,11 @@ export async function migrate(pool) {
   if (!(await indexExists(pool, "sessions", "idx_sessions_user"))) {
     await pool.query(`ALTER TABLE sessions ADD INDEX idx_sessions_user (user_id)`);
   }
+  if (!(await columnExists(pool, "users", "must_change_password"))) {
+    await pool.query(
+      `ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER status`,
+    );
+  }
 
   const [roleRows] = await pool.query(
     `SELECT COLUMN_TYPE AS columnType

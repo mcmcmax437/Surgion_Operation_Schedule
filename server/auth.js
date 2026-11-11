@@ -225,6 +225,13 @@ export async function createSession(pool, {
   return { token, expiresAt: expires.toISOString() };
 }
 
+function passwordChangeAllowed(req) {
+  const path = req.path || "";
+  if (req.method === "GET" && path === "/api/session") return true;
+  if (req.method === "POST" && (path === "/api/account/password" || path === "/api/logout")) return true;
+  return false;
+}
+
 export function requireAuth(pool) {
   return async (req, res, next) => {
     const token = requestToken(req);
@@ -260,6 +267,13 @@ export function requireAuth(pool) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       req.user = publicUser(user);
+    }
+
+    if (req.user?.mustChangePassword && !passwordChangeAllowed(req)) {
+      return res.status(403).json({
+        error: "Спочатку задайте новий пароль.",
+        code: "must_change_password",
+      });
     }
 
     req.isAdmin = isAdminUser(req.user, req.clientIp);

@@ -54,6 +54,8 @@ import {
   updateUser,
   deleteUser,
   revokeUserSessions,
+  createOneTimePassword,
+  oneTimePasswordSecret,
 } from "./users.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -387,7 +389,14 @@ function describeLogChanges({ entityType, action, before, after, changedFields }
   if (entityType === "user") {
     const mode = action === "delete" ? "delete" : "update";
     const changes = describeFieldChanges(before, after, LOG_USER_FIELDS, mode);
-    if ((changedFields || []).includes("password")) {
+    if ((changedFields || []).includes("temporaryPassword")) {
+      changes.push({
+        label: "Пароль",
+        from: "",
+        to: "",
+        text: "Видано одноразовий пароль. Старі сесії закрито.",
+      });
+    } else if ((changedFields || []).includes("password")) {
       changes.push({ label: "Пароль", from: "", to: "", text: "Пароль: змінено" });
     }
     return changes;
@@ -1099,7 +1108,8 @@ async function issueLoginResponse(res, {
       details: {
         ...details,
         userId: user?.id || null,
-        email: user?.email || null,
+        email: user?.email || details.email || null,
+        reasonText: details.reasonText || (event === "login_success" ? "Вхід виконано." : ""),
         expiresAt: session.expiresAt,
       },
     });
@@ -1215,7 +1225,11 @@ app.post("/api/login", async (req, res) => {
         });
         return res.status(401).json({ error: "Невірний email або пароль." });
       }
-      const ok = await verifyPassword(password, user.password_hash);
+      let ok = await verifyPassword(password, user.password_hash);
+      if (!ok && Number(user.must_change_password) === 1) {
+        const compact = oneTimePasswordSecret(password);
+        if (compact && compact !== password) ok = await verifyPassword(compact, user.password_hash);
+      }
       if (!ok) {
         recordLoginFailure(ip, email);
         recordLoginFailure(ip, "");
@@ -1237,7 +1251,14 @@ app.post("/api/login", async (req, res) => {
         ip,
         ua,
         event: "login_success",
-        details: { method: "password", name: user.name || "", email: user.email },
+        details: {
+          method: "password",
+          name: user.name || "",
+          email: user.email,
+          reasonText: Number(user.must_change_password) === 1
+            ? "Вхід одноразовим паролем. Потрібно задати свій пароль."
+            : undefined,
+        },
       });
     }
 
@@ -1373,7 +1394,14 @@ app.post("/api/auth/google", async (req, res) => {
       ip,
       ua,
       event: "login_success",
-      details: { method: "google", name: user.name || "", email: user.email },
+      details: {
+        method: "google",
+        name: user.name || "",
+        email: user.email,
+        reasonText: Number(user.must_change_password) === 1
+          ? "Вхід через Google. Одноразовий пароль ще діє, потрібно задати свій пароль."
+          : undefined,
+      },
     });
   } catch (error) {
     console.error("google auth failed:", error);
@@ -2159,6 +2187,7 @@ app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
       role,
       status,
       passwordHash,
+      mustChangePassword: password ? false : undefined,
     });
 
     if (nextStatus === "disabled" || (password && password.length >= 8)) {
@@ -2193,6 +2222,105 @@ app.put("/api/users/:id", auth, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error("update user failed:", error);
     res.status(500).json({ error: "Не вдалося оновити користувача." });
+  }
+});
+
+app.post("/api/users/:id/temporary-password", auth, requireAdmin, async (req, res) => {
+  try {
+    const existing = await findUserById(pool, req.params.id);
+    if (!existing) return res.status(404).json({ error: "Користувача не знайдено." });
+
+    const temporaryPassword = createOneTimePassword();
+    const passwordHash = await hashPassword(oneTimePasswordSecret(temporaryPassword));
+    const updated = await updateUser(pool, existing.id, {
+      passwordHash,
+      mustChangePassword: true,
+    });
+    await revokeUserSessions(pool, existing.id);
+
+    try {
+      await logChange(pool, {
+        entityType: "user",
+        entityId: existing.id,
+        action: "update",
+        summary: `Видано одноразовий пароль для ${updated.email}`,
+        details: logDetailsText(describeLogChanges({
+          entityType: "user",
+          action: "update",
+          before: adminUserDetails(existing),
+          after: adminUserDetails(updated),
+          changedFields: ["temporaryPassword"],
+        })),
+        changedFields: ["temporaryPassword"],
+        before: adminUserDetails(existing),
+        after: adminUserDetails(updated),
+        ip: req.clientIp,
+        userAgent: req.clientUa,
+        ...actorFromReq(req),
+      });
+    } catch (logError) {
+      console.error("temporary password log failed:", logError);
+    }
+
+    res.json({
+      temporaryPassword,
+      user: adminUserDetails(updated),
+    });
+  } catch (error) {
+    console.error("temporary password failed:", error);
+    res.status(500).json({ error: "Не вдалося видати одноразовий пароль." });
+  }
+});
+
+app.post("/api/account/password", auth, async (req, res) => {
+  try {
+    const user = await findUserById(pool, req.user?.id);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (Number(user.must_change_password) !== 1) {
+      return res.status(400).json({ error: "Зараз змінювати пароль не потрібно." });
+    }
+
+    const password = String(req.body?.password || "");
+    const confirm = String(req.body?.confirm || "");
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Пароль має містити щонайменше 8 символів." });
+    }
+    if (confirm && confirm !== password) {
+      return res.status(400).json({ error: "Паролі не збігаються." });
+    }
+    const sameAsTemporary = await verifyPassword(password, user.password_hash)
+      || await verifyPassword(oneTimePasswordSecret(password), user.password_hash);
+    if (sameAsTemporary) {
+      return res.status(400).json({ error: "Новий пароль не може збігатися з одноразовим." });
+    }
+
+    const updated = await updateUser(pool, user.id, {
+      passwordHash: await hashPassword(password),
+      mustChangePassword: false,
+    });
+
+    try {
+      await logChange(pool, {
+        entityType: "user",
+        entityId: user.id,
+        action: "update",
+        summary: `${updated.email} задав власний пароль замість одноразового`,
+        details: "Пароль: задано власний замість одноразового",
+        changedFields: ["password"],
+        before: adminUserDetails(user),
+        after: adminUserDetails(updated),
+        ip: req.clientIp,
+        userAgent: req.clientUa,
+        ...actorFromReq(req),
+      });
+    } catch (logError) {
+      console.error("own password log failed:", logError);
+    }
+
+    res.json(publicUser(updated));
+  } catch (error) {
+    console.error("set own password failed:", error);
+    res.status(500).json({ error: "Не вдалося зберегти пароль." });
   }
 });
 

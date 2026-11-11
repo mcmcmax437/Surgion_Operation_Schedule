@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS users (
   google_sub VARCHAR(255) NULL,
   role ENUM('admin', 'doctor', 'anesthesiologist', 'subadmin') NOT NULL DEFAULT 'doctor',
   status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
   UNIQUE KEY uq_users_email (email),

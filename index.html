@@ -15,7 +15,7 @@
       html.theme-dark,html.theme-dark body{background:#111827}
       html:not(.app-ready) body{visibility:hidden}
     </style>
-    <link rel="stylesheet" href="styles.css?v=20261111a" />
+    <link rel="stylesheet" href="styles.css?v=20261111c" />
     <style>
       .theme-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:inherit;font-size:13px;font-weight:700}
       .theme-switch input{position:absolute;opacity:0;pointer-events:none}
@@ -456,17 +456,29 @@
           <button class="secondary" id="refreshLogs" type="button">Оновити</button>
         </div>
 
-        <h3 class="logs-title">Входи в систему</h3>
-        <section class="table-card">
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Час</th><th>Хто</th><th>Результат</th><th>Чому</th><th>IP / місце</th></tr></thead>
-              <tbody id="accessLogsBody"></tbody>
-            </table>
+        <section class="log-fold" data-log-fold="access">
+          <button class="log-fold-toggle" type="button" aria-expanded="true">
+            <span class="log-fold-chevron" aria-hidden="true"></span>
+            <h3>Входи в систему</h3>
+          </button>
+          <div class="log-fold-body">
+            <section class="table-card">
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Час</th><th>Хто</th><th>Результат</th><th>Чому</th><th>IP / місце</th></tr></thead>
+                  <tbody id="accessLogsBody"></tbody>
+                </table>
+              </div>
+            </section>
           </div>
         </section>
 
-        <h3 class="logs-title">Зміни даних</h3>
+        <section class="log-fold" data-log-fold="changes">
+          <button class="log-fold-toggle" type="button" aria-expanded="true">
+            <span class="log-fold-chevron" aria-hidden="true"></span>
+            <h3>Зміни даних</h3>
+          </button>
+          <div class="log-fold-body">
         <div class="logs-filters">
           <label class="logs-filter">
             <span>Пацієнт</span>
@@ -487,6 +499,8 @@
               <thead><tr><th>Час</th><th>Користувач</th><th>Дія</th><th>Опис</th><th>Що змінилось</th><th>IP / місце</th></tr></thead>
               <tbody id="changeLogsBody"></tbody>
             </table>
+          </div>
+        </section>
           </div>
         </section>
 
@@ -513,7 +527,7 @@
           <div>
             <p class="eyebrow">Доступ до сайту</p>
             <h2>Користувачі</h2>
-            <p>Перегляд деталей акаунтів, зміна ролі, блокування або видалення користувачів.</p>
+            <p>Перегляд акаунтів, ролі, блокування і одноразовий пароль замість старого.</p>
           </div>
           <button class="secondary" id="refreshUsers" type="button">Оновити</button>
         </div>
@@ -729,6 +743,49 @@
       </form>
     </dialog>
 
+    <dialog id="tempPasswordDialog">
+      <form method="dialog" id="tempPasswordForm">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Одноразовий пароль</p>
+            <h2 id="tempPasswordTitle">Новий пароль</h2>
+          </div>
+        </div>
+        <p class="temp-password-note">Передайте його користувачу. Старий пароль уже не діє, відкриті сесії закрито. Після входу потрібно буде задати свій пароль. Цей код більше не буде показано.</p>
+        <label class="wide">Пароль
+          <input id="tempPasswordValue" class="temp-password-value" readonly />
+        </label>
+        <div class="dialog-actions">
+          <button class="secondary" id="copyTempPassword" type="button">Копіювати</button>
+          <button class="primary" type="submit">Закрити</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="mustChangePasswordDialog">
+      <form method="post" id="mustChangePasswordForm">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Безпека</p>
+            <h2>Задайте свій пароль</h2>
+          </div>
+        </div>
+        <p class="temp-password-note">Ви увійшли одноразовим паролем. Задайте власний пароль, щоб продовжити.</p>
+        <div class="form-grid">
+          <label class="wide">Новий пароль
+            <input id="ownPassword" type="password" minlength="8" required autocomplete="new-password" />
+          </label>
+          <label class="wide">Повторіть пароль
+            <input id="ownPasswordConfirm" type="password" minlength="8" required autocomplete="new-password" />
+          </label>
+        </div>
+        <p class="login-error" id="ownPasswordError" hidden></p>
+        <div class="dialog-actions">
+          <button class="primary" id="saveOwnPassword" type="submit">Зберегти пароль</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="operationDialog" class="operation-dialog">
       <form method="post" id="operationForm">
         <div class="dialog-head"><div><p class="eyebrow">Картка операції</p><h2 id="dialogTitle">Нова операція</h2></div><button class="icon-button" id="closeOperation" type="button" aria-label="Закрити"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.4 5.3 5.3 6.4 10.9 12l-5.6 5.6 1.1 1.1L12 13.1l5.6 5.6 1.1-1.1L13.1 12l5.6-5.6-1.1-1.1L12 10.9 6.4 5.3z"/></svg></button></div>
@@ -874,6 +931,6 @@
 
     <script type="module" src="save-gate.js?v=20261026a"></script>
     <script src="api.js?v=20260928j"></script>
-    <script src="app.js?v=20261111a"></script>
+    <script src="app.js?v=20261111c"></script>
   </body>
 </html>

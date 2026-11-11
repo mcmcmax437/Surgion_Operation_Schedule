@@ -2249,7 +2249,44 @@ function accessReasonText(item) {
   if (item?.event === "login_success") return "Вхід виконано.";
   if (item?.event === "logout") return "Користувач вийшов із системи.";
   if (item?.event === "register_success") return "Новий акаунт створено і виконано вхід.";
+  if (item?.event === "login_fail") {
+    if (details.method === "google") return "Не вдалося увійти через Google. Точну причину для цієї старої спроби не збережено.";
+    if (details.method === "shared") return "Невірний пароль відділення.";
+    return "Невірний email або пароль, або акаунт недоступний. Точну причину для цієї старої спроби не збережено.";
+  }
   return "—";
+}
+
+const LOG_FOLDS_KEY = "surgery-log-folds";
+
+function readLogFolds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOG_FOLDS_KEY) || "{}");
+    return {
+      access: raw.access === true,
+      changes: raw.changes === true,
+    };
+  } catch {
+    return { access: false, changes: false };
+  }
+}
+
+function applyLogFolds() {
+  const state = readLogFolds();
+  document.querySelectorAll("[data-log-fold]").forEach((section) => {
+    const collapsed = state[section.dataset.logFold] === true;
+    section.classList.toggle("is-collapsed", collapsed);
+    const button = section.querySelector(".log-fold-toggle");
+    if (button) button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+}
+
+function toggleLogFold(id) {
+  const state = readLogFolds();
+  if (!(id in state)) return;
+  state[id] = !state[id];
+  localStorage.setItem(LOG_FOLDS_KEY, JSON.stringify(state));
+  applyLogFolds();
 }
 
 function logPlaceHtml(item) {
@@ -2861,7 +2898,8 @@ function userStatusLabel(status) {
 
 function userAuthFlags(user) {
   const parts = [];
-  if (user.hasPassword) parts.push("пароль");
+  if (user.mustChangePassword) parts.push("одноразовий");
+  else if (user.hasPassword) parts.push("пароль");
   if (user.googleLinked) parts.push("Google");
   return parts.length ? parts.join(" · ") : "—";
 }
@@ -2886,6 +2924,7 @@ function renderUsers() {
         <td data-label="Дії">
           <div class="users-actions">
             <button type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}">Редагувати</button>
+            <button type="button" data-user-action="temp-password" data-user-id="${escapeHtml(user.id)}">Скинути пароль</button>
             <button type="button" data-user-action="toggle-ban" data-user-id="${escapeHtml(user.id)}">${banLabel}</button>
             <button type="button" class="danger" data-user-action="delete" data-user-id="${escapeHtml(user.id)}" ${isSelf ? "disabled" : ""}>Видалити</button>
           </div>
@@ -3104,6 +3143,24 @@ document.addEventListener("click", (event) => {
 on("#closeUserDialog", "click", () => closeUserEditor());
 on("#cancelUserEdit", "click", () => closeUserEditor());
 on("#userForm", "submit", saveUserEdit);
+on("#mustChangePasswordForm", "submit", saveOwnPassword);
+on("#mustChangePasswordDialog", "cancel", (event) => event.preventDefault());
+on("#copyTempPassword", "click", async () => {
+  const value = $("#tempPasswordValue")?.value || "";
+  const button = $("#copyTempPassword");
+  try {
+    await navigator.clipboard.writeText(value);
+    if (button) button.textContent = "Скопійовано";
+  } catch {
+    $("#tempPasswordValue")?.select();
+  }
+});
+on("#tempPasswordDialog", "close", () => {
+  if (!tempPasswordResetsSelf) return;
+  tempPasswordResetsSelf = false;
+  clearAuth();
+  window.location.replace("login.html");
+});
 on("#usersBody", "click", (event) => {
   const button = event.target.closest("button[data-user-action]");
   if (!button) return;
@@ -3119,6 +3176,7 @@ on("#usersBody", "click", (event) => {
     return;
   }
   if (action === "delete") deleteSiteUser(userId);
+  if (action === "temp-password") issueTemporaryPassword(userId);
 });
 on("#teamStaffForm", "submit", (event) => submitStaff("team", event));
 on("#anesthesiologistStaffForm", "submit", (event) => submitStaff("anesthesiologists", event));
@@ -3327,6 +3385,13 @@ on("#dept2Body", "click", handleOperationRowClick);
 on("#dept1Days", "click", handleOperationRowClick);
 on("#dept2Days", "click", handleOperationRowClick);
 on("#refreshLogs", "click", () => loadLogs());
+document.addEventListener("click", (event) => {
+  const button = event.target.closest(".log-fold-toggle");
+  if (!button) return;
+  const section = button.closest("[data-log-fold]");
+  if (section?.dataset.logFold) toggleLogFold(section.dataset.logFold);
+});
+applyLogFolds();
 on("#logPatientFilter", "change", () => renderChangeLogs());
 on("#logDoctorFilter", "change", () => renderChangeLogs());
 
@@ -3381,10 +3446,91 @@ if (window.visualViewport) {
   });
 }
 
+let tempPasswordResetsSelf = false;
+
+function showTemporaryPassword(user, temporaryPassword, resetsSelf) {
+  tempPasswordResetsSelf = Boolean(resetsSelf);
+  if ($("#tempPasswordTitle")) {
+    $("#tempPasswordTitle").textContent = user?.name || user?.email || "Одноразовий пароль";
+  }
+  if ($("#tempPasswordValue")) $("#tempPasswordValue").value = temporaryPassword || "";
+  if ($("#copyTempPassword")) $("#copyTempPassword").textContent = "Копіювати";
+  openModalDialog($("#tempPasswordDialog"));
+  window.setTimeout(() => $("#tempPasswordValue")?.select(), 0);
+}
+
+async function issueTemporaryPassword(userId) {
+  const user = siteUsers.find((item) => item.id === userId);
+  if (!user) return;
+  const self = Boolean(currentUser?.id && currentUser.id === userId);
+  const who = user.name || user.email || "цього користувача";
+  const message = self
+    ? "Ваш поточний пароль перестане діяти, а цю сесію буде закрито. Після входу одноразовим паролем потрібно буде задати новий. Продовжити?"
+    : `Замінити пароль для ${who} на одноразовий? Старий пароль перестане діяти, відкриті сесії буде закрито.`;
+  if (!window.confirm(message)) return;
+  try {
+    const data = await api(`/users/${userId}/temporary-password`, { method: "POST", json: {} });
+    showTemporaryPassword(data.user || user, data.temporaryPassword, self);
+    if (!self) await loadUsers();
+  } catch (error) {
+    alert(error.message || "Не вдалося видати одноразовий пароль.");
+  }
+}
+
+function openMustChangePassword() {
+  if ($("#ownPassword")) $("#ownPassword").value = "";
+  if ($("#ownPasswordConfirm")) $("#ownPasswordConfirm").value = "";
+  const error = $("#ownPasswordError");
+  if (error) {
+    error.hidden = true;
+    error.textContent = "";
+  }
+  openModalDialog($("#mustChangePasswordDialog"));
+}
+
+async function saveOwnPassword(event) {
+  event.preventDefault();
+  const password = $("#ownPassword")?.value || "";
+  const confirm = $("#ownPasswordConfirm")?.value || "";
+  const error = $("#ownPasswordError");
+  const showError = (text) => {
+    if (!error) return;
+    error.hidden = !text;
+    error.textContent = text || "";
+  };
+  if (password.length < 8) {
+    showError("Пароль має містити щонайменше 8 символів.");
+    return;
+  }
+  if (password !== confirm) {
+    showError("Паролі не збігаються.");
+    return;
+  }
+  showError("");
+  const button = $("#saveOwnPassword");
+  if (button) button.disabled = true;
+  try {
+    const user = await api("/account/password", { method: "POST", json: { password, confirm } });
+    currentUser = { ...(currentUser || {}), ...user, mustChangePassword: false };
+    closeModalDialog($("#mustChangePasswordDialog"));
+    setActiveDepartment(defaultDepartment);
+    await refresh();
+  } catch (error) {
+    showError(error.message || "Не вдалося зберегти пароль.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 (async function boot() {
   try {
-    await api("/session");
+    const session = await api("/session");
+    applySessionUser(session);
     document.documentElement.classList.add("app-ready");
+    if (session?.user?.mustChangePassword) {
+      openMustChangePassword();
+      return;
+    }
     setActiveDepartment(defaultDepartment);
     await refresh();
   } catch (error) {

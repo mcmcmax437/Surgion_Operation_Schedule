@@ -60,6 +60,7 @@ export function publicUser(row) {
     name: row.name,
     role: normalizeRole(row.role),
     status: row.status || "active",
+    mustChangePassword: Number(row.must_change_password) === 1,
   };
 }
 
@@ -81,12 +82,25 @@ export async function listUsers(pool) {
   return rows.map(adminUserDetails);
 }
 
+export function createOneTimePassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.randomBytes(10);
+  let raw = "";
+  for (let i = 0; i < bytes.length; i += 1) raw += alphabet[bytes[i] % alphabet.length];
+  return `${raw.slice(0, 5)}-${raw.slice(5)}`;
+}
+
+export function oneTimePasswordSecret(value) {
+  return String(value || "").replace(/[\s-]/g, "");
+}
+
 export async function updateUser(pool, id, {
   name,
   email,
   role,
   status,
   passwordHash = undefined,
+  mustChangePassword = undefined,
 }) {
   const existing = await findUserById(pool, id);
   if (!existing) return null;
@@ -98,6 +112,10 @@ export async function updateUser(pool, id, {
     ? (status === "disabled" ? "disabled" : "active")
     : (existing.status || "active");
 
+  const nextMustChange = mustChangePassword === undefined
+    ? (Number(existing.must_change_password) === 1 ? 1 : 0)
+    : (mustChangePassword ? 1 : 0);
+
   await pool.query(
     `UPDATE users
      SET name = :name,
@@ -105,6 +123,7 @@ export async function updateUser(pool, id, {
          role = :role,
          status = :status,
          password_hash = COALESCE(:password_hash, password_hash),
+         must_change_password = :must_change_password,
          updated_at = :updated_at
      WHERE id = :id`,
     {
@@ -114,6 +133,7 @@ export async function updateUser(pool, id, {
       role: nextRole,
       status: nextStatus,
       password_hash: passwordHash === undefined ? null : passwordHash,
+      must_change_password: nextMustChange,
       updated_at: new Date(),
     },
   );

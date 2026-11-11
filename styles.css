@@ -2012,6 +2012,43 @@ html:not(.theme-dark) .toolbar{
   }
 }
 
+.temp-password-note{margin:0 0 14px;color:#52606d;line-height:1.45}
+.temp-password-value{
+  font-family:ui-monospace,Consolas,monospace;
+  font-size:22px;
+  font-weight:750;
+  letter-spacing:.08em;
+  text-align:center;
+}
+.theme-dark .temp-password-note{color:#cbd5e1}
+.log-fold{margin-top:18px}
+.log-fold-toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  margin:0 0 10px;
+  padding:6px 2px;
+  border:0;
+  background:transparent;
+  color:#17365d;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+  min-height:44px;
+}
+.log-fold-toggle h3{margin:0;font-size:18px;color:inherit}
+.log-fold-chevron{
+  width:9px;
+  height:9px;
+  border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;
+  transform:rotate(45deg) translateY(-2px);
+  flex:0 0 auto;
+}
+.log-fold.is-collapsed .log-fold-chevron{transform:rotate(-45deg) translateY(1px)}
+.log-fold.is-collapsed .log-fold-body{display:none}
+.theme-dark .log-fold-toggle{color:#9ac3e5}
 .logs-filters{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
