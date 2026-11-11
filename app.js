@@ -2249,11 +2249,6 @@ function accessReasonText(item) {
   if (item?.event === "login_success") return "Вхід виконано.";
   if (item?.event === "logout") return "Користувач вийшов із системи.";
   if (item?.event === "register_success") return "Новий акаунт створено і виконано вхід.";
-  if (item?.event === "login_fail") {
-    if (details.method === "google") return "Не вдалося увійти через Google. Точну причину для цієї старої спроби не збережено.";
-    if (details.method === "shared") return "Невірний пароль відділення.";
-    return "Невірний email або пароль, або акаунт недоступний. Точну причину для цієї старої спроби не збережено.";
-  }
   return "—";
 }
 
@@ -2326,6 +2321,7 @@ const LOG_ACTION_LABELS = {
 };
 
 let changeLogItems = [];
+let accessLogItems = [];
 
 function logActionLabel(action) {
   return LOG_ACTION_LABELS[action] || action || "—";
@@ -2399,6 +2395,42 @@ function renderChangeLogs() {
     `).join("") || `<tr><td colspan="6">${patient || doctor ? "Немає записів за цим фільтром." : "Змін ще немає."}</td></tr>`;
 }
 
+function emailsForDoctor(doctor) {
+  const emails = new Set();
+  const add = (name, email) => {
+    const mail = String(email || "").trim().toLowerCase();
+    if (!mail || !sameLogName(name, doctor)) return;
+    emails.add(mail);
+  };
+  for (const item of changeLogItems) add(item.actorName, item.actorEmail);
+  for (const item of accessLogItems) add(item?.details?.name, item?.details?.email);
+  return emails;
+}
+
+function accessMatchesDoctor(item, doctor) {
+  if (!doctor) return true;
+  const details = item?.details || {};
+  if (sameLogName(details.name, doctor)) return true;
+  const email = String(details.email || "").trim().toLowerCase();
+  return Boolean(email) && emailsForDoctor(doctor).has(email);
+}
+
+function renderAccessLogs() {
+  const doctor = $("#logDoctorFilter")?.value || "";
+  const rows = accessLogItems.filter((item) => accessMatchesDoctor(item, doctor));
+  const body = $("#accessLogsBody");
+  if (!body) return;
+  body.innerHTML = rows.map((item) => `
+      <tr>
+        <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
+        <td data-label="Хто">${accessWhoHtml(item)}</td>
+        <td data-label="Результат">${accessResultHtml(item)}</td>
+        <td data-label="Чому">${escapeHtml(accessReasonText(item))}</td>
+        <td data-label="IP / місце">${logPlaceHtml(item)}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="5">${doctor ? "Немає входів за цим фільтром." : "Входів ще немає."}</td></tr>`;
+}
+
 async function loadLogs() {
   try {
     const selectedPatient = $("#logPatientFilter")?.value || "";
@@ -2409,6 +2441,7 @@ async function loadLogs() {
     ]);
 
     changeLogItems = Array.isArray(changes) ? changes : [];
+    accessLogItems = Array.isArray(access) ? access : [];
     fillLogSelect(
       $("#logPatientFilter"),
       changeLogItems.flatMap((item) => {
@@ -2420,22 +2453,15 @@ async function loadLogs() {
     );
     fillLogSelect(
       $("#logDoctorFilter"),
-      changeLogItems.flatMap((item) => item.doctors || []),
+      [
+        ...changeLogItems.flatMap((item) => [...(item.doctors || []), item.actorName]),
+        ...accessLogItems.map((item) => item?.details?.name),
+      ],
       selectedDoctor,
       "Усі лікарі",
     );
     renderChangeLogs();
-
-    const rows = Array.isArray(access) ? access : [];
-    $("#accessLogsBody").innerHTML = rows.map((item) => `
-      <tr>
-        <td data-label="Час">${escapeHtml(formatDateTime(item.createdAt))}</td>
-        <td data-label="Хто">${accessWhoHtml(item)}</td>
-        <td data-label="Результат">${accessResultHtml(item)}</td>
-        <td data-label="Чому">${escapeHtml(accessReasonText(item))}</td>
-        <td data-label="IP / місце">${logPlaceHtml(item)}</td>
-      </tr>
-    `).join("") || `<tr><td colspan="5">Входів ще немає.</td></tr>`;
+    renderAccessLogs();
   } catch (error) {
     alert(error.message || "Не вдалося завантажити журнали.");
   }
@@ -3393,7 +3419,10 @@ document.addEventListener("click", (event) => {
 });
 applyLogFolds();
 on("#logPatientFilter", "change", () => renderChangeLogs());
-on("#logDoctorFilter", "change", () => renderChangeLogs());
+on("#logDoctorFilter", "change", () => {
+  renderChangeLogs();
+  renderAccessLogs();
+});
 
 (function watchScheduleOrientation() {
   let lastLandscape = window.matchMedia("(orientation: landscape)").matches;
